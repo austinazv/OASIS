@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="Add me as a friend on OASIS!" />
+    <meta property="og:description" content="Connect with me on OASIS and explore music festivals together." />
+    <meta property="og:image" content="https://oasis-austinzv.web.app/images/oasis-icon.jpg" />
+    <meta property="og:url" content="https://oasis-austinzv.web.app/share/friend/" />
+    <title>OASIS Friend Invite</title>
+</head>
+<body>
+    <p>Redirecting to your invite...</p>
+    <script>
+        // Get the user ID from the URL
+        const params = new URLSearchParams(window.location.search);
+        const userId = params.get("user");
+
+        // If a user ID exists, redirect to the actual invite link
+        if (userId) {
+            window.location.href = `https://oasis-austinzv.web.app/invite/friend/${userId}`;
+        } else {
+            document.body.innerHTML = "<p>Error: No user ID provided.</p>";
+        }
+    </script>
+</body>
+</html>

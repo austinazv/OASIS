@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="Join my group on OASIS!" />
+    <meta property="og:description" content="Join my group on OASIS and explore music festivals together!" />
+    <meta property="og:image" content="https://oasis-austinzv.web.app/images/oasis-icon.jpg" />
+    <meta property="og:url" content="https://oasis-austinzv.web.app/share/group/" />
+    <title>OASIS Group Invite</title>
+</head>
+<body>
+    <p>Redirecting to your group invite...</p>
+    <script>
+        // Get the group ID from the URL
+        const params = new URLSearchParams(window.location.search);
+        const groupId = params.get("group");
+
+        // If a group ID exists, redirect to the actual invite link
+        if (groupId) {
+            window.location.href = `https://oasis-austinzv.web.app/invite/group/${groupId}`;
+        } else {
+            document.body.innerHTML = "<p>Error: No group ID provided.</p>";
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "9GRL5X5JRY.com.AustinZambitoValente.OASIS",
+        "paths": ["*"]
+      }
+    ]
+  }
+}
