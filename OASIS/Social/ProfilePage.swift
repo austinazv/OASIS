@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct FriendPage: View {
+struct ProfilePage: View {
     @EnvironmentObject var data: DataSet
     
     @Binding var navigationPath: NavigationPath
@@ -101,3 +101,45 @@ struct FriendPage: View {
 //#Preview {
 //    FriendPage()
 //}
+
+
+struct SocialImage: View {
+    let imageURL: String?
+    let frame: CGFloat
+    
+    var body: some View {
+        if let imageURL, let url = URL(string: imageURL) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .empty:
+                    // While loading
+                    Image(systemName: "person.crop.circle.fill")
+                        .resizable()
+                        .foregroundColor(.gray)
+                        .frame(width: frame, height: frame)
+                case .success(let image):
+                    // When successfully loaded
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: frame, height: frame)
+                        .clipShape(Circle())
+                case .failure(_):
+                    // If it fails
+                    Image(systemName: "person.crop.circle.fill")
+                        .resizable()
+                        .foregroundColor(.red)
+                        .frame(width: frame, height: frame)
+                @unknown default:
+                    EmptyView()
+                }
+            }
+        } else {
+            // If imageURL is not a valid URL
+            Image(systemName: "person.crop.circle.fill")
+                .resizable()
+                .foregroundColor(.gray)
+                .frame(width: frame, height: frame)
+        }
+    }
+}
