@@ -74,6 +74,7 @@ struct NewEventPage: View {
                 }
             }
         }
+        .toolbar(.hidden, for: .tabBar)
         .scrollDismissesKeyboard(.immediately)
         .navigationBarBackButtonHidden()
         .toolbar {
@@ -946,29 +947,29 @@ struct NewEventPage: View {
         }.resume()
     }
 
-    func loadImage(for artist: DataSet.Artist, completion: @escaping (UIImage?) -> Void) {
-        if let cached = ImageCache.shared.get(for: artist.imageURL) {
-            completion(cached)
-            return
-        }
-
-        // Download the image
-        guard let url = URL(string: artist.imageURL) else {
-            completion(nil)
-            return
-        }
-
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            guard let data = data,
-                  let image = UIImage(data: data) else {
-                completion(nil)
-                return
-            }
-
-            ImageCache.shared.set(image, for: artist.imageURL)
-            completion(image)
-        }.resume()
-    }
+//    func loadImage(for artist: DataSet.Artist, completion: @escaping (UIImage?) -> Void) {
+//        if let cached = ImageCache.shared.get(for: artist.imageURL) {
+//            completion(cached)
+//            return
+//        }
+//
+//        // Download the image
+//        guard let url = URL(string: artist.imageURL) else {
+//            completion(nil)
+//            return
+//        }
+//
+//        URLSession.shared.dataTask(with: url) { data, _, _ in
+//            guard let data = data,
+//                  let image = UIImage(data: data) else {
+//                completion(nil)
+//                return
+//            }
+//
+//            ImageCache.shared.set(image, for: artist.imageURL)
+//            completion(image)
+//        }.resume()
+//    }
     
     @State private var showPhotoPicker = false
     @State private var selectedItem: PhotosPickerItem?
@@ -1436,21 +1437,21 @@ struct ArtistAsyncImage: View {
     }
 }
 
-class ImageCache: ObservableObject {
-    static let shared = ImageCache()
-    
-    private init() {}
-    
-    private var cache: [String: UIImage] = [:]
-    
-    func get(for url: String) -> UIImage? {
-        return cache[url]
-    }
-    
-    func set(_ image: UIImage, for url: String) {
-        cache[url] = image
-    }
-}
+//class ImageCache: ObservableObject {
+//    static let shared = ImageCache()
+//    
+//    private init() {}
+//    
+//    private var cache: [String: UIImage] = [:]
+//    
+//    func get(for url: String) -> UIImage? {
+//        return cache[url]
+//    }
+//    
+//    func set(_ image: UIImage, for url: String) {
+//        cache[url] = image
+//    }
+//}
 
 
 //#Preview {
@@ -1460,5 +1461,3 @@ class ImageCache: ObservableObject {
 
 
 //TO ADD TO ON APPEAR:
-
-//draft.newFestival = DataSet.festival(id: UUID(uuidString: "80F6188F-91C2-4F42-B5E6-525FEDC9FF46")!, ownerID: "austin.zv", ownerName: "Austin", saveDate: Date(), verified: true, name: "Coachella 2025 Weekend 1", startDate: Date(), endDate: Date(), location: Optional("Indio, CA"), logoPath: nil, artistList: [DataSet.artistNEW(id: "246dkjvS1zLTtiykXe5h60", name: "Post Malone", genres: ["Hip-Hop", "Rap", "Trap", "Cloud Rap", "Pop"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebe17c0aa1714a03d62b5ce4e0", imageLocalPath: nil, day: "Sunday (April 13)", tier: "Headliner", stage: "Main Stage"), DataSet.artistNEW(id: "1HY2Jd0NmPuamShAr6KMms", name: "Lady Gaga", genres: ["Pop", "Dance", "Electronic", "Female Vocalist"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebaadc18cac8d48124357c38e6", imageLocalPath: nil, day: "Friday (April 11)", tier: "Headliner", stage: "Main Stage"), DataSet.artistNEW(id: "2qxJFvFYMEDqd7ui6kSAcq", name: "Zedd", genres: ["Electro House", "Electronic", "House", "Electro", "Dubstep"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebe28762aed82cde1178fb3873", imageLocalPath: nil, day: "Sunday (April 13)", tier: "First Tier", stage: "Outdoor Stage"), DataSet.artistNEW(id: "7oPftvlwr6VrsViSDV7fJY", name: "Green Day", genres: ["Punk Rock", "Rock", "Punk", "Pop Punk", "Alternative"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb6ff0cd5ef2ecf733804984bb", imageLocalPath: nil, day: "Saturday (April 12)", tier: "Headliner", stage: "Main Stage"), DataSet.artistNEW(id: "0Y5tJX1MQlPlqiwlOH1tJY", name: "Travis Scott", genres: ["Rap", "R&B", "Hip-Hop", "Trap"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb19c2790744c792d05570bb71", imageLocalPath: nil, day: "Saturday (April 12)", tier: "Headliner", stage: "Main Stage"), DataSet.artistNEW(id: "4o4tLTIJ3eWMFerz73atcT", name: "Qveen Herby", genres: ["Pop", "Rap", "Hip-Hop", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb7d26fee545bdb0164fc0d11b", imageLocalPath: nil, day: "Saturday (April 12)", tier: "-- N/A --", stage: "Heineken House"), DataSet.artistNEW(id: "25uiPmTg16RbhZWAqwLBy5", name: "Charli xcx", genres: ["Pop", "Synthpop", "Electronic", "Electroclash"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb936885667ef44c306483c838", imageLocalPath: nil, day: "Saturday (April 12)", tier: "First Tier", stage: "Main Stage"), DataSet.artistNEW(id: "2wIVse2owClT7go1WT98tk", name: "Missy Elliott", genres: ["Hip-Hop", "Rap", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebf6691f40d906f097e9fbaa4c", imageLocalPath: nil, day: "Friday (April 11)", tier: "First Tier", stage: "Main Stage"), DataSet.artistNEW(id: "22wbnEMDvgVIAGdFeek6ET", name: "Benson Boone", genres: ["Pop", "Pop Rock", "Rock", "Usa"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebb68234e1a673acc3d873d3e6", imageLocalPath: nil, day: "Friday (April 11)", tier: "First Tier", stage: "Main Stage"), DataSet.artistNEW(id: "6CwfuxIqcltXDGjfZsMd9A", name: "MARINA", genres: ["Pop", "Indie Pop", "Post-Hardcore", "Polish"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb4b482c79edd367dea0258224", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "Main Stage"), DataSet.artistNEW(id: "2sSGPbdZJkaSE2AbcGOACx", name: "The Marías", genres: ["Dream Pop", "Indie Pop", "Bedroom Pop", "Indie", "Sophisti-Pop"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebaf586afa2b397f1288683a76", imageLocalPath: nil, day: "Friday (April 11)", tier: "First Tier", stage: "Outdoor Stage"), DataSet.artistNEW(id: "0oK5D6uPhGu4Jk2dbZfodU", name: "Thee Sacred Souls", genres: ["Soul", "Funk", "United States", "San Diego", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb1a99219498d5119b0e742b19", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "Main Stage"), DataSet.artistNEW(id: "5L1lO4eRHmJ7a0Q6csE5cT", name: "LISA", genres: ["J-Pop", "Japanese", "Pop", "Hip-Hop"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb5cd3b3af8b72e32be78571ec", imageLocalPath: nil, day: "Friday (April 11)", tier: "First Tier", stage: "Sahara"), DataSet.artistNEW(id: "4k1ELeJKT1ISyDv8JivPpB", name: "The Prodigy", genres: ["Electronic", "Techno", "Industrial", "Dance", "Electronica"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb147841812056c247407811f3", imageLocalPath: nil, day: "Friday (April 11)", tier: "First Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "0YinUQ50QDB7ZxSCLyQ40k", name: "Mustard", genres: ["Rap", "Hip-Hop", "Trap", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb54406b7007a449aeaac06c44", imageLocalPath: nil, day: "Friday (April 11)", tier: "First Tier", stage: "Sahara"), DataSet.artistNEW(id: "0w1sbtZVQoK6GzV4A4OkCv", name: "Mau P", genres: ["House", "Tech House", "Dutch", "Techno", "Electronic"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebc494c9e97f2c6ee7560db705", imageLocalPath: nil, day: "Friday (April 11)", tier: "First Tier", stage: "Sahara"), DataSet.artistNEW(id: "2qoQgPAilErOKCwE2Y8wOG", name: "GloRilla", genres: ["Rap", "Hip-Hop", "Trap", "Memphis"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebc33cf3ad025517202d8efbc0", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "3qiHUAX7zY4Qnjx8TNUzVx", name: "Yeat", genres: ["Trap", "Rap", "Cloud Rap", "Rage", "Plugg"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebbcb7b5ea25215172d09d4e2e", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "5p9HO3XC5P3BLxJs5Mtrhm", name: "Djo", genres: ["Psychedelic Pop", "Indie Pop", "Indie Rock", "Indie", "Psychedelic"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb44cd1d78b7d37cdd5bf8aac1", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "3SozjO3Lat463tQICI9LcE", name: "Tyla", genres: ["Pop", "South Africa", "Amapiano", "Afrobeat", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eba1fca104a7abe5a7031b887d", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "Outdoor Stage"), DataSet.artistNEW(id: "7eILArMiTFTQf8SEh5fFHK", name: "Sara Landry", genres: ["Minimal Techno", "Techno", "Hard Techno", "Acid Techno", "Acid"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb71b9ccd0f00f003b3d2b5eb0", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "5y8tKLUfMvliMe8IKamR32", name: "d4vd", genres: ["Pop", "Rock", "Dream Pop", "Indie Pop", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebee632cde061121a5fe48c1d6", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "0PCCGZ0wGLizHt2KZ7hhA2", name: "Artemas", genres: ["Pop", "British", "Indie", "Singer-Songwriter", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb36e8f783dc68dcb1be1003a2", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "4l1cKWYW591xnwEGxpUg3J", name: "Miike Snow", genres: ["Electronic", "Electropop", "Pop", "Synth", "Dance"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb4c4eb4999b61bca344c03a7b", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "26s8LSolLfCIY88ysQbIuT", name: "Three 6 Mafia", genres: ["Rap", "Hip-Hop", "Dirty South", "Southern Rap"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb697a2395da5148557c36af55", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "7tm9Tuc70geXOOyKhtZHIj", name: "Chris Lorenzo", genres: ["Uk Garage", "Electronic", "House", "British", "Bassline"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebf0c4eaa650f582c8062e0fd2", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "0H39MdGGX6dbnnQPt6NQkZ", name: "SAINt JHN", genres: ["Hip-Hop", "Rap", "Trap", "Electronic", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb5d18141fa518f77d006d6933", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "5fi7lIgJGH3RgUpJYcffQ7", name: "4batz", genres: ["Rap", "Soul", "Hip-Hop", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebb9d7b39ae0ddaf062a2a72d2", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "28uJnu5EsrGml2tBd7y8ts", name: "Vintage Culture", genres: ["House", "Brazil", "Deep House", "Brazilian", "Techno"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebb2858408e6d69098e07329fd", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "4v6XOdonnfpdTKTRJArG7v", name: "Tink", genres: ["Hip-Hop", "Rap", "Chicago", "R&B", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb567b8d72a8c508b6271b8275", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "7zrkALJ9ayRjzysp4QYoEg", name: "Maribou State", genres: ["Electronic", "Ambient", "Future Garage", "Dubstep", "Downtempo"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb8226ea46d749763f4e650015", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "3XxNRirzbjfLdDli06zMaB", name: "Eyedress", genres: ["Electronic", "Psychedelic", "Experimental", "Indie", "Lo-Fi"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb40d9ed7871bc7e39c2eb3950", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "335TWGWGFan4vaacJzSiU8", name: "A. G. Cook", genres: ["Bubblegum Bass", "Electronic", "Pc Music", "Pop", "Hyperpop"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb46fcb25c1d37f61e5fb2a5fd", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "3BxjasMelf9pKaE4f7Y0So", name: "Chris Stussy", genres: ["Deep House", "House", "Techno", "Electronic", "Dutch"], imageURL: "https://i.scdn.co/image/ab6761610000e5eba81703becb327be560062711", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "6I8TDGeUmmLom8auKPzMdX", name: "CA7RIEL & Paco Amoroso", genres: ["Pop"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb4f038c72eedc31a43021d020", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Mojave"), DataSet.artistNEW(id: "3EIJ8wiUHbgkRCt5cpRrQv", name: "Damian Lazarus", genres: ["Minimal", "Techno", "Minimal Techno", "Electronic", "Electro"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebd3aa0fd5b5cb1beee4931445", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "43UmVQp9qZILibJ5vHq21k", name: "Austin Millz", genres: ["Electronic", "Hip-Hop", "Usa", "Instrumental Hip-Hop", "Harlem"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb9b511aaad3e1abde4294f6f8", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "67FB4n52MgexGQIG8s0yUH", name: "Lola Young", genres: ["Pop", "Indie Pop", "Soul", "My Top Songs", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb72440981cd31315dbf45d359", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "5EmEZjq8eHEC6qFnT63Lza", name: "Tinlicker", genres: ["Progressive House", "Electro House", "Progressive Trance", "Melodic Techno", "Ambient"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb5c216e4bdf9cfd19c5e969be", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "5RTLRtXjbXI2lSXc6jxlAz", name: "Ravyn Lenae", genres: ["Soul", "Neo-Soul", "Alternative Rnb", "Electronic", "R&B"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb138d70fe372dedacdca53b61", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "1jgSqmZTBltb5O2L7ErmEP", name: "Beltran", genres: ["Electronic", "House", "Brazilian", "Brazil"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb9c36062fc529e6016f9f9bba", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "1UJfZU4rQx3bJ3tGypRuAT", name: "PARISI", genres: ["Sweden"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb3e7d3077105a0d87e724548f", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "6n1t55WMsSIUFHrAL4mUsB", name: "Pete Tong", genres: ["Electronic", "House", "Progressive House", "Dance", "Bbc Radio 1"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb770142bff034f7b72d4da6f7", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "4jercY4pUhY6jB8eQjpVJV", name: "Ahmed Spins", genres: ["House", "Deep House", "Morocco", "Afro House", "EDM"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb4fc4486527b4a277e7dd7ee3", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "4Siyzg8kWayQfPQsPSl6JI", name: "Shermanology", genres: ["Curacao", "House", "Dance", "Electronic", "Dutch"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebc4882ccd70c56733e4118bb1", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "3cIXmCH7iNcslTbwrwS7zy", name: "Moon Boots", genres: ["Nu-Disco", "Electronica", "House", "Electronic", "Disco"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb5285e5b78ca9a0b93b351a1d", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "0Adbm5kzcPUxFybf9fhjgG", name: "Coco & Breezy", genres: [], imageURL: "https://i.scdn.co/image/ab6761610000e5ebc8f74c728e1aeebd56990fc3", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "0UKrJ4XldrkShYFCjRPhVa", name: "EREZ", genres: ["Electronic", "Alternative", "Queer", "Los Angeles", "Israeli"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb329a3a88c0ea80a739de24ae", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "-- N/A --"), DataSet.artistNEW(id: "0yeC3KlivVqaE4MGdopqvF", name: "Gabe Real", genres: [], imageURL: "https://i.scdn.co/image/ab6761610000e5eb9d535a3deee869ef26467966", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Main Stage"), DataSet.artistNEW(id: "3oKRxpszQKUjjaHz388fVA", name: "Parcels", genres: [], imageURL: "https://i.scdn.co/image/ab6761610000e5eb495b935eb2a87c4cf3395248", imageLocalPath: nil, day: "Friday (April 11)", tier: "First Tier", stage: "Outdoor Stage"), DataSet.artistNEW(id: "2mG8HHQ9S9kcbjcrb5N1FE", name: "The Go-Go\'s", genres: ["New Wave", "80S", "Pop", "Rock"], imageURL: "https://i.scdn.co/image/5506a4ed9d4abd277f4eda5a92239dc68073d46d", imageLocalPath: nil, day: "Friday (April 11)", tier: "Second Tier", stage: "Outdoor Stage"), DataSet.artistNEW(id: "1GQur7dDvAWhKT9u9YwBJZ", name: "Seun Kuti", genres: ["Afrobeat", "Jazz", "Nigeria", "African", "World"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebb78262dec526d591cf8e3eff", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Outdoor Stage"), DataSet.artistNEW(id: "6L71LxY17w8Yzh1zUphpiW", name: "Egypt 80", genres: ["Afrobeat", "Guitar", "Trumpet", "Jazz", "Organ"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb68d4b08ad9d1ed9519a6836b", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Outdoor Stage"), DataSet.artistNEW(id: "26vfb56oacqQcv9oPEAyCa", name: "Tiffany Tyson", genres: [], imageURL: "", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Outdoor Stage"), DataSet.artistNEW(id: "2Au9zIICTEr0oeV1iQrJ6X", name: "HiTech", genres: ["Ghettotech", "Footwork", "Juke", "Rap", "Trap"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb1bb067080d7127c0156a5020", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Sonora"), DataSet.artistNEW(id: "1ga48mxYYI9RuUrWLa3voh", name: "Los Mirlos", genres: ["Cumbia", "Chicha", "Peru", "Psychedelic", "Chill906"], imageURL: "https://i.scdn.co/image/ab6761610000e5eba75bdcded3725808d12285a9", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Sonora"), DataSet.artistNEW(id: "1ZVACPeq7ccGCoUXwtafUU", name: "KNEECAP", genres: ["Rap", "Irish", "Hip-Hop", "Ireland"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebc07b6d26c0ae6faa9a90152f", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Sonora"), DataSet.artistNEW(id: "2SdK1QDmZIP2hk94rSaLl9", name: "TOPS", genres: ["Indie", "Indie Pop", "Pop", "Soft Rock", "Canadian"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebb389e24691a904ff0398abc9", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Sonora"), DataSet.artistNEW(id: "4417xRt2a90h8KtmfsaWL8", name: "Vs Self", genres: ["Emo", "Screamo", "Midwest Emo", "Skramz", "American"], imageURL: "https://i.scdn.co/image/ab6761610000e5eb9f3a4da4025cc1eaa242e2c6", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Sonora"), DataSet.artistNEW(id: "3eimPofmo9TuKJTgpM9Bcj", name: "Glixen", genres: ["Shoegaze", "Dream Pop", "Indie Rock", "Indie"], imageURL: "https://i.scdn.co/image/ab6761610000e5ebe98d4d7cf9e725dbc495bff1", imageLocalPath: nil, day: "Friday (April 11)", tier: "Third+ Tier", stage: "Sonora")], stageList: ["Main Stage", "Outdoor Stage", "Mojave", "Heineken House", "Sahara", "Sonora", "Gobi"], website: Optional("Coachella.com"), published: false)

@@ -27,7 +27,9 @@ struct NavigationBottomBarView: View {
                         Text("Explore")
                     }
                     .tag(1)
-                AuthPage()
+                
+//                AuthPage()
+                SocialPage()
                     .tabItem {
                         Image(systemName: "person.2.fill").imageScale(.large)
                         Text("Social")
@@ -45,10 +47,11 @@ struct NavigationBottomBarView: View {
                         Text("Create")
                     }
                     .tag(3)
-                SettingsPage()
+//                SettingsPage()
+                MyProfile()
                     .tabItem {
-                        Image(systemName: "gearshape.2.fill").imageScale(.large)
-                        Text("Settings")
+                        Image(systemName: "person.fill").imageScale(.large)
+                        Text("Profile")
                     }
                     .tag(4)
             }

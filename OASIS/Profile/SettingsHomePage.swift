@@ -9,8 +9,34 @@ import SwiftUI
 
 struct SettingsHomePage: View {
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        VStack {
+            MenuOptions
+        }
+        .navigationTitle("Settings")
     }
+    
+    var MenuOptions: some View {
+        VStack {
+            Spacer()
+            Divider()
+            HStack {
+                Text("Profile Settings")
+                Image(systemName: "gear.circle")
+            }
+            .frame(height: OPTION_HEIGHT)
+            Divider()
+            HStack {
+                Text("About")
+                Image(systemName: "info.circle")
+            }
+            .frame(height: OPTION_HEIGHT)
+            Divider()
+            Spacer()
+        }
+        .foregroundStyle(.oasisDarkOrange)
+    }
+    
+    let OPTION_HEIGHT: CGFloat = 40
 }
 
 #Preview {

@@ -13,7 +13,7 @@ struct MyProfilePage: View {
     
     @Binding var navigationPath: NavigationPath
     
-    var profile: DataSet.UserProfile
+    var profile: UserProfile
     
     @State var editView = false
     @State var signOutAlert = false

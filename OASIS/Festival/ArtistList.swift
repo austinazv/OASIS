@@ -74,7 +74,18 @@ struct ArtistList: View {
                     }
                     
                 }
-                .searchable(text: $searchText, prompt: titleText == nil ? "Search" : String("Search " + titleText!))
+//                TabView() {
+//                    Tab("Search", systemImage: "magnifyingglass", role: .search) {
+//                        SearchResults
+//                    }
+//                }
+//                .toolbarRole()
+                .searchable(
+                        text: $searchText,
+                        placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: titleText.map { "Search \($0)" } ?? "Search"
+                    )
+//                .searchToolbarBehavior(.)
             }
 //            .if(!friendList) { view in
 //                view.searchable(text: $searchText)
@@ -88,6 +99,15 @@ struct ArtistList: View {
                         .background(RoundedRectangle(cornerRadius: 10).fill(Color.white))
                         .shadow(radius: 5)
                 }
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                FestivalLogoView(
+                    logoPath: currentFestival.logoPath,
+                    title: currentFestival.name,
+                    frame: 40.0
+                )
             }
         }
 //        .onChange(of: groupFavorites) { newValue in
@@ -134,10 +154,10 @@ struct ArtistList: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 FestivalLogoView(
-                        logoPath: currentFestival.logoPath,
-                        title: currentFestival.name,
-                        frame: 40.0
-                    )
+                    logoPath: currentFestival.logoPath,
+                    title: currentFestival.name,
+                    frame: 40.0
+                )
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -896,3 +916,31 @@ extension View {
     }
 }
 
+
+class ImageCache {
+    static let shared = ImageCache()
+
+    private let cacheDir: URL
+
+    private init() {
+        cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("imageCache")
+
+        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+    }
+
+    private func localPath(for url: String) -> URL {
+        let filename = url.replacingOccurrences(of: "/", with: "_")
+        return cacheDir.appendingPathComponent(filename)
+    }
+
+    func getCachedImage(for url: String) -> UIImage? {
+        let path = localPath(for: url)
+        return UIImage(contentsOfFile: path.path)
+    }
+
+    func cacheImage(_ data: Data, for url: String) {
+        let path = localPath(for: url)
+        try? data.write(to: path)
+    }
+}

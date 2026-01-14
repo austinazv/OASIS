@@ -13,11 +13,23 @@ class SpotifyViewModel: ObservableObject {
     
     private let saveName: String
     
+    @Published var isLoggedIn: Bool = false
+    
     @Published var progress: Float = 0.0
     var playlistArtistCount: Int = 1
     
+    @Published var isLoading = true
+    
     init(name: String) {
         self.saveName = name
+        isUserLoggedIn { [weak self] loggedIn in
+            DispatchQueue.main.async {
+                self?.isLoggedIn = loggedIn
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                self?.isLoading = false
+            }
+        }
     }
     
     func isUserLoggedIn(completion: @escaping (Bool) -> Void) {
@@ -181,12 +193,14 @@ class SpotifyViewModel: ObservableObject {
     func revokeSpotifyAccessToken(completion: @escaping (Bool) -> Void) {
         guard let _ = UserDefaults.standard.string(forKey: String(self.saveName + "spotify_refresh_token")) else {
             print("⚠️ No refresh token found, already logged out")
+            self.isLoggedIn = false
             completion(true)
             return
         }
 
         // Remove stored tokens
         let success = logoutFromSpotify()
+        if success { self.isLoggedIn = false }
         completion(success)
     }
     

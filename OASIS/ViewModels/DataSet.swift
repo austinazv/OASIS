@@ -1089,12 +1089,12 @@ class DataSet: ObservableObject {
                             self.downloadAndSaveImage(url: url) { localPath in
                                 DispatchQueue.main.async {
                                     self.userInfo = UserProfile(
-                                        id: userID,
+//                                        id: userID,
                                         name: userName,
                                         profilePic: localPath,
-                                        favorites: userFavorites,
-                                        friends: friendsSorted,
-                                        groups: groupsSorted
+//                                        favorites: userFavorites,
+//                                        friends: friendsSorted,
+//                                        groups: groupsSorted
                                     )
                                     completion(true) // ✅ Success
                                 }
@@ -1102,12 +1102,12 @@ class DataSet: ObservableObject {
                         } else {
                             DispatchQueue.main.async {
                                 self.userInfo = UserProfile(
-                                    id: userID,
+//                                    id: userID,
                                     name: userName,
                                     profilePic: nil,
-                                    favorites: userFavorites,
-                                    friends: friendsSorted,
-                                    groups: groupsSorted
+//                                    favorites: userFavorites,
+//                                    friends: friendsSorted,
+//                                    groups: groupsSorted
                                 )
                                 completion(true) // ✅ Success
                             }
@@ -1277,7 +1277,7 @@ class DataSet: ObservableObject {
     //        }
     //    }
     
-    func fetchFriends(userID: String, completion: @escaping ([FriendProfile]) -> Void) {
+    func fetchFriends(userID: String, completion: @escaping ([FriendProfileOLD]) -> Void) {
         let db = Firestore.firestore()
         
         db.collection("users").document(userID).addSnapshotListener { document, error in
@@ -1291,9 +1291,9 @@ class DataSet: ObservableObject {
         }
     }
     
-    func fetchFriendDetails(_ friendUIDs: [String], completion: @escaping ([FriendProfile]) -> Void) {
+    func fetchFriendDetails(_ friendUIDs: [String], completion: @escaping ([FriendProfileOLD]) -> Void) {
         let db = Firestore.firestore()
-        var loadedFriends: [FriendProfile] = []
+        var loadedFriends: [FriendProfileOLD] = []
         let group = DispatchGroup() // Ensures all fetch requests complete before returning
         
         for uid in friendUIDs {
@@ -1314,7 +1314,7 @@ class DataSet: ObservableObject {
                 if let localPath = self.getLocalImagePath(filename: filename), FileManager.default.fileExists(atPath: localPath) {
                     DispatchQueue.main.async {
                         // ✅ Use the local file if it exists
-                        loadedFriends.append(FriendProfile(id: uid, name: name, profilePic: localPath, favorites: favorites))
+                        loadedFriends.append(FriendProfileOLD(id: uid, name: name, profilePic: localPath, favorites: favorites))
                         print("✅ Using local file for \(uid): \(localPath)")
                         group.leave()
                     }
@@ -1324,7 +1324,7 @@ class DataSet: ObservableObject {
                         self.downloadAndSaveImage(url: url) { savedPath in
                             DispatchQueue.main.async {
                                 let finalPath = savedPath ?? profilePicURL // Fallback to Firebase URL if saving fails
-                                loadedFriends.append(FriendProfile(id: uid, name: name, profilePic: finalPath, favorites: favorites))
+                                loadedFriends.append(FriendProfileOLD(id: uid, name: name, profilePic: finalPath, favorites: favorites))
                                 print("✅ Downloaded and saved image for \(uid): \(finalPath)")
                                 group.leave()
                             }
@@ -1332,7 +1332,7 @@ class DataSet: ObservableObject {
                     } else {
                         DispatchQueue.main.async {
                             print("❌ Invalid URL for \(uid), using nil")
-                            loadedFriends.append(FriendProfile(id: uid, name: name, profilePic: nil, favorites: favorites))
+                            loadedFriends.append(FriendProfileOLD(id: uid, name: name, profilePic: nil, favorites: favorites))
                             group.leave()
                         }
                     }
@@ -1347,7 +1347,7 @@ class DataSet: ObservableObject {
     }
     
     
-    func fetchUserGroups(userID: String, friendsList: [FriendProfile], completion: @escaping ([SocialGroup]) -> Void) {
+    func fetchUserGroups(userID: String, friendsList: [FriendProfileOLD], completion: @escaping ([SocialGroup]) -> Void) {
         let db = Firestore.firestore()
 
         db.collection("users").document(userID).getDocument { document, error in
@@ -1361,7 +1361,7 @@ class DataSet: ObservableObject {
         }
     }
 
-    func fetchGroupDetails(_ groupIDs: [String], friendsList: [FriendProfile], completion: @escaping ([SocialGroup]) -> Void) {
+    func fetchGroupDetails(_ groupIDs: [String], friendsList: [FriendProfileOLD], completion: @escaping ([SocialGroup]) -> Void) {
         let db = Firestore.firestore()
         var loadedGroups: [SocialGroup] = []
         let group = DispatchGroup() // Ensures all requests complete before returning
@@ -1382,7 +1382,7 @@ class DataSet: ObservableObject {
                 let inviteLink = data?["inviteLink"] as? String ?? ""
                 let filename = URL(string: groupPhotoURL)?.lastPathComponent ?? "\(groupID).jpg"
                 
-                var membersList = [FriendProfile]()
+                var membersList = [FriendProfileOLD]()
                 var unloadedIDs = [String]()
                 let friendDictionary = Dictionary(uniqueKeysWithValues: friendsList.map { ($0.id, $0) })
                 for id in memberIDs {
@@ -1433,7 +1433,7 @@ class DataSet: ObservableObject {
     }
 
     
-    func getFavoritesDict(members: [FriendProfile]) -> [String : [String]] {
+    func getFavoritesDict(members: [FriendProfileOLD]) -> [String : [String]] {
         var favoritesDict = [String : [String]]()
         for m in members {
             if m.id != Auth.auth().currentUser?.uid {
@@ -1459,13 +1459,13 @@ class DataSet: ObservableObject {
     
     
     func isFriends(memberID: String) -> Bool {
-        if let info = self.userInfo {
-            for friend in info.friends {
-                if friend.id == memberID {
-                    return true
-                }
-            }
-        }
+//        if let info = self.userInfo {
+//            for friend in info.friends {
+//                if friend.id == memberID {
+//                    return true
+//                }
+//            }
+//        }
         return false
     }
     
@@ -1636,7 +1636,7 @@ class DataSet: ObservableObject {
                     } else {
                         print("✅ Group successfully added to user’s document!")
                         let info = self.userInfo!
-                        let createdGroup = SocialGroup(id: groupID, name: groupName, photo: photoURL ?? nil, members: [FriendProfile(id: info.id, name: info.name, profilePic: info.profilePic, favorites: info.favorites)], inviteLink: inviteLink)
+                        let createdGroup = SocialGroup(id: groupID, name: groupName, photo: photoURL ?? nil, members: [FriendProfileOLD(id: info.id!, name: info.name, profilePic: info.profilePic, /*favorites: info.favorites*/)], inviteLink: inviteLink)
                         completion(createdGroup)
                     }
                 }
@@ -1704,15 +1704,15 @@ class DataSet: ObservableObject {
     }
 
     func getMemberName(memberID: String) -> String {
-        if let info = userInfo {
-            for group in info.groups {
-                for member in group.members {
-                    if member.id == memberID {
-                        return member.name
-                    }
-                }
-            }
-        }
+//        if let info = userInfo {
+//            for group in info.groups {
+//                for member in group.members {
+//                    if member.id == memberID {
+//                        return member.name
+//                    }
+//                }
+//            }
+//        }
         return memberID
     }
 
@@ -1741,7 +1741,7 @@ class DataSet: ObservableObject {
 //        }
 //    }
     
-    func getGroupFavoritesDict(members: [FriendProfile], currentDict: [String: [DataSet.FriendProfile]]?, completion: @escaping ([String: [DataSet.FriendProfile]]) -> Void) {
+    func getGroupFavoritesDict(members: [FriendProfileOLD], currentDict: [String: [DataSet.FriendProfileOLD]]?, completion: @escaping ([String: [DataSet.FriendProfileOLD]]) -> Void) {
         var groupFavDict = currentDict ?? [:] // Use existing dictionary or create new one
 //
 //        guard let info = userInfo else {
@@ -1813,8 +1813,8 @@ class DataSet: ObservableObject {
 //        }
     
     
-    func getGroupFavoritesDictOLD(memberIDs: [String], completion: @escaping ([String: [DataSet.FriendProfile]]) -> Void) {
-        var groupFavDict = [String: [DataSet.FriendProfile]]()
+    func getGroupFavoritesDictOLD(memberIDs: [String], completion: @escaping ([String: [DataSet.FriendProfileOLD]]) -> Void) {
+        var groupFavDict = [String: [DataSet.FriendProfileOLD]]()
         let dispatchGroup = DispatchGroup()
         
         fetchFavoritesForMembers(memberIDs: memberIDs) { favoritesDict in
@@ -1996,9 +1996,9 @@ class DataSet: ObservableObject {
                 friendsSorted.sort {
                     return $0.name.lowercased() < $1.name.lowercased()
                 }
-                DispatchQueue.main.async {
-                    self.userInfo!.friends = friendsSorted
-                }
+//                DispatchQueue.main.async {
+//                    self.userInfo!.friends = friendsSorted
+//                }
             }
             
             return nil
@@ -2821,7 +2821,7 @@ class DataSet: ObservableObject {
     }
     
     struct Festival: Identifiable, Hashable, Codable {
-        var id = UUID()
+        var id: UUID
         var ownerID: String
         var ownerName: String
         var saveDate = Date()
@@ -2840,6 +2840,7 @@ class DataSet: ObservableObject {
         static func newFestival() -> Festival {
             let user = Auth.auth().currentUser
             return Festival(
+                id: UUID(),
                 ownerID: user?.uid ?? "Unknown",
                 ownerName: user?.displayName ?? "Unknown" // displayName is the user's name
             )
@@ -2872,33 +2873,47 @@ class DataSet: ObservableObject {
         case stage
         case genre
     }
+
     
-    struct UserProfile: Hashable, Identifiable, Codable {
-        var id: String
-        var name: String
-        var profilePic: String?
-        var favorites: [String]?
-        var friends: [FriendProfile]
-        var groups: [SocialGroup]
-    }
+    
+    
+
+
+
     
     struct UserProfileTemp: Hashable, Identifiable {
         var id: String
         var festivalList: [Festival]
     }
     
-    struct FriendProfile: Hashable, Identifiable, Codable {
+    struct FriendProfileOLD: Hashable, Identifiable, Codable {
         var id: String
         var name: String
         var profilePic: String?
         var favorites: [String]?
     }
     
+    
+    struct FriendProfile: Identifiable, Codable, Hashable {
+        var id: String
+        var name: String
+        var profilePic: String?
+        var favorites: [FestivalFavorite] = []
+    }
+
+    struct FestivalFavorite: Identifiable, Codable, Hashable {
+        var id: String            // festivalId
+        var festivalName: String
+        var logoPath: String?
+        var likedArtistIds: [String]
+    }
+    
+    
     struct SocialGroup: Hashable, Identifiable, Codable {
         var id: String
         var name: String
         var photo: String?
-        var members: [FriendProfile]
+        var members: [FriendProfileOLD]
         var favoritesDict: [String : [String]] = [String : [String]]()
         var inviteLink: String
     }
@@ -2908,6 +2923,7 @@ class DataSet: ObservableObject {
         var id: String
         var name: String
         var photo: String?
+        var groupMembers: [String]?
     }
     
     init(name: String) {
@@ -2969,5 +2985,62 @@ extension UIImage {
         context.render(outputImage, toBitmap: &bitmap, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8, colorSpace: nil)
         
         return UIColor(red: CGFloat(bitmap[0]) / 255, green: CGFloat(bitmap[1]) / 255, blue: CGFloat(bitmap[2]) / 255, alpha: CGFloat(bitmap[3]) / 255)
+    }
+}
+
+
+struct UserProfile: Hashable, Identifiable, Codable {
+
+    @DocumentID var id: String?
+
+    var name: String
+    var profilePic: String?
+
+    var following: [String]?
+    var followers: [String]?
+    var festivalFavorites: [String : [String]]?
+    
+    var groups: [String]?
+
+}
+
+extension UserProfile {
+    var safeFollowing: [String] { following ?? [] }
+    var safeFollowers: [String] { followers ?? [] }
+    var safeFestivalFavorites: [String: [String]] { festivalFavorites ?? [:] }
+    var safegroups: [String] { groups ?? [] }
+    
+    init() {
+        self.id = nil
+        self.name = ""
+        self.profilePic = nil
+        self.following = []
+        self.followers = []
+        self.festivalFavorites = [:]
+        self.groups = []
+    }
+}
+
+struct SocialGroup: Hashable, Identifiable, Codable {
+    @DocumentID var id: String?
+    var ownerID: String
+    var name: String
+    var photo: String?
+    var members: [String] = []
+    var festivals: [String] = []
+}
+
+extension UserDefaults {
+    func saveCodable<T: Codable>(_ value: T, forKey key: String) {
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(value) {
+            set(data, forKey: key)
+        }
+    }
+
+    func loadCodable<T: Codable>(_ type: T.Type, forKey key: String) -> T? {
+        guard let data = data(forKey: key) else { return nil }
+        let decoder = JSONDecoder()
+        return try? decoder.decode(T.self, from: data)
     }
 }

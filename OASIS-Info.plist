@@ -5,6 +5,14 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleURLName</key>
+			<string>Google</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.769918667547-hkkh5ra2fdc62hj4sjnachtf6uuoihum</string>
+			</array>
+		</dict>
+		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
@@ -22,5 +30,7 @@
 	</array>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Allow OASIS to access your calendar to directly add festivals and events.</string>
+    <key>NSContactsUsageDescription</key>
+    <string>OASIS uses your contacts to help you find friends who already use the app.</string>
 </dict>
 </plist>

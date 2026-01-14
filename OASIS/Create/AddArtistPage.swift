@@ -35,6 +35,7 @@ struct AddArtistPage: View {
                         ArtistTier
                         ArtistStage
                         ArtistGenres
+                        DeleteButton
                     }
                 }
             }
@@ -128,8 +129,8 @@ struct AddArtistPage: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 15)
+            .padding(.horizontal, 22)
+            .padding(.top, 18)
             Divider()
         }
     }
@@ -160,15 +161,20 @@ struct AddArtistPage: View {
                 //                        if let artist = newArtist {
                 //TODO: Fix
                 Group {
-                    if let image = artistImage {
-                        Image(uiImage: image)
-                            .resizable()
-                    } else {
-                        Image(systemName: "person.crop.circle.fill")
-                            .resizable()
+                    if let url = spotifyArtistURL(from: newArtist.id) {
+                        Link(destination: url, label: {
+                            ArtistImage(imageURL: newArtist.imageURL, frame: 90)
+                        })
                     }
+//                    if let image = artistImage {
+//                        Image(uiImage: image)
+//                            .resizable()
+//                    } else {
+//                        Image(systemName: "person.crop.circle.fill")
+//                            .resizable()
+//                    }
                 }
-                .frame(width: 90, height: 90)
+//                .frame(width: 90, height: 90)
                 Text(newArtist.name)
                     .font(.headline)
             }
@@ -179,6 +185,10 @@ struct AddArtistPage: View {
 //                            .font(.subheadline)
 //                            .foregroundColor(.gray)
         }
+    }
+    
+    func spotifyArtistURL(from id: String) -> URL? {
+        return URL(string: "https://open.spotify.com/artist/\(id)")
     }
     
     var ArtistWeekend: some View {
@@ -498,7 +508,28 @@ struct AddArtistPage: View {
         }.resume()
     }
     
-    
+    var DeleteButton: some View {
+        Section {
+            HStack {
+                Spacer()
+                if let index = newFestival.artistList.firstIndex(where: { $0.id == newArtist.id }) {
+                    Button(action: {
+                        newFestival.artistList.remove(at: index)
+                        showArtistSearchPage = false
+                    }, label: {
+                        Text("Remove Artist")
+                    })
+                    .frame(width: 250, height: 40)
+                    .background(Color.red)
+                    .foregroundStyle(.white)
+                    .cornerRadius(10)
+                    .shadow(radius: 5)
+                }
+                Spacer()
+            }
+        }
+        .listRowBackground(Color("Same As Background"))
+    }
     
 //   func fetchAccessTokenAndArtistInfo() {
 //       fetchClientCredentialsToken { token in

@@ -353,7 +353,7 @@ struct OASISTitle: View {
             .foregroundStyle(LinearGradient(gradient: Gradient(colors: [Color("OASIS Dark Orange"), Color("OASIS Light Orange"), Color("OASIS Light Blue"), Color("OASIS Dark Blue")]), startPoint: .topLeading, endPoint: .bottomTrailing))
             .kerning(kerning)
             .font(Font.system(size: fontSize))
-            
-            .italic()
+            .bold()
+//            .italic()
     }
 }

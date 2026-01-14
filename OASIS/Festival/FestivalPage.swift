@@ -22,6 +22,8 @@ struct FestivalPage: View {
     
     var previewView: Bool = false
     
+    var friendFavorites: FriendFavorites? = nil
+    
     var body: some View {
         VStack(spacing: 0) {
             FestivalInfoBar
@@ -48,7 +50,7 @@ struct FestivalPage: View {
                                     ArtistListButton
                                     ShuffleAllButton
                                 }
-                                FavoritesButton
+                                FavoritesSection
                                 ShuffleBySection
                                 InfoSection
                                 Spacer()
@@ -59,7 +61,7 @@ struct FestivalPage: View {
                             Spacer()
                             Text("No Artists Match Your Settings")
                             
-                            NavigationLink(value: "Settings") {
+                            NavigationLink(value: "Festival Settings") {
                                 HStack {
                                     Text("Adjust Your Settings To Explore This Festival")
                                     Image(systemName: "chevron.right")
@@ -98,29 +100,26 @@ struct FestivalPage: View {
 //        .navigationBarBackButtonDisplayMode(.minimal)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack {
-                    if !previewView {
+                if !previewView {
+                    HStack {
                         if let userID = firestore.getUserID(), userID == currentFestival.ownerID {
-//                        if currentFestival.ownerID == "austin.zv" {
                             NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: currentFestival, draftView: true)) {
                                 Image(systemName: "pencil.circle")
                                     .foregroundStyle(.blue)
                             }
                         }
-                        NavigationLink(value: "Settings") {
+                        NavigationLink(value: "Festival Settings") {
                             Image(systemName: "gear")
                                 .foregroundStyle(.blue)
-                            //                            .foregroundStyle(Color.blue)
                         }
                     }
-                    
-                }
                 .foregroundStyle(Color("OASIS Dark Orange"))
                 .imageScale(.large)
                 .foregroundStyle(.tint)
-                //                .font(Font.system(size: 10))
+                }
             }
         }
+        .toolbar(.visible, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 FestivalLogoView(
@@ -132,7 +131,6 @@ struct FestivalPage: View {
         }
         .onAppear() {
             if let festival = festivalVM.currentFestival {
-                print(festival)
                 currentFestival = festival
             } else {
                 navigationPath.removeLast()
@@ -140,16 +138,9 @@ struct FestivalPage: View {
         }
     }
     
-    func starPressed() {
-        if let index = data.userInfoTemp.festivalList.firstIndex(where: {$0.id == currentFestival.id}) {
-            data.userInfoTemp.festivalList.remove(at: index)
-        } else {
-            data.userInfoTemp.festivalList.append(currentFestival)
-        }
-//        if data.userInfoTemp.festivalList.contains(where: {$0 == currentFestival.id}) {
-//
-//        }
-    }
+//    func starPressed() {
+//        festivalVM.festivalStarPressed(festival: currentFestival)
+//    }
     
     var EditingBar: some View {
         Group {
@@ -270,7 +261,7 @@ struct FestivalPage: View {
             }
             .foregroundStyle(Color("OASIS Dark Orange"))
             .padding(.bottom, 10)
-            .padding(.top, 10)
+//            .padding(.top, 10)
             .onChange(of: newCalEvent) { calEvent in
                 if calEvent != nil {
                     showingEventEditor = true
@@ -398,11 +389,11 @@ struct FestivalPage: View {
                     Circle()
                         .foregroundStyle(Color("BW Color Switch Reverse"))
                         .shadow(radius: SHADOW)
-                    Image(systemName: data.userInfoTemp.festivalList.contains(where: {$0.id == currentFestival.id}) ? "star.fill" : "star")
+                    Image(systemName: festivalVM.festivalIsFavorited(festivalID: currentFestival.id) ? "star.fill" : "star")
                         .foregroundStyle(.yellow)
                         .imageScale(.large)
                         .onTapGesture() {
-                            starPressed()
+                            festivalVM.festivalStarPressed(festival: currentFestival)
                         }
                 }
             }
@@ -444,14 +435,31 @@ struct FestivalPage: View {
         return components.string ?? "http://www.\(trimmed)"
     }
     
-    var FavoritesButton: some View {
+    var FavoritesSection: some View {
+        VStack(spacing: 0) {
+            MyFavoritesButton
+            Divider()
+            FriendsFavoritesButton
+        }
+        .animation(.easeInOut, value: showFriendList)
+        .padding(10)
+    }
+    
+    
+    
+    var MyFavoritesButton: some View {
         Group {
+            let lastSectionBool: Bool = friendsFavs.isEmpty
             if !festivalVM.favoriteList.isEmpty {
                 NavigationLink(value: "Favorites") {
                     ZStack {
-                        RoundedRectangle(cornerRadius: CORNER_RADIUS)
-                            .foregroundStyle(Color("BW Color Switch Reverse"))
-                            .shadow(radius: SHADOW)
+                        UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS,
+                                               bottomLeadingRadius: lastSectionBool ? CORNER_RADIUS : 0,
+                                               bottomTrailingRadius: lastSectionBool ? CORNER_RADIUS : 0,
+                                               topTrailingRadius: CORNER_RADIUS,
+                                               style: .continuous)
+                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .shadow(radius: SHADOW)
                         HStack{
                             Spacer()
                             Text("My Favorites")
@@ -462,12 +470,153 @@ struct FestivalPage: View {
                         }
                         .foregroundStyle(Color("BW Color Switch"))
                     }
+                    .frame(height: LARGE_BUTTON_HEIGHT)
                 }
-                .frame(height: LARGE_BUTTON_HEIGHT)
-                .padding(10)
+            } else {
+                ZStack {
+                    UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS,
+                                           bottomLeadingRadius: lastSectionBool ? CORNER_RADIUS : 0,
+                                           bottomTrailingRadius: lastSectionBool ? CORNER_RADIUS : 0,
+                                           topTrailingRadius: CORNER_RADIUS,
+                                           style: .continuous)
+                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .shadow(radius: SHADOW)
+                    HStack{
+                        Spacer()
+                        Text("No Favorites Yet")
+                        Image(systemName: "heart")
+                            .imageScale(.large)
+                            .foregroundStyle(.red)
+                        Spacer()
+                    }
+                    .foregroundStyle(Color("BW Color Switch"))
+                }
+                .frame(height: SMALL_BUTTON_HEIGHT)
+            }
+        }
+        .onAppear() {
+            Task {
+                let result = await firestore.fetchFriendsFestivalFavs(
+                    festivalID: currentFestival.id.uuidString,
+                    friendIDs: firestore.myUserProfile.safeFollowing
+                )
+                await MainActor.run {
+                    self.friendsFavs = result
+                    
+                }
+            }
+        }
+        .onChange(of: friendsFavs) { newFriends in
+            if !newFriends.isEmpty {
+                withAnimation {
+                    showFriends = true
+                }
+            } else {
+                withAnimation {
+                    showFriends = false
+                }
             }
         }
     }
+    
+    
+    @State var showFriends = false
+    @State var showFriendList = false
+    @State var friendsFavs = [UserProfile : [String]]()
+    
+    
+    var FriendsFavoritesButton: some View {
+        Group {
+            if showFriends {
+                VStack(spacing: 0) {
+                    let lastSectionBool: Bool = true
+                    ZStack {
+                        UnevenRoundedRectangle(bottomLeadingRadius: lastSectionBool && !showFriendList ? CORNER_RADIUS : 0,
+                                               bottomTrailingRadius: lastSectionBool && !showFriendList ? CORNER_RADIUS : 0,
+                                               style: .continuous)
+                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        HStack {
+                            Image(systemName: showFriendList ? "chevron.up" : "chevron.down")
+                            Spacer()
+                            Text("Friends' Favorites")
+                            Image(systemName: "person.2.fill")
+                            Spacer()
+                            Image(systemName: showFriendList ? "chevron.up" : "chevron.down")
+                        }
+                        .padding(.horizontal, 15)
+                    }
+                    .transaction { $0.animation = nil }
+                    .frame(height: SMALL_BUTTON_HEIGHT)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation {
+                            showFriendList.toggle()
+                        }
+                    }
+                    if showFriendList {
+                        VStack (spacing: 1) {
+                            ForEach(Array(friendsFavs.keys.sorted(by: { $0.name < $1.name }).enumerated()), id: \.element.id) { index, profile in
+                                NavigationLink(value: DataSet.ArtistListStruct(titleText: "\(profile.name)'s Favorites",
+                                                                               festival: currentFestival,
+                                                                               list: festivalVM.getArtistListFromID(artistIDs: friendsFavs[profile]!, festival: currentFestival))) {
+                                    ZStack {
+                                        UnevenRoundedRectangle(bottomLeadingRadius: lastSectionBool ? CORNER_RADIUS : 0,
+                                                               bottomTrailingRadius: lastSectionBool ? CORNER_RADIUS : 0,
+                                                               style: .continuous)
+                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                                        HStack {
+                                            Spacer()
+                                            SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 30)
+                                            Text(profile.name)
+                                            Image(systemName: "chevron.right")
+                                            Spacer()
+                                        }
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                }
+                            }
+                            
+                            //                            ForEach(data.sortByTier(tiers: Array(tierDict.keys)), id: \.self) { tier in
+                            //                                NavigationLink(value: DataSet.ArtistListStruct(titleText: tier, festival: currentFestival, list: tierDict[tier]!)) {
+                            //                                    ZStack {
+                            //                                        let finalCategoryBool: Bool = (tierAccordian && tier == tierDict.keys.sorted().last!)
+                            //                                        UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
+                            //                                                               bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
+                            //                                                               style: .continuous)
+                            //                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                            //                                        HStack {
+                            //                                            Spacer()
+                            //                                            Text(tier)
+                            //                                            Image(systemName: "chevron.right")
+                            //                                            Spacer()
+                            //                                        }
+                            //
+                            //                                    }
+                            //                                    //                            }
+                            //                                    .padding(.horizontal, 20)
+                            //                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                            //                                    .buttonStyle(PlainButtonStyle())
+                            //                                }
+                            //                            }
+                        }
+                        .padding(.vertical, 1)
+                        .scaleEffect(showFriendList ? 1 : 0.95, anchor: .top)
+                        .opacity(showFriendList ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: showFriendList)
+                    }
+                }
+                .foregroundStyle(Color("BW Color Switch"))
+                .shadow(radius: 0)
+                .scaleEffect(showFriends ? 1 : 0.95, anchor: .top)
+                .opacity(showFriends ? 1 : 0)
+                .animation(.easeInOut(duration: 0.3), value: showFriends)
+            }
+        }
+    }
+    
     
     var ArtistListButton: some View {
         Group {
@@ -530,7 +679,8 @@ struct FestivalPage: View {
     @State var stageAccordian: Bool = false
     @State var tierAccordian: Bool = false
     
-    @State var genreDict = [String : Array<DataSet.Artist>]()
+    @State var topGenresDict = [String : Array<DataSet.Artist>]()
+    @State var allGenresDict = [String : Array<DataSet.Artist>]()
     @State var dayDict = [String : Array<DataSet.Artist>]()
     @State var stageDict = [String : Array<DataSet.Artist>]()
     @State var tierDict = [String : Array<DataSet.Artist>]()
@@ -539,7 +689,7 @@ struct FestivalPage: View {
     var ShuffleBySection: some View {
         Group {
             VStack(spacing: 0) {
-                if !genreDict.isEmpty {
+                if !allGenresDict.isEmpty {
                     SortByGenre
                 }
                 if dayDict.count > 1 {
@@ -564,14 +714,15 @@ struct FestivalPage: View {
         .animation(.easeInOut, value: tierAccordian)
         .shadow(radius: SHADOW)
         .onAppear() {
-            genreDict = festivalVM.sortGenre(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
+            let genres = festivalVM.sortGenre(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
+            topGenresDict = genres.topGenres
+            allGenresDict = genres.allGenres
             dayDict = festivalVM.sortDay(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
             stageDict = festivalVM.sortStage(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
             tierDict = festivalVM.sortTier(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
         }
     }
         
-    
     var SortByGenre: some View {
         VStack(spacing: 0) {
             let finalSectionBool: Bool = (dayDict.count < 2 && stageDict.isEmpty && tierDict.isEmpty)
@@ -581,8 +732,7 @@ struct FestivalPage: View {
                                        bottomTrailingRadius: (finalSectionBool && !genreAccordian) ? CORNER_RADIUS : 0,
                                        topTrailingRadius: CORNER_RADIUS,
                                        style: .continuous)
-                    .foregroundStyle(Color("BW Color Switch Reverse"))
-//                    .shadow(radius: SHADOW)
+                .foregroundStyle(Color("BW Color Switch Reverse"))
                 HStack {
                     Image(systemName: genreAccordian ? "chevron.up" : "chevron.down")
                     Spacer()
@@ -606,30 +756,52 @@ struct FestivalPage: View {
             }
             if genreAccordian {
                 VStack (spacing: 1) {
-                    ForEach(genreDict.keys.sorted(), id: \.self) { genre in
-                        NavigationLink(value: DataSet.ArtistListStruct(titleText: genre, festival: currentFestival, list: genreDict[genre]!)) {
+                    ForEach(Array(topGenresDict.keys), id: \.self) { genre in
+                        NavigationLink(value: DataSet.ArtistListStruct(titleText: genre, festival: currentFestival, list: topGenresDict[genre]!)) {
                             ZStack {
-//                                if genres.keys.sorted().last!
-                                let finalCategoryBool: Bool = (finalSectionBool && genreAccordian && genre == genreDict.keys.sorted().last!)
-                                UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
-                                                       bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
-                                                       style: .continuous)
+                                //                                if genres.keys.sorted().last!
+                                Rectangle()
                                     .foregroundStyle(Color("BW Color Switch Reverse"))
                                 HStack {
                                     Spacer()
+                                    Image(systemName: "flame")
+                                    Text(genre)
+                                    Image(systemName: "chevron.right")
+                                    Spacer()
+                                }
+                            }
+                            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    Spacer().frame(height: 3)
+                    ForEach(allGenresDict.keys.sorted(), id: \.self) { genre in
+                        NavigationLink(value: DataSet.ArtistListStruct(titleText: genre, festival: currentFestival, list: allGenresDict[genre]!)) {
+                            ZStack {
+                                //                                if genres.keys.sorted().last!
+                                let finalCategoryBool: Bool = (finalSectionBool && genreAccordian && genre == allGenresDict.keys.sorted().last!)
+                                UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
+                                                       bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
+                                                       style: .continuous)
+                                .foregroundStyle(Color("BW Color Switch Reverse"))
+                                HStack {
+                                    Spacer()
+                                    if topGenresDict[genre] != nil { Image(systemName: "flame") }
                                     Text(genre)
                                     Image(systemName: "chevron.right")
                                     Spacer()
                                 }
                                 
                             }
-                            .padding(.horizontal, 20)
+                            //                                .padding(.horizontal, 20)
                             .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                             .buttonStyle(PlainButtonStyle())
                         }
                     }
+                    
                 }
                 .padding(.vertical, 1)
+                .padding(.horizontal, 20)
                 .scaleEffect(genreAccordian ? 1 : 0.95, anchor: .top)
                 .opacity(genreAccordian ? 1 : 0)
                 .animation(.easeInOut(duration: 0.3), value: genreAccordian)
@@ -641,7 +813,7 @@ struct FestivalPage: View {
     
     var SortByDay: some View {
         VStack(spacing: 0) {
-            let firstSectionBool: Bool = genreDict.isEmpty
+            let firstSectionBool: Bool = allGenresDict.isEmpty
             let finalSectionBool: Bool = (stageDict.isEmpty && tierDict.isEmpty)
             ZStack {
                 
@@ -675,7 +847,9 @@ struct FestivalPage: View {
             }
             if dayAccordian {
                 VStack (spacing: 1) {
-                    ForEach(data.sortByDate(days: Array(dayDict.keys)), id: \.self) { day in
+                    let sortedDays = data.sortByDate(days: Array(dayDict.keys))
+                    ForEach(sortedDays.indices, id: \.self) { i in
+                        let day = sortedDays[i]
                         NavigationLink(value: DataSet.ArtistListStruct(titleText: day, festival: currentFestival, list: dayDict[day]!)) {
                             ZStack {
                                 let finalCategoryBool: Bool = (finalSectionBool && dayAccordian && day == dayDict.keys.sorted().last!)
@@ -685,7 +859,11 @@ struct FestivalPage: View {
                                 .foregroundStyle(Color("BW Color Switch Reverse"))
                                 HStack {
                                     Spacer()
-                                    Text(day)
+                                    Text(getDayText(from: day))
+                                    
+                                    Text(getWeekendNumberText(from: day))
+                                        .italic()
+                                        .font(.subheadline)
                                     Image(systemName: "chevron.right")
                                     Spacer()
                                 }
@@ -693,6 +871,14 @@ struct FestivalPage: View {
                             .padding(.horizontal, 20)
                             .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                             .buttonStyle(PlainButtonStyle())
+                        }
+                        if i < sortedDays.count - 1 {
+                            let current = sortedDays[i]
+                            let next = sortedDays[i + 1]
+                            
+                            if current.contains("Weekend 1") && next.contains("Weekend 2") {
+                                Spacer().frame(height: 3)
+                            }
                         }
                     }
                 }
@@ -709,9 +895,19 @@ struct FestivalPage: View {
 //        .padding(10)
     }
     
+    func getDayText(from text: String) -> String {
+        text.components(separatedBy: " (").first ?? text
+    }
+
+    func getWeekendNumberText(from text: String) -> String {
+        let parts = text.components(separatedBy: " (")
+        guard parts.count > 1 else { return "" }
+        return " (" + parts[1]
+    }
+    
     var SortByStage: some View {
         VStack(spacing: 0) {
-            let firstSectionBool: Bool = (genreDict.isEmpty && dayDict.count < 2)
+            let firstSectionBool: Bool = (allGenresDict.isEmpty && dayDict.count < 2)
             let finalSectionBool: Bool = tierDict.isEmpty
             ZStack {
                 UnevenRoundedRectangle(topLeadingRadius: firstSectionBool ? CORNER_RADIUS : 0,
@@ -782,7 +978,7 @@ struct FestivalPage: View {
     
     var SortByBilling: some View {
         VStack(spacing: 0) {
-            let firstSectionBool: Bool = (genreDict.isEmpty && dayDict.count < 2 && stageDict.isEmpty)
+            let firstSectionBool: Bool = (allGenresDict.isEmpty && dayDict.count < 2 && stageDict.isEmpty)
             ZStack {
                 UnevenRoundedRectangle(topLeadingRadius: firstSectionBool ? CORNER_RADIUS : 0,
                                        bottomLeadingRadius: tierAccordian ? 0 : CORNER_RADIUS,
@@ -945,6 +1141,11 @@ struct EventEditView: UIViewControllerRepresentable {
             controller.dismiss(animated: true)
         }
     }
+}
+
+struct FriendFavorites {
+    let name: String
+    let favorite: Array<String>
 }
 
 

@@ -19,6 +19,7 @@ struct OASISApp: App {
     @StateObject var spotify = SpotifyViewModel(name: "AZV30")
     @StateObject var firestore = FirestoreViewModel(name: "AZV31")
     @StateObject var festivalVM = FestivalViewModel(name: "Austin30")
+    @StateObject var social = SocialViewModel()
     
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
@@ -33,27 +34,65 @@ struct OASISApp: App {
     @State private var showRequestSheet = false
     
     @State private var groupRequest = false
+
+    // Shared namespace for morphing the “O” and the title between screens
+    @Namespace private var oasisNamespace
     
     var body: some Scene {
         WindowGroup {
-            Group {
-                NavigationBottomBarView()
-                    .environmentObject(data)
-                    .environmentObject(spotify)
-                    .environmentObject(firestore)
-                    .environmentObject(festivalVM)
-                //TODO: ADD IN HERE!
+            ZStack {
+                // Main app content (behind while loading)
+                Group {
+                    if firestore.isLoggedIn {
+                        if spotify.isLoggedIn {
+                            NavigationBottomBarView()
+                                .environmentObject(data)
+                                .environmentObject(spotify)
+                                .environmentObject(firestore)
+                                .environmentObject(festivalVM)
+                                .environmentObject(social)
+                        } else {
+                            SpotifyConnectPage()
+                                .environmentObject(data)
+                                .environmentObject(spotify)
+                                .environmentObject(firestore)
+                                .environmentObject(festivalVM)
+                        }
+                    } else {
+                        LogInPage()
+                            .environmentObject(data)
+                            .environmentObject(spotify)
+                            .environmentObject(firestore)
+                            .environmentObject(festivalVM)
+                    }
+                }
+                // Provide the shared namespace to all children so titles can match geometry
+                .environment(\.oasisNamespace, oasisNamespace)
+                .opacity(spotify.isLoading ? 0 : 1)
+                .animation(.easeInOut(duration: 0.45), value: spotify.isLoading)
+                
+                // Loading layer on top
+                if spotify.isLoading {
+                    OASISLoadingScreen(namespace: oasisNamespace)
+                        // No custom slide transition; matchedGeometryEffect will move from loading to destination.
+//                        .transition(.opacity) // optional fade for the overlay itself
+                        .animation(.easeInOut(duration: 1.35), value: spotify.isLoading) // 3× slower
+                }
             }
+            // Request sheet for invites/auth
             .sheet(isPresented: $showRequestSheet, content: {
                 Group {
                     if Auth.auth().currentUser != nil {
                         if let request = pendingRequest {
-                            FriendRequestSheet(request: request, onAccept: groupRequest ? acceptGroupRequest : acceptFriendRequest, onReject: rejectRequest, groupRequest: groupRequest)
+                            GroupRequestSheet(request: request, onAccept: groupRequest ? acceptGroupRequest : acceptFriendRequest, onReject: rejectRequest, showRequestSheet: $showRequestSheet)
+                                .environmentObject(social)
+                                .environmentObject(firestore)
+//                            FriendRequestSheet(request: request, onAccept: groupRequest ? acceptGroupRequest : acceptFriendRequest, onReject: rejectRequest, groupRequest: groupRequest)
                         } else {
                             Text("Loading...")
                         }
                     } else {
-                        AuthPage(/*loggedIn: $loggedIn*/).environmentObject(data)
+                        PhoneAuthPage(/*loggedIn: $loggedIn*/).environmentObject(data)
                     }
                 }
             })
@@ -65,20 +104,20 @@ struct OASISApp: App {
             .onOpenURL(perform: { url in
                 print("Received URL: \(url.absoluteString)")
                     
-                    guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
-                        self.errorAlert = true
-                        return
-                    }
+                guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+                    self.errorAlert = true
+                    return
+                }
+                
+                if url.absoluteString.contains("spotify") {
+                    handleSpotifyURL(components)
+                } else if url.absoluteString.contains("/share/") {
+                    showRequestSheet = true
+                    handleInviteLink(url)
                     
-                    if url.absoluteString.contains("spotify") {
-                        handleSpotifyURL(components)
-                    } else if url.absoluteString.contains("/share/") {
-                        showRequestSheet = true
-                        handleInviteLink(url)
-                        
-                    } else {
-                        print("Unhandled URL")
-                    }
+                } else {
+                    print("Unhandled URL")
+                }
             })
             .alert(isPresented: $logInSuccess) {
                 Alert(title: Text("Successfully Signed In to Spotify"),
@@ -86,10 +125,6 @@ struct OASISApp: App {
             }
         }
     }
-    
-    
-    
-
     
     
     
@@ -105,7 +140,10 @@ struct OASISApp: App {
                 spotify.exchangeCodeForToken(authCode)
             }
         }
-        self.logInSuccess = true
+        withAnimation(.easeInOut(duration: 0.45)) {
+            self.logInSuccess = true
+            spotify.isLoggedIn = true
+        }
     }
     
     func handleInviteLink(_ url: URL) {
@@ -123,8 +161,6 @@ struct OASISApp: App {
 
         if let senderUUID = components?.queryItems?.first(where: { $0.name == "user" })?.value {
             print("Sender ID: \(senderUUID)")
-            
-            
             
             let db = Firestore.firestore()
             db.collection("users").document(senderUUID).getDocument { document, error in
@@ -157,10 +193,7 @@ struct OASISApp: App {
         let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
 
         if let groupUUID = components?.queryItems?.first(where: { $0.name == "group" })?.value {
-            // Use the extracted groupId
             print("Group ID: \(groupUUID)")
-            
-            
             
             let db = Firestore.firestore()
             db.collection("groups").document(groupUUID).getDocument { document, error in
@@ -170,13 +203,15 @@ struct OASISApp: App {
                 }
                 
                 if let document = document, document.exists {
-                    let groupName = document.data()?["groupName"] as? String ?? "Unknown"
-                    let senderProfilePic = document.data()?["groupPhotoURL"] as? String
+                    let groupName = document.data()?["name"] as? String ?? "Unknown"
+                    let groupProfilePic = document.data()?["photo"] as? String
+                    let groupMembers = document.data()?["members"] as? [String]
                     DispatchQueue.main.async {
                         self.pendingRequest = DataSet.Request(
                             id: groupUUID,
                             name: groupName,
-                            photo: senderProfilePic
+                            photo: groupProfilePic,
+                            groupMembers: groupMembers
                         )
                     }
                     
@@ -204,26 +239,16 @@ struct OASISApp: App {
         let userRef = db.collection("users").document(currentUserID)
         let groupRef = db.collection("groups").document(groupUUID)
 
-        // Add user to group's member list
         groupRef.updateData(["members": FieldValue.arrayUnion([currentUserID])])
-
-        // Add group to user's groups list
         userRef.updateData(["groups": FieldValue.arrayUnion([groupUUID])])
         
         showRequestSheet = false
     }
 
-
     func rejectRequest(senderUUID: String) {
         showRequestSheet = false
     }
-
-    
-    
 }
-
-
-
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
@@ -232,7 +257,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         FirebaseApp.configure()
         AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
 
-        // Request push notification permissions
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if granted {
@@ -247,7 +271,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         return true
     }
     
-    // ✅ Handle receiving remote notifications and pass them to FirebaseAuth
     func application(_ application: UIApplication,
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
@@ -258,22 +281,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         completionHandler(.newData)
     }
 
-    // ✅ Handle successful push notification registration
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Auth.auth().setAPNSToken(deviceToken, type: .unknown)
     }
 
-    // ✅ Handle failed push notification registration
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("❌ Failed to register for remote notifications: \(error.localizedDescription)")
     }
 }
-
-//class AppState: ObservableObject {
-//    @Published var createPlaylist: Bool = false
-//}
 
 struct FriendRequestSheet:  View {
     let request: DataSet.Request
@@ -284,7 +301,7 @@ struct FriendRequestSheet:  View {
     var body: some View {
         Group {
             VStack {
-                Text(groupRequest ? "New Group Request" : "New Friend Request")
+                Text(groupRequest ? "Join Group?" : "New Friend Request")
                     .font(Font.system(size: 30))
                     .multilineTextAlignment(.center)
                     .padding()
@@ -345,25 +362,214 @@ struct FriendRequestSheet:  View {
     }
 }
 
-//struct FriendRequestSheetWrapper: View {
-//    @EnvironmentObject var data: DataSet
-//    @Binding var loggedIn: Bool
-//    @State var request: DataSet.FriendProfile
-//    
-//    @Binding var showFriendRequestSheet: Bool
-//    
-//    var body: some View {
-//        if loggedIn {
-//            FriendRequestSheet(request: request, onAccept: acceptFriendRequest, onReject: rejectFriendRequest)
-////            if let request = pendingFriendRequest {
-////                
-////            } else {
-////                Text("Loading...")
-////            }
-//        } else {
-//            AuthPage(loggedIn: $loggedIn)
-//        }
-//    }
-//    
-//    
-//}
+struct GroupRequestSheet:  View {
+    @EnvironmentObject var social: SocialViewModel
+    @EnvironmentObject var firestore: FirestoreViewModel
+    
+    let request: DataSet.Request
+    let onAccept: (String) -> Void
+    let onReject: (String) -> Void
+    
+    @Binding var showRequestSheet: Bool
+    
+    @State var members = Array<UserProfile>()
+    @State var isMembersLoading = true
+    
+    @State private var dummyPath = NavigationPath()
+    
+    var body: some View {
+        Group {
+            VStack {
+                Text(request.name)
+                    .font(Font.system(size: 30))
+                    .multilineTextAlignment(.center)
+                    .padding(.top)
+//                Group {
+                    SocialImage(imageURL: request.photo, name: request.name, frame: 130)
+                    .padding(5)
+                    
+//                }
+//                .padding(10)
+//                Text(request.name)
+//                    .font(Font.system(size: 25))
+////                    .padding()
+//                    .multilineTextAlignment(.center)
+//                    .padding(.bottom, 5)
+//                if !members.isEmpty {
+                VStack {
+                    if let memberIDs = request.groupMembers, !memberIDs.isEmpty {
+                        Group {
+                            HStack {
+                                Text("Members:")
+                                Spacer()
+                            }
+                            .padding(.leading, 10)
+                            if isMembersLoading {
+                                ProgressView()
+                            } else {
+                                ProfilesListed(navigationPath: $dummyPath, profiles: members, maxHeight: 225, allowNavigation: false)
+                                //                                .padding(.top, LIST_PADDING)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        
+                        
+                        
+                        
+                        
+//                        Group {
+//                            if isMembersLoading {
+//                                ProgressView()
+//                            } else {
+//                                if members.count > 4 {
+//                                    ScrollView(.horizontal) {
+//                                        LazyHStack {
+//                                            ForEach(Array(members.sorted(by: { $0.name < $1.name }))) { member in
+//                                                SocialImage(imageURL: member.profilePic, name: member.name, frame: 45)
+//                                                    .padding(.horizontal, 3)
+//                                            }
+//                                        }
+//                                    }
+//                                } else {
+//                                    HStack {
+//                                        ForEach(Array(members.sorted(by: { $0.name < $1.name }))) { member in
+//                                            SocialImage(imageURL: member.profilePic, name: member.name, frame: 45)
+//                                                .padding(.horizontal, 3)
+//                                        }
+//                                    }
+//                                }
+//                            }
+//                        }
+//                        .padding(5)
+//                        .frame(width: 270, height: 65)
+//                        //                    .background(
+//                        //                        RoundedRectangle(cornerRadius: 15)
+//                        //                            .fill(Color("BW Color Switch Reverse"))
+//                        //                            .shadow(color: .black, radius: 2, x: 0, y: 2)
+//                        //                    )
+//                        .overlay(
+//                            RoundedRectangle(cornerRadius: 10)
+//                                .stroke(.black, lineWidth: 1)
+//                        )
+                    }
+                }
+                .padding(.vertical, 5)
+                HStack {
+                    Button(action: {
+                        showRequestSheet = false
+                    }, label: {
+                        Text("Cancel")
+                            .frame(width: 120, height: 40)
+                            .background(Color.red)
+                            .foregroundStyle(.white)
+                            .cornerRadius(10)
+                            .shadow(radius: 5)
+                        
+                    })
+                    .padding(.horizontal, 10)
+                    Button(action: {
+                        Task { @MainActor in
+                            defer { showRequestSheet = false }
+
+                            do {
+                                try await firestore.joinGroup(groupID: request.id)
+                            } catch {
+                                print("Failed to join group:", error)
+                            }
+                        }
+//                        social.joinGroup(groupID: request.id)
+//                        onAccept(request.id)
+                    }, label: {
+                        Text("Join Group")
+                            .frame(width: 120, height: 40)
+                            .background(Color.green)
+                            .foregroundStyle(.white)
+                            .cornerRadius(10)
+                            .shadow(radius: 5)
+                        
+                    })
+                    .padding(.horizontal, 10)
+                }
+                .padding()
+                Spacer()
+                
+            }
+        }
+        .onAppear() {
+            isMembersLoading = true
+            if let memberIDs = request.groupMembers {
+                Task {
+                    do {
+                        members = try await social.fetchUsers(from: memberIDs)
+                        isMembersLoading = false
+                        //
+                    } catch {
+                        print("Error:", error)
+                        isMembersLoading = false
+                    }
+                }
+            } else {
+                isMembersLoading = false
+            }
+        }
+    }
+}
+
+extension View {
+    func withAppNavigationDestinations(navigationPath: Binding<NavigationPath>,
+                                       festivalVM: FestivalViewModel) -> some View {
+        self
+            .navigationDestination(for: UserProfile.self) { profile in
+                ProfilePage(navigationPath: navigationPath, profile: profile)
+            }
+            .navigationDestination(for: DataSet.Festival.self) { festival in
+                FestivalPage(navigationPath: navigationPath, currentFestival: festival)
+                    .environmentObject(festivalVM)
+            }
+            .navigationDestination(for: FestivalViewModel.FestivalNavTarget.self) { navTarget in
+                if navTarget.draftView {
+                    NewEventPage(festival: navTarget.festival, navigationPath: navigationPath)
+                        .environmentObject(festivalVM)
+                } else {
+                    FestivalPage(navigationPath: navigationPath, currentFestival: navTarget.festival, previewView: navTarget.previewView)
+                        .environmentObject(festivalVM)
+                }
+            }
+            .navigationDestination(for: DataSet.ArtistListStruct.self) { page in
+                ArtistList(navigationPath: navigationPath, titleText: page.titleText, artistList: page.list)
+                    .environmentObject(festivalVM)
+            }
+            .navigationDestination(for: DataSet.ArtistPageStruct.self) { page in
+                ArtistPage(currentArtist: page.artist,
+                           shuffleLable: page.shuffleTitle,
+                           shuffleList: page.shuffleList,
+                           navigationPath: navigationPath)
+                    .environmentObject(festivalVM)
+            }
+            .navigationDestination(for: SocialGroup.self) { group in
+                GroupPage(navigationPath: navigationPath, group: group)
+//                ProfilePage(navigationPath: navigationPath, profile: profile)
+            }
+            .navigationDestination(for: String.self) { value in
+                switch value {
+                case "Settings":
+                    SettingsHomePage()
+                case "Festival Settings":
+                    FestivalSettingsPage(navigationPath: navigationPath)
+                case "Favorites":
+                    ArtistList(navigationPath: navigationPath, titleText: "Favorites", artistList: festivalVM.getFavorites())
+                        .environmentObject(festivalVM)
+                case "FestivalView":
+                    FestivalPage(navigationPath: navigationPath)
+                        .environmentObject(festivalVM)
+                case "New Event":
+                    NewEventPage(festival: DataSet.Festival.newFestival(), navigationPath: navigationPath)
+                        .environmentObject(festivalVM)
+                default:
+                    SettingsPageOLD()
+                }
+            }
+    }
+}
+

@@ -19,6 +19,7 @@ struct OASISTitleComposable: View {
     var fontSize: CGFloat
     var kerning: CGFloat = 10
     var showSpinnerO: Bool
+    var isSource: Bool // <- NEW
 
     private let gradient = LinearGradient(
         gradient: Gradient(colors: [
@@ -37,17 +38,18 @@ struct OASISTitleComposable: View {
                 if showSpinnerO {
                     OASISSpinner()
                         .frame(width: fontSize * 0.66, height: fontSize * 0.66)
-                        .matchedGeometryEffect(id: "OASIS-O", in: namespace)
+                        .matchedGeometryEffect(id: "OASIS-O", in: namespace, isSource: isSource)
                 } else {
                     Text("O")
                         .font(.system(size: fontSize, weight: .bold))
-                        .matchedGeometryEffect(id: "OASIS-O", in: namespace)
+                        .matchedGeometryEffect(id: "OASIS-O", in: namespace, isSource: isSource)
+                        .offset(x: 5)
                 }
             }
             Text("ASIS")
                 .font(.system(size: fontSize, weight: .bold))
                 .kerning(kerning)
-                .matchedGeometryEffect(id: "OASIS-ASIS", in: namespace)
+                .matchedGeometryEffect(id: "OASIS-ASIS", in: namespace, isSource: isSource)
         }
         .foregroundStyle(gradient)
         .environment(\.oasisNamespace, namespace)

@@ -11,6 +11,7 @@ import FirebaseAuth
 struct CreatePage: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var festivalVM: FestivalViewModel
+    @EnvironmentObject var firestore: FirestoreViewModel
     
     @State private var navigationPath = NavigationPath()
     
@@ -51,6 +52,7 @@ struct CreatePage: View {
                         .padding(.bottom, 5)
                         Divider()
                         ZStack {
+//                            Color(.oasisLightBlue)
                             Color(red: 230/255, green: 240/255, blue: 255/255)
                                 .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
                             Group {
@@ -80,89 +82,17 @@ struct CreatePage: View {
                             }
                             .padding(.top, 5)
                         }
-                        //                    HStack {
-                        //                        Text("Create")
-                        //                            .font(Font.system(size: 40))
-                        //                            .padding(.bottom, 5)
-                        //                        Image(systemName: "wrench.and.screwdriver.fill")
-                        //                            .imageScale(.large)
-//                                                    .foregroundStyle(LinearGradient(gradient: Gradient(colors: [Color("OASIS Dark Orange"), Color("OASIS Light Orange"), Color("OASIS Light Blue"), Color("OASIS Dark Blue")]), startPoint: .topLeading, endPoint: .bottomTrailing))
-                        //                    }
-                        //                    Divider()
-                        
-                        //                    ZStack {
-                        //                        Color(red: 220/255, green: 225/255, blue: 230/255)
-                        //                            .edgesIgnoringSafeArea([.leading, .trailing])
-                        //                        ScrollView {
-                        //                            NavigationLink(value: "New Event") {
-                        //                                HStack {
-                        //                                    Text("New Event")
-                        //                                    Image(systemName: "plus.circle.fill")
-                        //                                }
-                        //                                .foregroundStyle(Color("OASIS Dark Orange"))
-                        //
-                        //                                .background(
-                        //                                    RoundedRectangle(cornerRadius: 20)
-                        //                                        .frame(width: 200, height: 50)
-                        //                                        .foregroundStyle(.white)
-                        //                                )
-                        //                                .frame(width: 200, height: 50)
-                        //                                .contentShape(Rectangle())
-                        //                                .padding(5)
-                        //                            }
-//                                                    FestivalsListed(festivalList: festivalDrafts, title: "Drafts")
-//                                                    FestivalsListed(festivalList: festivalsPublished, title: "Published")
-                        //                        }
-                        //                        .padding(.top, 10)
-                        //                    }
                     }
-                    .navigationDestination(for: DataSet.Festival.self) { festival in
-                        FestivalPage(navigationPath: $navigationPath, /*festivalVM: festivalVM,*/ currentFestival: festival)
-                            .environmentObject(festivalVM)
-                    }
-                    .navigationDestination(for: FestivalViewModel.FestivalNavTarget.self) { navTarget in
-                        if navTarget.draftView {
-                            NewEventPage(festival: navTarget.festival, /*festivalCreator: festivalVM,*/ /*festivalList: $festivalDrafts, */navigationPath: $navigationPath)
-                                .environmentObject(festivalVM)
-                        } else {
-                            FestivalPage(navigationPath: $navigationPath, /*festivalVM: festivalVM,*/ currentFestival: navTarget.festival, previewView: navTarget.previewView)
-                                .environmentObject(festivalVM)
-                        }
-                    }
-                    .navigationDestination(for: DataSet.ArtistListStruct.self) { page in
-//                        ArtistList(currDict: data.list, titleText: data.title, sortType: .alpha, subsectionLen: 1)
-                        ArtistList(navigationPath: $navigationPath, titleText: page.titleText, artistList: page.list)
-                            .environmentObject(festivalVM)
-                    }
-                    .navigationDestination(for: DataSet.ArtistPageStruct.self) { page in
-                        ArtistPage(currentArtist: page.artist,
-                                   shuffleLable: page.shuffleTitle,
-                                   shuffleList: page.shuffleList,
-                                   navigationPath: $navigationPath
-                        )
-                        .environmentObject(festivalVM)
-                    }
-//                    .navigationDestination(for: DataSet.artistNEW.self) { artist in
-//                        ArtistPage(currentArtist: artist, includeFavorites: true)
-//                    }
-                    .navigationDestination(for: String.self) { value in
-                        switch(value) {
-                        case "Settings":
-                            SettingsPage()
-                        case "Favorites":
-                            ArtistList(navigationPath: $navigationPath, titleText: "Favorites", artistList: festivalVM.getFavorites())
-                                .environmentObject(festivalVM)
-                        case "FestivalView":
-                            FestivalPage(navigationPath: $navigationPath/*, festivalVM: festivalVM*/)
-                                .environmentObject(festivalVM)
-                        case "New Event":
-                            NewEventPage(festival: DataSet.Festival.newFestival(), /*festivalCreator: festivalVM,*/ navigationPath: $navigationPath)
-                                .environmentObject(festivalVM)
-                        default:
-                            SettingsPage()
-                        }
-                    }
+                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
                     .onAppear() {
+                        if let id = firestore.getUserID() {
+                            for i in 0..<festivalVM.festivalDrafts.count {
+                                festivalVM.festivalDrafts[i].ownerID = id
+                            }
+                            for j in 0..<festivalVM.publishedFestivals.count {
+                                festivalVM.publishedFestivals[j].ownerID = id
+                            }
+                        }
                     }
 //                }
                 

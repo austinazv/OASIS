@@ -109,9 +109,15 @@ struct ArtistPage: View {
     var ArtistTitleBar: some View {
         Group {
             ZStack(alignment: .top) {
+//                Color(.gray)
+//                    .ignoresSafeArea()
                 VStack(alignment: .leading) {
                     HStack {
-                        ArtistImage(imageURL: currentArtist.imageURL, frame: 120)
+                        if let url = spotifyArtistURL(from: currentArtist.id) {
+                            Link(destination: url, label: {
+                                ArtistImage(imageURL: currentArtist.imageURL, frame: 120)
+                            })
+                        }
                         VStack {
                             HStack {
                                 Text(currentArtist.name)
@@ -287,6 +293,9 @@ struct ArtistPage: View {
                                 .frame(height: 25, alignment: .center)
                             Text("Page")
                             Spacer()
+                            Image("Spotify Image Black")
+                                .resizable()
+                                .frame(width: 22, height: 22, alignment: .center)
                             Image(systemName: "chevron.right")
                         }
                         .foregroundStyle(Color("BW Color Switch"))
@@ -526,40 +535,101 @@ struct ArtistPage: View {
         }
     }
     
+    let INFO_PADDING: CGFloat = 8
+    
     var ArtistDay: some View {
         Group {
             if let currFest = festivalVM.currentFestival {
-                HStack {
-                    Text("Day: ")
+                FlowLayout(spacing: 8) {
+                    Text("Day:")
+                        .padding(.vertical, INFO_PADDING)
                     if currentArtist.day == data.NA_TITLE_BLOCK {
                         Text("Unannounced")
+                            .padding(.vertical, INFO_PADDING)
                     } else {
-                        let dayList = festivalVM.getDayList(currArtist: currentArtist, currList: currFest.artistList, secondWeekend: currFest.secondWeekend)
-//                        NavigationLink(value: DataSet.ArtistListStruct(titleText: currentArtist.day, festival: currFest, list: dayList)) {
-                            Text(currentArtist.day)
-                                .foregroundStyle(.blue)
-                                .underline()
-                                .onTapGesture() {
-                                    navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.day, festival: currFest, list: dayList))
+                        Button {
+                            let dayList = festivalVM.getDayList(currArtist: currentArtist, currList: currFest.artistList, secondWeekend: currFest.secondWeekend)
+                            navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.day, festival: currFest, list: dayList)
+                            )
+                        } label: {
+                            HStack {
+                                Text(currentArtist.day)
+                                Image(systemName: "chevron.right")
+                            }
+                            .foregroundStyle(Color("OASIS Dark Orange"))
+                            .padding(INFO_PADDING)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color("BW Color Switch Reverse"))
+                                    .shadow(color: .black, radius: 1, x: 0, y: 2)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(.black, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        if currFest.secondWeekend && currentArtist.weekend != "Both" {
+                            Button {
+                                let weekendList = festivalVM.getWeekendList(weekend: currentArtist.weekend, currList: currFest.artistList)
+                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.weekend, festival: currFest, list: weekendList))
+                            } label: {
+                                HStack {
+                                    Text(currentArtist.weekend)
+                                    Image(systemName: "chevron.right")
                                 }
-//                        }
+                                .foregroundStyle(Color("OASIS Dark Orange"))
+                                .padding(INFO_PADDING)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color("BW Color Switch Reverse"))
+                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.black, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-//                    Spacer()
-//                    Divider()
-                    if currFest.secondWeekend && currentArtist.weekend != "Both" {
-//                        Text("Weekend: ")
-//                            .padding(.leading, 2)
-                        let weekendList = festivalVM.getWeekendList(weekend: currentArtist.weekend, currList: currFest.artistList)
-                            Text("(\(currentArtist.weekend))")
-                                .foregroundStyle(.blue)
-                                .underline()
-                                .onTapGesture() {
-                                    navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.weekend, festival: currFest, list: weekendList))
-                                }
-//                        }
-                    }
-                    Spacer()
                 }
+                
+                
+                
+                
+                
+//                HStack {
+//                    Text("Day: ")
+//                    if currentArtist.day == data.NA_TITLE_BLOCK {
+//                        Text("Unannounced")
+//                    } else {
+//                        let dayList = festivalVM.getDayList(currArtist: currentArtist, currList: currFest.artistList, secondWeekend: currFest.secondWeekend)
+////                        NavigationLink(value: DataSet.ArtistListStruct(titleText: currentArtist.day, festival: currFest, list: dayList)) {
+//                            Text(currentArtist.day)
+//                                .foregroundStyle(.blue)
+//                                .underline()
+//                                .onTapGesture() {
+//                                    navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.day, festival: currFest, list: dayList))
+//                                }
+////                        }
+//                    }
+////                    Spacer()
+////                    Divider()
+//                    if currFest.secondWeekend && currentArtist.weekend != "Both" {
+////                        Text("Weekend: ")
+////                            .padding(.leading, 2)
+//                        let weekendList = festivalVM.getWeekendList(weekend: currentArtist.weekend, currList: currFest.artistList)
+//                            Text("(\(currentArtist.weekend))")
+//                                .foregroundStyle(.blue)
+//                                .underline()
+//                                .onTapGesture() {
+//                                    navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.weekend, festival: currFest, list: weekendList))
+//                                }
+////                        }
+//                    }
+//                    Spacer()
+//                }
             }
         }
     }
@@ -568,21 +638,56 @@ struct ArtistPage: View {
         Group {
             if let currFest = festivalVM.currentFestival {
                 if festivalVM.listHasStages(currList: currFest.artistList, secondWeekend: currFest.secondWeekend) {
-                    HStack {
-                        Text("Stage: ")
+                    FlowLayout(spacing: 8) {
+                        Text("Stage:")
+                            .padding(.vertical, INFO_PADDING)
                         if currentArtist.stage == data.NA_TITLE_BLOCK {
                             Text("Unannounced")
+                                .padding(.vertical, INFO_PADDING)
                         } else {
-                            let stageList = festivalVM.getStageList(stage: currentArtist.stage, currList: currFest.artistList)
-                            Text(currentArtist.stage)
-                                .foregroundStyle(.blue)
-                                .underline()
-                                .onTapGesture() {
-                                    navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.stage, festival: currFest, list: stageList))
+                            Button {
+                                let stageList = festivalVM.getStageList(stage: currentArtist.stage, currList: currFest.artistList)
+                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.stage, festival: currFest, list: stageList))
+                            } label: {
+                                HStack {
+                                    Text(currentArtist.stage)
+                                    Image(systemName: "chevron.right")
                                 }
-                            //                        }
+                                .foregroundStyle(Color("OASIS Dark Orange"))
+                                .padding(INFO_PADDING)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color("BW Color Switch Reverse"))
+                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.black, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+//                            .onTapGesture {
+//                                let stageList = festivalVM.getStageList(stage: currentArtist.stage, currList: currFest.artistList)
+//                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.stage, festival: currFest, list: stageList))
+//                            }
                         }
                     }
+                    
+//                    HStack {
+//                        Text("Stage: ")
+//                        if currentArtist.stage == data.NA_TITLE_BLOCK {
+//                            Text("Unannounced")
+//                        } else {
+//                            let stageList = festivalVM.getStageList(stage: currentArtist.stage, currList: currFest.artistList)
+//                            Text(currentArtist.stage)
+//                                .foregroundStyle(.blue)
+//                                .underline()
+//                                .onTapGesture() {
+//                                    navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.stage, festival: currFest, list: stageList))
+//                                }
+//                            //                        }
+//                        }
+//                    }
                 }
             }
         }
@@ -592,16 +697,48 @@ struct ArtistPage: View {
         Group {
             if let currFest = festivalVM.currentFestival {
                 if currentArtist.tier != data.NA_TITLE_BLOCK {
-                    HStack {
-                        Text("Tier: ")
-                        let tierList = festivalVM.getTierList(tier: currentArtist.tier, currList: currFest.artistList)
-                        Text(currentArtist.tier)
-                            .foregroundStyle(.blue)
-                            .underline()
-                            .onTapGesture() {
-                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.tier, festival: currFest, list: tierList))
+                    FlowLayout(spacing: 8) {
+                        Text("Tier:")
+                            .padding(.vertical, INFO_PADDING)
+//                        ForEach(currentArtist.genres.sorted(), id: \.self) { genre in
+                        Button {
+                            let tierList = festivalVM.getTierList(tier: currentArtist.tier, currList: currFest.artistList)
+                            navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.tier, festival: currFest, list: tierList))
+                        } label: {
+                            HStack {
+                                Text(currentArtist.tier)
+                                Image(systemName: "chevron.right")
                             }
+                            .foregroundStyle(Color("OASIS Dark Orange"))
+                            .padding(INFO_PADDING)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color("BW Color Switch Reverse"))
+                                    .shadow(color: .black, radius: 1, x: 0, y: 2)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(.black, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+//                            .onTapGesture {
+//                                let tierList = festivalVM.getTierList(tier: currentArtist.tier, currList: currFest.artistList)
+//                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.tier, festival: currFest, list: tierList))
+//                            }
+//                        }
                     }
+                    
+//                    HStack {
+//                        Text("Tier: ")
+//                        let tierList = festivalVM.getTierList(tier: currentArtist.tier, currList: currFest.artistList)
+//                        Text(currentArtist.tier)
+//                            .foregroundStyle(.blue)
+//                            .underline()
+//                            .onTapGesture() {
+//                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.tier, festival: currFest, list: tierList))
+//                            }
+//                    }
                 }
             }
         }
@@ -611,29 +748,63 @@ struct ArtistPage: View {
         Group {
             if let currFest = festivalVM.currentFestival {
                 if !currentArtist.genres.isEmpty {
-                    HStack {
-                        WrappingHStack {
-                            Text("Genres: ")
-                            ForEach(currentArtist.genres.sorted(), id: \.self) { genre in
+                    FlowLayout(spacing: 8) {
+                        Text("Genres:")
+                            .padding(.vertical, INFO_PADDING)
+                        ForEach(currentArtist.genres.sorted(), id: \.self) { genre in
+                            Button {
                                 let genreList = festivalVM.getGenreList(genre: genre, currList: currFest.artistList)
-                                let genreText = genre + (genre == currentArtist.genres.max() ? "" : ", ")
-//                                HStack {
-                                    Text(genreText)
-//                                }
-                                    .foregroundStyle(.blue)
-                                    .underline()
-                                    .onTapGesture() {
-                                        navigationPath.append(DataSet.ArtistListStruct(titleText: genre, festival: currFest, list: genreList))
-                                    }
-                                if genre != currentArtist.genres.max() {
-                                    Text(" ")
+                                navigationPath.append(DataSet.ArtistListStruct(titleText: genre, festival: currFest, list: genreList))
+                            } label: {
+                                HStack {
+                                    Text(genre)
+                                    Image(systemName: "chevron.right")
                                 }
-                                //                                if genre != genres.max() {
-                                ////
-                                //                                }
+                                .foregroundStyle(Color("OASIS Dark Orange"))
+                                .padding(INFO_PADDING)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color("BW Color Switch Reverse"))
+                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.black, lineWidth: 1)
+                                )
                             }
+                            .buttonStyle(.plain)
+//                            .onTapGesture {
+//                                let genreList = festivalVM.getGenreList(genre: genre, currList: currFest.artistList)
+//                                navigationPath.append(DataSet.ArtistListStruct(titleText: genre, festival: currFest, list: genreList))
+//                            }
                         }
                     }
+                    
+                    
+                    
+//                    HStack {
+//                        WrappingHStack {
+//                            Text("Genres: ")
+//                            ForEach(currentArtist.genres.sorted(), id: \.self) { genre in
+//                                let genreList = festivalVM.getGenreList(genre: genre, currList: currFest.artistList)
+//                                let genreText = genre + (genre == currentArtist.genres.max() ? "" : ", ")
+////                                HStack {
+//                                    Text(genreText)
+////                                }
+//                                    .foregroundStyle(.blue)
+//                                    .underline()
+//                                    .onTapGesture() {
+//                                        navigationPath.append(DataSet.ArtistListStruct(titleText: genre, festival: currFest, list: genreList))
+//                                    }
+//                                if genre != currentArtist.genres.max() {
+//                                    Text(" ")
+//                                }
+//                                //                                if genre != genres.max() {
+//                                ////
+//                                //                                }
+//                            }
+//                        }
+//                    }
                 }
             }
         }
@@ -705,43 +876,50 @@ struct Triangle: Shape {
 struct ArtistImage: View {
     let imageURL: String
     let frame: CGFloat
-    
+    @State private var image: UIImage?
+
     var body: some View {
-        if let url = URL(string: imageURL) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .empty:
-                    // While loading
-                    Image(systemName: "person.crop.circle.fill")
-                        .resizable()
-                        .foregroundColor(.gray)
-                        .frame(width: frame, height: frame)
-                case .success(let image):
-                    // When successfully loaded
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: frame, height: frame)
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                case .failure(_):
-                    // If it fails
-                    Image(systemName: "person.crop.circle.fill.badge.exclam")
-                        .resizable()
-                        .foregroundColor(.red)
-                        .frame(width: frame, height: frame)
-                @unknown default:
-                    EmptyView()
-                }
+        Group {
+            if let image = image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: frame, height: frame)
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
+            } else {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .foregroundColor(.gray)
+                    .frame(width: frame, height: frame)
+                    .onAppear { loadImage() }
             }
-        } else {
-            // If imageURL is not a valid URL
-            Image(systemName: "person.crop.circle.fill")
-                .resizable()
-                .foregroundColor(.gray)
-                .frame(width: frame, height: frame)
+        }
+        .onChange(of: imageURL) { _ in
+            image = nil
         }
     }
+
+    private func loadImage() {
+        // 1. Cached?
+        if let cached = ImageCache.shared.getCachedImage(for: imageURL) {
+            image = cached
+            return
+        }
+
+        // 2. Remote fetch
+        guard let url = URL(string: imageURL) else { return }
+
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            if let data = data, let img = UIImage(data: data) {
+//                ImageCache.shared.cacheImage(data, for: imageURL)
+                DispatchQueue.main.async {
+                    self.image = img
+                }
+            }
+        }.resume()
+    }
 }
+
 
 struct WrappingHStack: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

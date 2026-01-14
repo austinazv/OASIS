@@ -20,7 +20,6 @@ struct SpotifyPage: View {
             }
             Spacer()
                 Button(action: {
-                    
                 }, label: {
                     Text("Log In")
                         .frame(width: 100, height: 40)

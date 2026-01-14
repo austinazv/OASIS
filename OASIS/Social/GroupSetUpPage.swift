@@ -32,7 +32,7 @@ struct GroupSetUpPage: View {
 
     var body: some View {
         if setupDone {
-            GroupPage(navigationPath: $navigationPath, group: self.createdGroup!).environmentObject(data)
+//            GroupPage(navigationPath: $navigationPath, group: self.createdGroup!).environmentObject(data)
         } else {
             ZStack {
                 GroupNameField
