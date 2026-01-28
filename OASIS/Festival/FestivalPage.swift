@@ -10,6 +10,7 @@ import UIKit
 import MapKit
 import EventKit
 import EventKitUI
+import PhotosUI
 
 struct FestivalPage: View {
     @EnvironmentObject var data: DataSet
@@ -52,6 +53,7 @@ struct FestivalPage: View {
                                 }
                                 FavoritesSection
                                 ShuffleBySection
+                                WebsiteSection
                                 InfoSection
                                 Spacer()
                             }
@@ -371,6 +373,7 @@ struct FestivalPage: View {
                     Image(systemName: "square.and.arrow.up")
                         .imageScale(.large)
                         .foregroundStyle(.blue)
+                        .offset(y: -3)
                 }
                 .frame(height: LARGE_BUTTON_HEIGHT/1.3)
                 
@@ -462,19 +465,36 @@ struct FestivalPage: View {
     
     var FavoritesSection: some View {
         VStack(spacing: 0) {
-            MyFavoritesButton
-            Divider()
-            FriendsFavoritesButton
+                MyFavoritesButton
+                Divider()
+                HStack(spacing: 0) {
+                    FriendsFavoritesButton
+                        .layoutPriority(showFriendList ? 1 : 0)
+                    if !friendsFavs.isEmpty && !groupFavorites.isEmpty {
+                        Divider()
+                    }
+                    GroupFavoritesButton
+                        .layoutPriority(showGroupList ? 1 : 0)
+                }
+//            .background(
+//                    RoundedRectangle(cornerRadius: CORNER_RADIUS)
+//                        .fill(Color(.systemBackground))
+//                        .shadow(radius: SHADOW)
+//                )
+            ShowFriendsOrGroups
         }
+        .compositingGroup()
+        .shadow(radius: SHADOW)
         .animation(.easeInOut, value: showFriendList)
         .padding(10)
+//        .shadow(radius: SHADOW)
     }
     
     
     
     var MyFavoritesButton: some View {
         Group {
-            let lastSectionBool: Bool = friendsFavs.isEmpty
+            let lastSectionBool: Bool = friendsFavs.isEmpty && groupFavorites.isEmpty
             if !festivalVM.favoriteList.isEmpty {
                 NavigationLink(value: "Favorites") {
                     ZStack {
@@ -484,7 +504,7 @@ struct FestivalPage: View {
                                                topTrailingRadius: CORNER_RADIUS,
                                                style: .continuous)
                         .foregroundStyle(Color("BW Color Switch Reverse"))
-                        .shadow(radius: SHADOW)
+//                        .shadow(radius: SHADOW)
                         HStack{
                             Spacer()
                             Text("My Favorites")
@@ -505,7 +525,7 @@ struct FestivalPage: View {
                                            topTrailingRadius: CORNER_RADIUS,
                                            style: .continuous)
                         .foregroundStyle(Color("BW Color Switch Reverse"))
-                        .shadow(radius: SHADOW)
+//                        .shadow(radius: SHADOW)
                     HStack{
                         Spacer()
                         Text("No Favorites Yet")
@@ -520,82 +540,229 @@ struct FestivalPage: View {
             }
         }
         .task {
-            await MainActor.run {
-                isLoadingFriends = true
-            }
-            defer {
-                Task { @MainActor in
-                    isLoadingFriends = false
-                }
-            }
-
+            loadGroups()
+        }
+        .onChange(of: firestore.mySocialGroups) { _ in
+            loadGroups()
+        }
+//        .onChange(of: friendsFavs) { newFriends in
+//            if !newFriends.isEmpty {
+//                withAnimation {
+//                    showFriends = true
+//                }
+//            } else {
+//                withAnimation {
+//                    showFriends = false
+//                }
+//            }
+//        }
+    }
+    
+    func loadGroups() {
+        Task {
+            isLoadingFriends = true
+            defer { isLoadingFriends = false }
+            
             let following = await firestore.users(from: firestore.myUserProfile.safeFollowing)
             let festivalID = currentFestival.id.uuidString
-
+            
             let newFriendFavs: [UserProfile: [String]] = Dictionary(
                 uniqueKeysWithValues: following.compactMap { user in
-                    guard let fav = user.festivalFavorites?[festivalID] else { return nil }
+                    guard let fav = user.festivalFavorites?[festivalID], !fav.isEmpty else { return nil }
                     return (user, fav)
                 }
             )
+            
+            var results: [GroupFestivalFavorites] = []
+            
+            for group in firestore.mySocialGroups where group.festivals.contains(festivalID) {
 
+                let users = await firestore.users(from: group.members)
+
+                var artistToUsers: [String: Set<String>] = [:]
+
+                for user in users {
+                    guard
+                        let favs = user.safeFestivalFavorites[festivalID],
+                        !favs.isEmpty
+                    else { continue }
+
+                    for artistID in favs {
+                        artistToUsers[artistID, default: []].insert(user.id!)
+                    }
+                }
+
+                let artistFavorites = artistToUsers.map { artistID, userSet in
+                    UserFestivalFavorites(
+                        artistID: artistID,
+                        userIDs: Array(userSet)
+                    )
+                }
+
+                if !artistFavorites.isEmpty {
+                    results.append(
+                        GroupFestivalFavorites(
+                            group: group,
+                            users: artistFavorites
+                        )
+                    )
+                }
+            }
+            
             await MainActor.run {
                 friendsFavs = newFriendFavs
-                print(friendsFavs)
-            }
-        }
-
-//        .onAppear() {
-//            Task {
-//                let result = await firestore.fetchFriendsFestivalFavs(
-//                    festivalID: currentFestival.id.uuidString,
-//                    friendIDs: firestore.myUserProfile.safeFollowing
-//                )
-//                await MainActor.run {
-//                    self.friendsFavs = result
-//                }
-////                for group in firestore.myUserProfile.groups {
-//                    //TODO:
-////                }
-//            }
-//        }
-        .onChange(of: friendsFavs) { newFriends in
-            if !newFriends.isEmpty {
-                withAnimation {
-                    showFriends = true
-                }
-            } else {
-                withAnimation {
-                    showFriends = false
-                }
+                groupFavorites = results
+//                print("GROUP FAVS: \(groupFavorites)")
             }
         }
     }
     
+
+    
+    
     @State var isLoadingFriends = false
-    @State var showFriends = false
+//    @State var showFriends = true
+
     @State var showFriendList = false
     @State var friendsFavs = [UserProfile : [String]]()
-    @State var groupFavorites = [[UserProfile : [String]]]()
+//    @State var groupFavorites = [[UserProfile : [String]]]()
+    
     
     
     var FriendsFavoritesButton: some View {
         Group {
-            if showFriends {
-                VStack(spacing: 0) {
-                    let lastSectionBool: Bool = true
+            if !friendsFavs.isEmpty {
+//                VStack(spacing: 0) {
+//                    let roundedBottomRectangle = !showFriendList/* && !showGroupList*/
                     ZStack {
-                        UnevenRoundedRectangle(bottomLeadingRadius: lastSectionBool && !showFriendList ? CORNER_RADIUS : 0,
-                                               bottomTrailingRadius: lastSectionBool && !showFriendList ? CORNER_RADIUS : 0,
+                        UnevenRoundedRectangle(bottomLeadingRadius: /*!showFriendList ? */CORNER_RADIUS/* : 0*/,
+                                               bottomTrailingRadius: groupFavorites.isEmpty /*&& !showFriendList*/ ? CORNER_RADIUS : 0,
                                                style: .continuous)
                         .foregroundStyle(Color("BW Color Switch Reverse"))
+//                        .shadow(radius: showFriendList ? 5 : 0)
                         HStack {
                             Image(systemName: showFriendList ? "chevron.up" : "chevron.down")
-                            Spacer()
-                            Text("Friends' Favorites")
-                            Image(systemName: "person.2.fill")
-                            Spacer()
+                            if !showGroupList {
+                                Spacer()
+                                Text("Friends")
+                                Image(systemName: "person.2.fill")
+                                Spacer()
+                            } else {
+                                Image(systemName: "person.2.fill")
+                            }
                             Image(systemName: showFriendList ? "chevron.up" : "chevron.down")
+                        }
+                        .padding(.horizontal, 15)
+                    }
+                    .foregroundStyle(Color("BW Color Switch"))
+                    .transaction { $0.animation = nil }
+                    .frame(height: SMALL_BUTTON_HEIGHT)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation {
+                            showFriendList.toggle()
+                            showGroupList = false
+                            closeInfoSection()
+                        }
+                    }
+                    .foregroundStyle(Color("BW Color Switch"))
+//                    if showGroupList {
+//                        Divider().padding(.leading, 40)
+//                    }
+//                    if showFriendList {
+//                        VStack (spacing: 1) {
+//                            ForEach(Array(friendsFavs.keys.sorted(by: { $0.name < $1.name }).enumerated()), id: \.element.id) { index, profile in
+//                                NavigationLink(value: DataSet.ArtistListStruct(titleText: "\(profile.name)'s Favorites",
+//                                                                               festival: currentFestival,
+//                                                                               list: festivalVM.getArtistListFromID(artistIDs: friendsFavs[profile]!, festival: currentFestival))) {
+//                                    ZStack {
+//                                        let lastFriendBool = (index == friendsFavs.keys.count - 1) && groupFavorites.isEmpty
+//                                        UnevenRoundedRectangle(bottomLeadingRadius: lastFriendBool ? CORNER_RADIUS : 0,
+//                                                               bottomTrailingRadius: lastFriendBool ? CORNER_RADIUS : 0,
+//                                                               style: .continuous)
+//                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+//                                        HStack {
+//                                            Spacer()
+//                                            SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 30)
+//                                            Text(profile.name)
+//                                            Image(systemName: "chevron.right")
+//                                            Spacer()
+//                                        }
+//                                    }
+//                                    .padding(.horizontal, 20)
+//                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+//                                    .buttonStyle(PlainButtonStyle())
+//                                    
+//                                }
+//                            }
+//                            
+//                            //                            ForEach(data.sortByTier(tiers: Array(tierDict.keys)), id: \.self) { tier in
+//                            //                                NavigationLink(value: DataSet.ArtistListStruct(titleText: tier, festival: currentFestival, list: tierDict[tier]!)) {
+//                            //                                    ZStack {
+//                            //                                        let finalCategoryBool: Bool = (tierAccordian && tier == tierDict.keys.sorted().last!)
+//                            //                                        UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
+//                            //                                                               bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
+//                            //                                                               style: .continuous)
+//                            //                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+//                            //                                        HStack {
+//                            //                                            Spacer()
+//                            //                                            Text(tier)
+//                            //                                            Image(systemName: "chevron.right")
+//                            //                                            Spacer()
+//                            //                                        }
+//                            //
+//                            //                                    }
+//                            //                                    //                            }
+//                            //                                    .padding(.horizontal, 20)
+//                            //                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+//                            //                                    .buttonStyle(PlainButtonStyle())
+//                            //                                }
+//                            //                            }
+//                        }
+//                        .padding(.vertical, 1)
+//                        .scaleEffect(showFriendList ? 1 : 0.95, anchor: .top)
+//                        .opacity(showFriendList ? 1 : 0)
+//                        .animation(.easeInOut(duration: 0.3), value: showFriendList)
+//                    }
+//                }
+                
+                
+//                .scaleEffect(showFriends ? 1 : 0.95, anchor: .top)
+//                .opacity(showFriends ? 1 : 0)
+//                .animation(.easeInOut(duration: 0.3), value: showFriends)
+            }
+        }
+    }
+    
+//    @State var isLoadingFriends = false
+//    @State var showFriends = true
+    @State var showGroupList = false
+    @State var groupFavorites: [GroupFestivalFavorites] = []
+    
+    var GroupFavoritesButton: some View {
+        Group {
+            if !groupFavorites.isEmpty {
+//                VStack(spacing: 0) {
+//                    let bottomRoundedBool = (groupFavorites.count == 1 || !showGroupList)
+//                    let roundedBottomRectangle = /*!showFriendList &&*/ !showGroupList
+                    ZStack {
+                        UnevenRoundedRectangle(bottomLeadingRadius: friendsFavs.isEmpty /*&& !showGroupList*/ ? CORNER_RADIUS : 0,
+                                               bottomTrailingRadius: /*!showGroupList ? */CORNER_RADIUS/* : 0*/,
+//                                               topTrailingRadius: 0,
+                                               style: .continuous)
+                        .foregroundStyle(Color("BW Color Switch Reverse"))
+//                        .shadow(radius: showGroupList ? 5 : 0)
+                        HStack {
+                            Image(systemName: showGroupList ? "chevron.up" : "chevron.down")
+                            if !showFriendList {
+                                Spacer()
+                                Text("Groups")
+                                Image(systemName: "person.3.fill")
+                                Spacer()
+                            } else {
+                                Image(systemName: "person.3.fill")
+                            }
+                            Image(systemName: showGroupList ? "chevron.up" : "chevron.down")
                         }
                         .padding(.horizontal, 15)
                     }
@@ -604,74 +771,181 @@ struct FestivalPage: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         withAnimation {
-                            showFriendList.toggle()
+                            showGroupList.toggle()
+                            showFriendList = false
+                            closeInfoSection()
                         }
                     }
-                    if showFriendList {
-                        VStack (spacing: 1) {
-                            ForEach(Array(friendsFavs.keys.sorted(by: { $0.name < $1.name }).enumerated()), id: \.element.id) { index, profile in
-                                NavigationLink(value: DataSet.ArtistListStruct(titleText: "\(profile.name)'s Favorites",
-                                                                               festival: currentFestival,
-                                                                               list: festivalVM.getArtistListFromID(artistIDs: friendsFavs[profile]!, festival: currentFestival))) {
-                                    ZStack {
-                                        let lastFriendBool = (index == friendsFavs.keys.count - 1)
-                                        UnevenRoundedRectangle(bottomLeadingRadius: lastFriendBool ? CORNER_RADIUS : 0,
-                                                               bottomTrailingRadius: lastFriendBool ? CORNER_RADIUS : 0,
-                                                               style: .continuous)
-                                        .foregroundStyle(Color("BW Color Switch Reverse"))
-                                        HStack {
-                                            Spacer()
-                                            SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 30)
-                                            Text(profile.name)
-                                            Image(systemName: "chevron.right")
-                                            Spacer()
-                                        }
-                                    }
-                                    .padding(.horizontal, 20)
-                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
-                                    .buttonStyle(PlainButtonStyle())
-                                    
-                                }
-                            }
-                            
-                            //                            ForEach(data.sortByTier(tiers: Array(tierDict.keys)), id: \.self) { tier in
-                            //                                NavigationLink(value: DataSet.ArtistListStruct(titleText: tier, festival: currentFestival, list: tierDict[tier]!)) {
-                            //                                    ZStack {
-                            //                                        let finalCategoryBool: Bool = (tierAccordian && tier == tierDict.keys.sorted().last!)
-                            //                                        UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
-                            //                                                               bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
-                            //                                                               style: .continuous)
-                            //                                        .foregroundStyle(Color("BW Color Switch Reverse"))
-                            //                                        HStack {
-                            //                                            Spacer()
-                            //                                            Text(tier)
-                            //                                            Image(systemName: "chevron.right")
-                            //                                            Spacer()
-                            //                                        }
-                            //
-                            //                                    }
-                            //                                    //                            }
-                            //                                    .padding(.horizontal, 20)
-                            //                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
-                            //                                    .buttonStyle(PlainButtonStyle())
-                            //                                }
-                            //                            }
-                        }
-                        .padding(.vertical, 1)
-                        .scaleEffect(showFriendList ? 1 : 0.95, anchor: .top)
-                        .opacity(showFriendList ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.3), value: showFriendList)
-                    }
-                }
-                .foregroundStyle(Color("BW Color Switch"))
-                .shadow(radius: 0)
-                .scaleEffect(showFriends ? 1 : 0.95, anchor: .top)
-                .opacity(showFriends ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: showFriends)
+                    .foregroundStyle(Color("BW Color Switch"))
+//                    if showGroupList {
+////                        Divider()
+//                        Rectangle()
+//                            .frame(height: 2)
+//                            .foregroundStyle(.red)
+//                            
+//                    }
+//                    if showGroupList {
+//                        VStack (spacing: 1) {
+////                            ForEach(Array(groupFavorites.sorted(by: { $0.group.name })))
+//                            ForEach(Array(groupFavorites.sorted(by: { $0.group.name < $1.group.name }).enumerated()), id: \.offset) { index, groupFestFav in
+////                                groupFestFav.
+//                                NavigationLink(value: DataSet.ArtistListStruct(titleText: "\(groupFestFav.group.name)'s Favorites",
+//                                                                               festival: currentFestival,
+//                                                                               list: festivalVM.getArtistListFromID(artistIDs: groupFestFav.users.flatMap { $0.artistIDs }, festival: currentFestival))) {
+//                                    ZStack {
+//                                        let lastGroupBool = (index == groupFavorites.count - 1)
+//                                        UnevenRoundedRectangle(
+////                                            topLeadingRadius: 0,
+//                                            bottomLeadingRadius: lastGroupBool ? CORNER_RADIUS : 0,
+//                                            bottomTrailingRadius: lastGroupBool ? CORNER_RADIUS : 0,
+////                                            topTrailingRadius: 0,
+//                                            style: .continuous)
+//                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+//                                        HStack {
+//                                            Spacer()
+//                                            SocialImage(imageURL: groupFestFav.group.photo, name: groupFestFav.group.name, frame: 30)
+//                                            Text(groupFestFav.group.name)
+//                                            Image(systemName: "chevron.right")
+//                                            Spacer()
+//                                        }
+//                                    }
+//                                    .padding(.horizontal, 20)
+//                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+//                                    .buttonStyle(PlainButtonStyle())
+//                                    
+//                                }
+//                            }
+//                        }
+//                        .padding(.vertical, 1)
+//                        .scaleEffect(showGroupList ? 1 : 0.95, anchor: .top)
+//                        .opacity(showGroupList ? 1 : 0)
+//                        .animation(.easeInOut(duration: 0.3), value: showGroupList)
+//                    }
+//                }
+                
+//                .shadow(radius: showGroupList ? 5 : 0)
+//                .scaleEffect(showFriends ? 1 : 0.95, anchor: .top)
+//                .opacity(showFriends ? 1 : 0)
+//                .animation(.easeInOut(duration: 0.3), value: showFriends)
             }
         }
     }
     
+    let SIDE_BUFFER: CGFloat = 30
+    
+    var ShowFriendsOrGroups: some View {
+        VStack(spacing: 0) {
+            if showFriendList {
+                VStack (spacing: 0) {
+                    Divider()
+                    ForEach(Array(friendsFavs.keys.sorted(by: { $0.name < $1.name }).enumerated()), id: \.element.id) { index, profile in
+                        NavigationLink(value: DataSet.ArtistListStruct(titleText: "\(profile.name)'s Favorites",
+                                                                       festival: currentFestival,
+                                                                       list: festivalVM.getArtistListFromID(artistIDs: friendsFavs[profile]!, festival: currentFestival))) {
+                            ZStack {
+                                let lastFriendBool = (index == friendsFavs.keys.count - 1) /*&& groupFavorites.isEmpty*/
+                                UnevenRoundedRectangle(bottomLeadingRadius: lastFriendBool ? CORNER_RADIUS : 0,
+                                                       bottomTrailingRadius: lastFriendBool ? CORNER_RADIUS : 0,
+                                                       style: .continuous)
+                                .foregroundStyle(Color("BW Color Switch Reverse"))
+                                //                                .shadow(radius: showFriendList ? 5 : 0)
+                                HStack {
+                                    Spacer()
+                                    SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 30)
+                                    Text(profile.name)
+                                    Image(systemName: "chevron.right")
+                                    Spacer()
+                                }
+                            }
+                            
+                            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                            .buttonStyle(PlainButtonStyle())
+                            
+                        }
+                        if index < friendsFavs.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+//                .padding(.vertical, 1)
+//                .padding(.leading, groupFavorites.isEmpty ? 20 : 0)
+//                .padding(.trailing, groupFavorites.isEmpty ? 20 : SIDE_BUFFER)
+//                .background(
+//                    UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: CORNER_RADIUS, bottomTrailingRadius: CORNER_RADIUS, topTrailingRadius: 0, style: .continuous)
+////                        UnevenRoundedRectangle(cornerRadius: CORNER_RADIUS)
+//                            .fill(Color(.systemBackground))
+//                            .shadow(radius: SHADOW, x: 0, y: SHADOW)
+//                    )
+                .padding(.horizontal, SIDE_BUFFER)
+                .scaleEffect(showFriendList ? 1 : 0.95, anchor: .top)
+                .opacity(showFriendList ? 1 : 0)
+                .animation(.easeInOut(duration: 0.3), value: showFriendList)
+            } else if showGroupList {
+                VStack (spacing: 0) {
+                    Divider()
+//                            ForEach(Array(groupFavorites.sorted(by: { $0.group.name })))
+                    ForEach(Array(groupFavorites.sorted(by: { $0.group.name < $1.group.name }).enumerated()), id: \.offset) { index, groupFestFav in
+                        let artistList = festivalVM.getArtistListFromID(artistIDs: groupFestFav.users.map { $0.artistID },
+                                                                        festival: currentFestival)
+                        
+                        NavigationLink(value: DataSet.ArtistListStruct(titleText: "\(groupFestFav.group.name)'s Favorites",
+                                                                       festival: currentFestival,
+                                                                       list: artistList,
+                                                                       groupFavs: groupFestFav.users
+                                                                      )) {
+                            ZStack {
+                                let lastGroupBool = (index == groupFavorites.count - 1)
+                                UnevenRoundedRectangle(
+                                    //                                            topLeadingRadius: 0,
+                                    bottomLeadingRadius: lastGroupBool ? CORNER_RADIUS : 0,
+                                    bottomTrailingRadius: lastGroupBool ? CORNER_RADIUS : 0,
+                                    //                                            topTrailingRadius: 0,
+                                    style: .continuous)
+                                .foregroundStyle(Color("BW Color Switch Reverse"))
+                                //                                .shadow(radius: showGroupList ? 5 : 0)
+                                HStack {
+                                    Spacer()
+                                    SocialImage(imageURL: groupFestFav.group.photo, name: groupFestFav.group.name, frame: 30)
+                                    Text(groupFestFav.group.name)
+                                    Image(systemName: "chevron.right")
+                                    Spacer()
+                                }
+                            }
+                            
+                            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                            .buttonStyle(PlainButtonStyle())
+                            
+                        }
+                        if index < groupFavorites.count - 1 {
+                            Divider()
+                        }
+                    }
+                    
+                }
+//                .padding(.vertical, 1)
+//                .padding(.leading, friendsFavs.isEmpty ? 20 : SIDE_BUFFER)
+//                .padding(.trailing, friendsFavs.isEmpty ? 20 : 0)
+                .padding(.horizontal, SIDE_BUFFER)
+//                .padding(.leading, 40)
+                .scaleEffect(showGroupList ? 1 : 0.95, anchor: .top)
+                .opacity(showGroupList ? 1 : 0)
+                .animation(.easeInOut(duration: 0.3), value: showGroupList)
+            }
+        }
+        .foregroundStyle(.black)
+    }
+    
+    func closeInfoSection() {
+        genreAccordian = false
+        dayAccordian = false
+        stageAccordian = false
+        tierAccordian = false
+    }
+    
+    func closeFavoritesSection() {
+        showFriendList = false
+        showGroupList = false
+    }
     
     var ArtistListButton: some View {
         Group {
@@ -696,6 +970,7 @@ struct FestivalPage: View {
                 .padding(10)
             }
         }
+        
     }
     
     var ShuffleAllButton: some View {
@@ -763,11 +1038,14 @@ struct FestivalPage: View {
             .padding(10)
             
         }
+        .compositingGroup()
+        .shadow(radius: SHADOW)
         .animation(.easeInOut, value: genreAccordian)
         .animation(.easeInOut, value: dayAccordian)
         .animation(.easeInOut, value: stageAccordian)
         .animation(.easeInOut, value: tierAccordian)
-        .shadow(radius: SHADOW)
+//        .shadow(radius: SHADOW)
+        .shadow(radius: 0)
         .onAppear() {
             let genres = festivalVM.sortGenre(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
             topGenresDict = genres.topGenres
@@ -776,6 +1054,7 @@ struct FestivalPage: View {
             stageDict = festivalVM.sortStage(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
             tierDict = festivalVM.sortTier(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
         }
+        
     }
         
     var SortByGenre: some View {
@@ -783,8 +1062,8 @@ struct FestivalPage: View {
             let finalSectionBool: Bool = (dayDict.count < 2 && stageDict.isEmpty && tierDict.isEmpty)
             ZStack {
                 UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS,
-                                       bottomLeadingRadius: (finalSectionBool && !genreAccordian) ? CORNER_RADIUS : 0,
-                                       bottomTrailingRadius: (finalSectionBool && !genreAccordian) ? CORNER_RADIUS : 0,
+                                       bottomLeadingRadius: (finalSectionBool /*&& !genreAccordian*/) ? CORNER_RADIUS : 0,
+                                       bottomTrailingRadius: (finalSectionBool /*&& !genreAccordian*/) ? CORNER_RADIUS : 0,
                                        topTrailingRadius: CORNER_RADIUS,
                                        style: .continuous)
                 .foregroundStyle(Color("BW Color Switch Reverse"))
@@ -807,6 +1086,7 @@ struct FestivalPage: View {
                     dayAccordian = false
                     stageAccordian = false
                     tierAccordian = false
+                    closeFavoritesSection()
                 }
             }
             if genreAccordian {
@@ -856,7 +1136,7 @@ struct FestivalPage: View {
                     
                 }
                 .padding(.vertical, 1)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, SIDE_BUFFER)
                 .scaleEffect(genreAccordian ? 1 : 0.95, anchor: .top)
                 .opacity(genreAccordian ? 1 : 0)
                 .animation(.easeInOut(duration: 0.3), value: genreAccordian)
@@ -873,8 +1153,8 @@ struct FestivalPage: View {
             ZStack {
                 
                 UnevenRoundedRectangle(topLeadingRadius: firstSectionBool ? CORNER_RADIUS : 0,
-                                       bottomLeadingRadius: (finalSectionBool && !dayAccordian) ? CORNER_RADIUS : 0,
-                                       bottomTrailingRadius: (finalSectionBool && !dayAccordian) ? CORNER_RADIUS : 0,
+                                       bottomLeadingRadius: (finalSectionBool /*&& !dayAccordian*/) ? CORNER_RADIUS : 0,
+                                       bottomTrailingRadius: (finalSectionBool /*&& !dayAccordian*/) ? CORNER_RADIUS : 0,
                                        topTrailingRadius: firstSectionBool ? CORNER_RADIUS : 0,
                                        style: .continuous)
                 .foregroundStyle(Color("BW Color Switch Reverse"))
@@ -898,6 +1178,7 @@ struct FestivalPage: View {
                     dayAccordian.toggle()
                     stageAccordian = false
                     tierAccordian = false
+                    closeFavoritesSection()
                 }
             }
             if dayAccordian {
@@ -923,7 +1204,7 @@ struct FestivalPage: View {
                                     Spacer()
                                 }
                             }
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, SIDE_BUFFER)
                             .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                             .buttonStyle(PlainButtonStyle())
                         }
@@ -966,8 +1247,8 @@ struct FestivalPage: View {
             let finalSectionBool: Bool = tierDict.isEmpty
             ZStack {
                 UnevenRoundedRectangle(topLeadingRadius: firstSectionBool ? CORNER_RADIUS : 0,
-                                       bottomLeadingRadius: (finalSectionBool && !stageAccordian) ? CORNER_RADIUS : 0,
-                                       bottomTrailingRadius: (finalSectionBool && !stageAccordian) ? CORNER_RADIUS : 0,
+                                       bottomLeadingRadius: (finalSectionBool /*&& !stageAccordian*/) ? CORNER_RADIUS : 0,
+                                       bottomTrailingRadius: (finalSectionBool /*&& !stageAccordian*/) ? CORNER_RADIUS : 0,
                                        topTrailingRadius: firstSectionBool ? CORNER_RADIUS : 0,
                                        style: .continuous)
                 //                UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS, topTrailingRadius: CORNER_RADIUS, style: .continuous)
@@ -992,6 +1273,7 @@ struct FestivalPage: View {
                     dayAccordian = false
                     stageAccordian.toggle()
                     tierAccordian = false
+                    closeFavoritesSection()
                 }
             }
             //            Divider()
@@ -1013,7 +1295,7 @@ struct FestivalPage: View {
                                     Spacer()
                                 }
                             }
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, SIDE_BUFFER)
                             .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                             .buttonStyle(PlainButtonStyle())
                         }
@@ -1036,8 +1318,8 @@ struct FestivalPage: View {
             let firstSectionBool: Bool = (allGenresDict.isEmpty && dayDict.count < 2 && stageDict.isEmpty)
             ZStack {
                 UnevenRoundedRectangle(topLeadingRadius: firstSectionBool ? CORNER_RADIUS : 0,
-                                       bottomLeadingRadius: tierAccordian ? 0 : CORNER_RADIUS,
-                                       bottomTrailingRadius: tierAccordian ? 0 : CORNER_RADIUS,
+                                       bottomLeadingRadius: /*tierAccordian ? 0 : */CORNER_RADIUS,
+                                       bottomTrailingRadius: /*tierAccordian ? 0 : */CORNER_RADIUS,
                                        topTrailingRadius: firstSectionBool ? CORNER_RADIUS : 0,
                                        style: .continuous)
                 .foregroundStyle(Color("BW Color Switch Reverse"))
@@ -1060,6 +1342,7 @@ struct FestivalPage: View {
                     dayAccordian = false
                     stageAccordian = false
                     tierAccordian.toggle()
+                    closeFavoritesSection()
                 }
             }
             if tierAccordian {
@@ -1081,7 +1364,7 @@ struct FestivalPage: View {
                                 
                             }
                             //                            }
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, SIDE_BUFFER)
                             .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                             .buttonStyle(PlainButtonStyle())
                         }
@@ -1119,17 +1402,36 @@ struct FestivalPage: View {
             .padding(.top, 5)
             .padding(.bottom, 15)
         }
-        
     }
     
-    
-    
-    
-    
-
-//
-    
-    
+    var WebsiteSection: some View {
+        Group {
+            if let urlString = currentFestival.website, let URL = URL(string: toHttpWww(urlString)) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: CORNER_RADIUS)
+                    .foregroundStyle(Color("BW Color Switch Reverse"))
+                    .shadow(radius: SHADOW)
+                    HStack{
+                        Spacer()
+                        Text("Website")
+                        Image(systemName: "network")
+                            .imageScale(.large)
+                        Spacer()
+                    }
+                    .foregroundStyle(Color("BW Color Switch"))
+                }
+                .transaction { $0.animation = nil }
+                .frame(height: SMALL_BUTTON_HEIGHT)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    UIApplication.shared.open(URL)
+                }
+                .foregroundStyle(Color("BW Color Switch"))
+                .padding(10)
+                
+            }
+        }
+    }
     
     
     let LARGE_BUTTON_HEIGHT: CGFloat = 80
@@ -1205,6 +1507,10 @@ struct FriendFavorites {
 
 struct AddFestivalToGroupSheet: View {
     @EnvironmentObject var firestore: FirestoreViewModel
+
+    @EnvironmentObject var festivalVM: FestivalViewModel
+    
+    @State var navigationPath = NavigationPath()
     
     var festival: DataSet.Festival
     
@@ -1214,60 +1520,148 @@ struct AddFestivalToGroupSheet: View {
     
     var body: some View {
         VStack {
-            NavigationButtons
-            Text("Add \(festival.name) To Your Groups")
-                .font(.title3)
-                .padding(.vertical)
-            ScrollView {
-                VStack(spacing: 0) {
-                    let sortedGroups = firestore.mySocialGroups.sorted(by: { $0.name < $1.name })
-                    
-                    ForEach(sortedGroups.indices, id: \.self) { index in
-                        let group = sortedGroups[index]
-                        HStack {
-                            SocialImage(imageURL: group.photo, name: group.name, frame: 50)
-                            Text(group.name)
-                                .foregroundStyle(.black)
-                            Spacer()
-                            GroupMemberPhotos(memberIDs: group.members)
-                            Image(systemName: selectedGroups.contains(group.id!) ? "checkmark.square.fill" : "square")
-                                .foregroundColor(Color("OASIS Dark Orange"))
-                                .imageScale(.large)
-                                .padding(.leading, 20)
-                            //                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
-                            //                            Image(systemName: "chevron.right")
-                            //                                .foregroundStyle(.black)
-                            //                        } else {
-                            //                            FollowButtonShort(profile: profile)
-                            //                        }
-                        }
-                        .padding(.vertical, 8)
-                        .contentShape(Rectangle())
-                        .padding(.horizontal, 10)
-                        .onTapGesture {
-                            if selectedGroups.contains(group.id!) {
-                                selectedGroups.remove(group.id!)
-                            } else {
-                                selectedGroups.insert(group.id!)
+            NavigationStack(path: $navigationPath) {
+                NavigationButtons
+                Text("Add \(festival.name) To Your Groups")
+                    .font(.title3)
+                    .padding(.vertical)
+                let sortedGroups = firestore.mySocialGroups.sorted(by: { $0.name < $1.name })
+                let unaddedGroups = sortedGroups.filter({ !$0.festivals.contains(festival.id.uuidString) })
+                let alreadyAddedGroups = sortedGroups.filter({ $0.festivals.contains(festival.id.uuidString) })
+                ScrollView {
+                    if !unaddedGroups.isEmpty {
+                        VStack(spacing: 0) {
+                            ForEach(unaddedGroups.indices, id: \.self) { index in
+                                let group = unaddedGroups[index]
+                                HStack {
+                                    SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+                                    Text(group.name)
+                                        .foregroundStyle(.black)
+                                    Spacer()
+                                    GroupMemberPhotos(memberIDs: group.members)
+                                    Image(systemName: selectedGroups.contains(group.id!) ? "checkmark.square.fill" : "square")
+                                        .foregroundColor(Color("OASIS Dark Orange"))
+                                        .imageScale(.large)
+                                        .padding(.leading, 20)
+                                    //                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
+                                    //                            Image(systemName: "chevron.right")
+                                    //                                .foregroundStyle(.black)
+                                    //                        } else {
+                                    //                            FollowButtonShort(profile: profile)
+                                    //                        }
+                                }
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                                .padding(.horizontal, 10)
+                                .onTapGesture {
+                                    if selectedGroups.contains(group.id!) {
+                                        selectedGroups.remove(group.id!)
+                                    } else {
+                                        selectedGroups.insert(group.id!)
+                                    }
+                                }
+                                if index < sortedGroups.count - 1 {
+                                    Divider()
+                                }
                             }
+                            
                         }
-                        if index < sortedGroups.count - 1 {
-                            Divider()
-                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        .background(Color.white)
+                        //                .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
+                        .cornerRadius(10)
+                        .border(Color.gray, width: 2)
+                        .padding(.horizontal, 10)
                     }
                     
+                    
+                    HStack {
+                        Spacer()
+                        NavigationLink(value: "New Group") {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 25)
+                                    .fill(Color.white)
+                                    .frame(width: 190, height: 50)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 25)
+                                            .stroke(Color.oasisDarkOrange, lineWidth: 2)
+                                    )
+                                    .shadow(radius: 5)
+                                HStack {
+                                    Image(systemName: "plus")
+                                        .imageScale(.large)
+                                    Text("New Group")
+                                }
+                                .foregroundStyle(.oasisDarkOrange)
+                            }
+                            .navigationDestination(for: String.self) { _ in
+                                NewGroupSheet(navigationPath: $navigationPath)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(10)
+                    
+                    
+                    if !alreadyAddedGroups.isEmpty {
+                        VStack(spacing: 4) {
+                            HStack {
+                                Text("Already Included:")
+                                Spacer()
+                            }
+                            .padding(.horizontal, 2)
+                            VStack(spacing: 0) {
+                                ForEach(alreadyAddedGroups.indices, id: \.self) { index in
+                                    let group = alreadyAddedGroups[index]
+                                    HStack {
+                                        SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+                                        Text(group.name)
+                                            .foregroundStyle(.black)
+                                        Spacer()
+                                        GroupMemberPhotos(memberIDs: group.members)
+                                        //                                Image(systemName:  "checkmark.square.fill")
+                                        //                                    .foregroundColor(Color(.oasisLightOrange))
+                                        //                                    .imageScale(.large)
+                                        //                                    .padding(.leading, 20)
+                                        //                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
+                                        //                            Image(systemName: "chevron.right")
+                                        //                                .foregroundStyle(.black)
+                                        //                        } else {
+                                        //                            FollowButtonShort(profile: profile)
+                                        //                        }
+                                    }
+                                    .padding(.vertical, 8)
+                                    .contentShape(Rectangle())
+                                    .padding(.horizontal, 10)
+                                    //                        .onTapGesture {
+                                    //                            if selectedGroups.contains(group.id!) {
+                                    //                                selectedGroups.remove(group.id!)
+                                    //                            } else {
+                                    //                                selectedGroups.insert(group.id!)
+                                    //                            }
+                                    //                        }
+                                    if index < sortedGroups.count - 1 {
+                                        Divider()
+                                    }
+                                }
+                                
+                            }
+                            .fixedSize(horizontal: false, vertical: true)
+                            .background(Color.white)
+                            //                .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
+                            .cornerRadius(10)
+                            .border(Color.gray, width: 2)
+                            
+                        }
+                        .padding(10)
+                        //                    .padding(.vertical, 20)
+                    }
                 }
-                .fixedSize(horizontal: false, vertical: true)
-                .background(Color.white)
-                //                .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
-                .cornerRadius(10)
-                .border(Color.gray, width: 2)
-                .padding(.horizontal, 10)
             }
         }
-//        .onAppear() {
-//            groupSelection = Array(repeating: false, count: firestore.mySocialGroups.count)
-//        }
+        //        .onAppear() {
+        //            groupSelection = Array(repeating: false, count: firestore.mySocialGroups.count)
+        //        }
     }
     
     var NavigationButtons: some View {
@@ -1298,7 +1692,177 @@ struct AddFestivalToGroupSheet: View {
     }
     
     func addGroups() {
-        firestore.addFestivalToGroups(groupIDs: Array(selectedGroups), festivalID: festival.id.uuidString)
+        Task {
+            let success = await firestore.addFestivalToGroups(groupIDs: Array(selectedGroups), festivalID: festival.id.uuidString)
+            if success {
+                
+            }
+        }
+    }
+}
+
+struct NewGroupSheet: View {
+    @EnvironmentObject var firestore: FirestoreViewModel
+    @Binding var navigationPath: NavigationPath
+    
+    @State private var groupName = ""
+    @State private var isLoading = false
+    @State private var setupDone = false
+    
+    @State private var showPhotoPicker = false
+    @State private var selectedItem: PhotosPickerItem?
+    @State var selectedImage: UIImage?
+    
+    @State var createdGroup: DataSet.SocialGroup?
+    
+    @State var errorAlert: Bool = false
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                Text("Create New Group")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .padding(5)
+                
+                ZStack(alignment: .center) {
+                    if let selectedImage {
+                        ZStack (alignment: .topTrailing) {
+                            Image(uiImage: selectedImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 130, height: 130, alignment: .center)
+                                .clipShape(Circle())
+                            Button {
+                                withAnimation {
+                                    self.selectedImage = nil
+                                    selectedItem = nil
+                                }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(6)
+                                    .background(Color.black.opacity(0.7))
+                                    .clipShape(Circle())
+                            }
+                            .offset(x: 6, y: -6)
+                        }
+                    } else {
+                        Image("Default Group Profile Picture")
+                            .resizable()
+                            .frame(width: 130, height: 130, alignment: .center)
+                            .clipShape(Circle())
+                        Text("Upload Image").foregroundStyle(Color.black)
+                    }
+                }
+                .shadow(radius: 4)
+                .onTapGesture {
+                    showPhotoPicker = true
+                }
+                ZStack {
+                    TextField("Group Name", text: $groupName)
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                        .autocapitalization(.words)
+                    if !groupName.isEmpty {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "xmark.circle")
+                                .padding(.horizontal, 10)
+                                .foregroundStyle(.gray)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    groupName = ""
+                                }
+                        }
+                    }
+                }
+                
+                
+                
+                Button(action: addGroup) {
+                    Text("Create")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(groupName.isEmpty ? Color.gray : .blue)
+                        .foregroundStyle(.white)
+                        .cornerRadius(10)
+                }
+                .disabled(groupName.isEmpty || isLoading)
+            }
+        }
+        .padding()
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem)
+        .onChange(of: selectedItem) { newItem in
+            Task {
+                // Retrieve the image from the PhotosPickerItem
+                if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    selectedImage = uiImage
+                }
+            }
+        }
+        .alert(isPresented: $errorAlert) {
+            Alert(
+                title: Text("Something went wrong"),
+                message: Text("Please try again later"),
+                dismissButton: .default(Text("Ok"))
+            )
+        }
+        .onChange(of: errorAlert) { newValue in
+            if newValue == false {
+                navigationPath.removeLast()
+            }
+        }
+        .onAppear() {
+            groupName = ""
+            selectedItem = nil
+            selectedImage = nil
+        }
+    }
+    
+    func addGroup() {
+        Task {
+            isLoading = true
+            
+            do {
+                var photoURL: String? = nil
+                
+                if let selectedImage {
+                    let groupID = UUID().uuidString
+                    let path = "groupImages/\(groupID).jpg"
+                    
+                    photoURL = await withCheckedContinuation { continuation in
+                        firestore.uploadGroupImageToFirebase(
+                            image: selectedImage,
+                            path: path
+                        ) { url in
+                            continuation.resume(returning: url)
+                        }
+                    }
+                }
+                
+                let newGroup = try await firestore.createGroup(
+                    name: groupName,
+                    photo: photoURL
+                )
+                
+                firestore.myUserProfile.groups?.append(newGroup.id!)
+                firestore.mySocialGroups.append(newGroup)
+                navigationPath.removeLast()
+//                navigationPath.append(newGroup)
+//                showGroupSheet = false
+                
+            } catch {
+                print("❌ Failed to create group:", error)
+                errorAlert = true
+            }
+            
+            isLoading = false
+        }
     }
 }
 

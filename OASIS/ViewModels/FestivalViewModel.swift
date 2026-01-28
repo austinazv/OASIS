@@ -583,6 +583,7 @@ class FestivalViewModel: ObservableObject {
                                 var festivalData = try Firestore.Encoder().encode(festivalToUpload)
                                 festivalData["artistNames"] = artistNames
                                 festivalData["adjustedEndDate"] = adjustedEndDate
+                                festivalData["name_lowercase"] = festivalToUpload.name.lowercased()
                                 db.collection("festivals")
                                     .document(festivalToUpload.id.uuidString)
                                     .setData(festivalData, merge: true) { error in
@@ -605,6 +606,7 @@ class FestivalViewModel: ObservableObject {
                 var festivalData = try Firestore.Encoder().encode(festivalToUpload)
                 festivalData["artistNames"] = artistNames
                 festivalData["adjustedEndDate"] = adjustedEndDate
+                festivalData["name_lowercase"] = festivalToUpload.name.lowercased()
                 db.collection("festivals")
                     .document(festivalToUpload.id.uuidString)
                     .setData(festivalData, merge: true) { error in
@@ -909,7 +911,11 @@ class FestivalViewModel: ObservableObject {
         return festival.artistList.filter { idSet.contains($0.id) }
     }
     
-    func getArtistDict(currList: Array<DataSet.Artist>, sort: DataSet.sortType, secondWeekend: Bool) -> [String : Array<DataSet.Artist>] {
+//    func getArtistListForGroup(artistIDLists: [[String]]) -> Array<DataSet.Artist> {
+//        
+//    }
+    
+    func getArtistDict(currList: Array<DataSet.Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil) -> [String : Array<DataSet.Artist>] {
         let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
         switch(sort) {
         case .alpha:
@@ -926,6 +932,8 @@ class FestivalViewModel: ObservableObject {
             return(sortDateAdded(currList: newList))
         case .modifyDate:
             return(sortDateModified(currList: newList))
+        case .group:
+            return(sortByGroup(currList: currList, groupFavs: groupFavs!))
         }
     }
     
@@ -1083,6 +1091,19 @@ class FestivalViewModel: ObservableObject {
         })
         return ["" : returnList]
 //        return ["" : currList]
+    }
+    
+
+    func sortByGroup(currList: Array<DataSet.Artist>, groupFavs: Array<UserFestivalFavorites>)-> [String : Array<DataSet.Artist>] {
+        let favDict: [String: [String]] = Dictionary(
+            uniqueKeysWithValues: groupFavs.map {
+                ($0.artistID, $0.userIDs)
+            }
+        )
+        let returnList = currList.sorted(by: {
+            (favDict[$0.id]?.count ?? 0) > (favDict[$1.id]?.count ?? 0)
+        })
+        return ["" : returnList]
     }
     
     func reverseArtistDict(currDict: [String : Array<DataSet.Artist>]) -> [String : Array<DataSet.Artist>] {
@@ -1272,5 +1293,20 @@ class FestivalViewModel: ObservableObject {
         var previewView: Bool = false
     }
     
+    
+    
 //    struct
+}
+
+
+struct GroupFestivalFavorites: Equatable, Hashable {
+    let group: SocialGroup
+    var users: [UserFestivalFavorites]
+}
+
+struct UserFestivalFavorites: Equatable, Hashable {
+    let artistID: String
+    let userIDs: [String]
+//    let user: UserProfile
+//    let artistIDs: [String]
 }

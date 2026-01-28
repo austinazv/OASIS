@@ -271,7 +271,10 @@ class DataSet: ObservableObject {
             break
         case .modifyDate:
             break
+        case .group:
+            break
         }
+   
         return dictKeys
     }
     
@@ -2743,6 +2746,9 @@ class DataSet: ObservableObject {
             return allLable
         case .modifyDate:
             return allLable
+
+        case .group:
+            return allLable
         }
     }
     
@@ -2862,6 +2868,7 @@ class DataSet: ObservableObject {
         var titleText: String? = nil
         let festival: Festival
         let list: Array<Artist>
+        var groupFavs: Array<UserFestivalFavorites>? = nil
 //        let list: [String : Array<artistNEW>]
     }
     
@@ -2884,6 +2891,7 @@ class DataSet: ObservableObject {
         case genre
         case addDate
         case modifyDate
+        case group
     }
 
     

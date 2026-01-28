@@ -78,8 +78,8 @@
             filePath = "OASIS/Festival/MyFestivalsPage.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "248"
-            endingLineNumber = "248"
+            startingLineNumber = "250"
+            endingLineNumber = "250"
             landmarkName = "body"
             landmarkType = "24">
          </BreakpointContent>
@@ -142,8 +142,8 @@
             filePath = "OASIS/Festival/ArtistList.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "393"
-            endingLineNumber = "393"
+            startingLineNumber = "397"
+            endingLineNumber = "397"
             landmarkName = "searchArtists()"
             landmarkType = "7">
          </BreakpointContent>
@@ -199,22 +199,6 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "D08D80BC-347C-444D-ABA4-6BD8A5B56E0B"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "OASIS/Festival/FestivalPage.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "584"
-            endingLineNumber = "584"
-            landmarkName = "FriendsFavoritesButton"
-            landmarkType = "24">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
             uuid = "57306B84-749D-4E0B-A2F7-8C5FFE5ACE43"
             shouldBeEnabled = "No"
             ignoreCount = "0"
@@ -222,8 +206,8 @@
             filePath = "OASIS/Social/ProfilePage.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "237"
-            endingLineNumber = "237"
+            startingLineNumber = "234"
+            endingLineNumber = "234"
             landmarkName = "ProfilePage"
             landmarkType = "14">
          </BreakpointContent>
@@ -238,8 +222,8 @@
             filePath = "OASIS/Social/SocialPage.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "213"
-            endingLineNumber = "213"
+            startingLineNumber = "208"
+            endingLineNumber = "208"
             landmarkName = "SocialPage"
             landmarkType = "14">
          </BreakpointContent>
@@ -254,8 +238,8 @@
             filePath = "OASIS/Social/ProfilePage.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "464"
-            endingLineNumber = "464"
+            startingLineNumber = "461"
+            endingLineNumber = "461"
             landmarkName = "FollowersView"
             landmarkType = "24">
          </BreakpointContent>

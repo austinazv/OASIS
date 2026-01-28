@@ -95,14 +95,15 @@ struct ExploreFestivalsPage: View {
             VStack {
                 VStack(spacing: 4) {
                     HStack {
-                        Image(systemName: "slider.horizontal.3")
-                            .imageScale(.large)
-                            .foregroundStyle(.blue)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                filtering.toggle()
-                                searchFocused = !filtering
-                            }
+                        //TODO: Eventually add filter back
+//                        Image(systemName: "slider.horizontal.3")
+//                            .imageScale(.large)
+//                            .foregroundStyle(.blue)
+//                            .contentShape(Rectangle())
+//                            .onTapGesture {
+//                                filtering.toggle()
+//                                searchFocused = !filtering
+//                            }
                         ZStack {
                             TextField(filtering ? "Search With Filters": "Search For Events", text: $searchText)
                                 .padding(5)
@@ -156,8 +157,24 @@ struct ExploreFestivalsPage: View {
                 
                 //            Spacer()
                 ScrollView {
-                    //TODO: Search Results
-                    Text("...Search Results")
+                    if explore.isSearchLoading {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                    } else if !explore.searchResults.isEmpty {
+                        let split = festivalVM.splitFestivals(explore.searchResults)
+//                        attendedFestivals = split.attended
+//                        upcomingFestivals = split.upcoming
+                        FestivalsListed(navigationPath: $navigationPath, festivalList: split.upcoming, title: "Upcoming", collapsable: true)
+                        FestivalsListed(navigationPath: $navigationPath, festivalList: split.attended, title: "Past", collapsable: true)
+                    } else if !searchText.isEmpty {
+                        Text("No search results found.")
+                    }
+                }
+                .onChange(of: searchText) { newValue in
+                    explore.search(newValue)
                 }
             }
         }

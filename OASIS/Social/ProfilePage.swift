@@ -68,7 +68,8 @@ struct ProfilePage: View {
                 Spacer()
             }
             .background(Color(.white))
-            .task {
+            .onAppear() {
+                if profile.id! == firestore.myUserProfile.id! { profile = firestore.myUserProfile }
                 loadUser()
             }
             .onChange(of: profile.safeFollowers) { newFollowerIDs in

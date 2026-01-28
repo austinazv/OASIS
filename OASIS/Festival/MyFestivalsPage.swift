@@ -235,6 +235,8 @@ struct MyFestivalsPage: View {
                                                         Text(" | ")
                                                         Text(festivalVM.getSecondWeekendText(startDate: festival.startDate, endDate: festival.endDate))
                                                     }
+                                                    Text("(\(festival.startDate.formatted(.dateTime.year())))")
+//                                                    Text(festival.startDate, format: .dateTime.year())
                                                 }
                                                 .foregroundStyle(.gray)
                                                 .font(.subheadline)
@@ -352,4 +354,6 @@ struct FestivalLogoView: View {
     }
 
 }
+
+
 

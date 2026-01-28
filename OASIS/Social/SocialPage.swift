@@ -68,8 +68,8 @@ struct SocialPage: View {
 //                            Spacer()
 //                        } else {
                             VStack {
-                                GroupsListed
                                 FriendsListed
+                                GroupsListed
                                 Spacer()
                             }
                             .padding(.top, 5)
@@ -91,7 +91,12 @@ struct SocialPage: View {
         Group {
             Menu(content: {
                 Button (action: {
-                    //TODO: Group stuff
+                    showAddFriendsSheet = true
+                }, label: {
+                    Text("Find People")
+                    Image(systemName: "person.2.fill")
+                })
+                Button (action: {
                     showGroupSheet = true
                 }, label: {
                     Text("New Group")
@@ -302,6 +307,7 @@ struct SocialPage: View {
                 HStack {
                     Text("Contacts on OASIS")
                         .bold()
+                        .padding(.top, 5)
                     Spacer()
                     Button(action: {
                         Task {
@@ -348,22 +354,24 @@ struct SocialPage: View {
         var FollowersListed: some View {
             Group {
                 VStack {
-                    HStack {
-                        Text("Follow Back")
-                            .bold()
-                        Spacer()
-                        Button(action: {
-                            Task {
-                                await firestore.loadMyUserProfile()
-                                await loadFollowers()
-                                //TODO: Reload Followers/Following
-//                                await contactsManager.loadFriendsFromContacts(forceRefresh: true)
+
+                    if followersLoading || !followersNotFollowing.isEmpty {
+                        HStack {
+                            Text("Follow Back")
+                                .bold()
+                            Spacer()
+                            Button(action: {
+                                Task {
+                                    await firestore.loadMyUserProfile()
+                                    await loadFollowers()
+                                }
+                            }) {
+                                Image(systemName: "arrow.clockwise")
                             }
-                        }) {
-                            Image(systemName: "arrow.clockwise")
                         }
+                        .padding(.horizontal, 12)
                     }
-                    .padding(.horizontal, 12)
+
                     if followersLoading {
                         HStack {
                             ProgressView()
@@ -371,13 +379,11 @@ struct SocialPage: View {
                                 .italic()
                         }
                     } else {
+
                         ProfilesListed(navigationPath: $navigationPath, profiles: followersNotFollowing, maxHeight: 230)
                     }
                 }
                 .padding(.top, 10)
-            }
-            .task {
-                await loadFollowers()
             }
 
         }
@@ -534,28 +540,6 @@ struct SocialPage: View {
                         Text("Upload Image").foregroundStyle(Color.black)
                     }
                 }
-                //                    if selectedImage != nil {
-                //                        Button {
-                //                            withAnimation {
-                //                                selectedImage = nil
-                //                                selectedItem = nil
-                //                            }
-                //                        } label: {
-                //                            Image(systemName: "xmark")
-                //                                .font(.system(size: 10, weight: .bold))
-                //                                .foregroundColor(.white)
-                //                                .padding(6)
-                //                                .background(Color.black.opacity(0.85))
-                //                                .clipShape(Circle())
-                //                                .overlay(
-                //                                    Circle().stroke(Color.white, lineWidth: 1)
-                //                                )
-                //                        }
-                //                        // Position slightly outside the 130x130 circle visually
-                //                        .offset(x: 6, y: -6)
-                //                        .accessibilityLabel("Remove photo")
-                //                    }
-                //                }
                 .shadow(radius: 4)
                 .onTapGesture {
                     showPhotoPicker = true
@@ -627,19 +611,61 @@ struct SocialPage: View {
     
     func addGroup() {
         Task {
+            isLoading = true
+
             do {
+                var photoURL: String? = nil
+
+                if let selectedImage {
+                    let groupID = UUID().uuidString
+                    let path = "groupImages/\(groupID).jpg"
+
+                    photoURL = await withCheckedContinuation { continuation in
+                        firestore.uploadGroupImageToFirebase(
+                            image: selectedImage,
+                            path: path
+                        ) { url in
+                            continuation.resume(returning: url)
+                        }
+                    }
+                }
+
                 let newGroup = try await firestore.createGroup(
                     name: groupName,
-                    photo: nil
+                    photo: photoURL
                 )
+
                 firestore.myUserProfile.groups?.append(newGroup.id!)
                 firestore.mySocialGroups.append(newGroup)
+
                 navigationPath.append(newGroup)
-                print("Created group:", newGroup.id!)
+                showGroupSheet = false
+
             } catch {
-                print("Failed to create group:", error)
+                print("❌ Failed to create group:", error)
+                errorAlert = true
             }
+
+            isLoading = false
         }
+    }
+
+    
+//    func addGroup() {
+//        Task {
+//            do {
+//                let newGroup = try await firestore.createGroup(
+//                    name: groupName,
+//                    photo: nil
+//                )
+//                firestore.myUserProfile.groups?.append(newGroup.id!)
+//                firestore.mySocialGroups.append(newGroup)
+//                navigationPath.append(newGroup)
+//                print("Created group:", newGroup.id!)
+//            } catch {
+//                print("Failed to create group:", error)
+//            }
+//        }
         
 //        if let myID = firestore.getUserID() {
 //            var newGroup = SocialGroup(id: UUID().uuidString, ownerID: myID, name: groupName, members: [firestore.myUserProfile.id!], festivals: [])
@@ -655,8 +681,8 @@ struct SocialPage: View {
 //            social.groups.append(newGroup)
 //            navigationPath.append(newGroup)
 //        }
-        showGroupSheet = false
-    }
+//        showGroupSheet = false
+//    }
     
     func placeholder() {
         print("TODO")
@@ -792,16 +818,19 @@ struct SocialImage: View {
     }
     
     var body: some View {
-        Group {
-            if let imageURL, let url = URL(string: imageURL) {
+        let safeURL = imageURL
+        
+        return Group {
+            if let safeURL, let url = URL(string: safeURL) {
                 AsyncImage(url: url) { phase in
-                    if case .success(let image) = phase {
+                    switch phase {
+                    case .success(let image):
                         image
                             .resizable()
                             .scaledToFill()
                             .frame(width: frame, height: frame)
                             .clipShape(Circle())
-                    } else {
+                    default:
                         fallback
                     }
                 }
@@ -814,7 +843,11 @@ struct SocialImage: View {
                 .stroke(.black, lineWidth: 1)
                 .frame(width: frame, height: frame)
         )
+        .onAppear {
+            print("\(name)'s imageURL: \(imageURL ?? "nil")")
+        }
     }
+
 }
 
 
@@ -865,16 +898,29 @@ struct ProfilesListed: View {
     var maxHeight: CGFloat = 300
     
     var allowNavigation = true
+    
+    var topUser: String?
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                let sortedProfiles = profiles.sorted(by: { $0.name < $1.name })
+                let sortedProfiles = sortProfiles()
                 
                 ForEach(sortedProfiles) { profile in
 //                    let profile = sortedProfiles[index]
                     HStack {
-                        SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 50)
+                        ZStack(alignment: .center) {
+                            SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 50)
+                                .overlay(alignment: .topTrailing) {
+                                    if profile.id == topUser {
+                                        Image(systemName: "crown.fill")
+                                            .foregroundStyle(.black)
+                                            .rotationEffect(.degrees(45))
+                                            .font(.system(size: 16))
+                                            .offset(x: 5, y: -5)
+                                    }
+                                }
+                        }
                         Text(profile.name)
                             .foregroundStyle(.black)
                         Spacer()
@@ -917,6 +963,13 @@ struct ProfilesListed: View {
 //        }
     }
     
+    func sortProfiles() -> [UserProfile] {
+        profiles.sorted { a, b in
+            if a.id == topUser { return true }
+            if b.id == topUser { return false }
+            return a.name < b.name
+        }
+    }
     
 }
 
@@ -1131,7 +1184,7 @@ struct GroupsList: View {
     @Binding var navigationPath: NavigationPath
     var groups: [SocialGroup]
 
-    var maxHeight: CGFloat = 300
+    var maxHeight: CGFloat = 235
 
     var body: some View {
         ScrollView {
@@ -1183,7 +1236,6 @@ struct GroupsList: View {
 }
 
 struct GroupMemberPhotos: View {
-    @EnvironmentObject var social: SocialViewModel
     @EnvironmentObject var firestore: FirestoreViewModel
     
     @State var isLoading = false

@@ -43,9 +43,9 @@ struct ArtistList: View {
     
 //    var favorites: Bool
 //    var friendList: Bool
-    @State var groupFavorites: [String : [String]]?
-    @State var groupPhotos: [String : UIImage]?
-    
+//    @State var groupFavorites: [String : [String]]?
+//    @State var groupPhotos: [String : UIImage]?
+    @State var groupFavs: Array<UserFestivalFavorites>? = nil
     
     @State var sortType: DataSet.sortType = .alpha
     @State var viewSubsection = Array<Bool>()
@@ -118,7 +118,7 @@ struct ArtistList: View {
         .onAppear() {
             if let festival = festivalVM.currentFestival {
                 currentFestival = festival
-                artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend)
+                artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
                 viewSubsection = Array(repeating: true, count: artistDict.keys.count)
             } else {
                 navigationPath.removeLast()
@@ -162,10 +162,10 @@ struct ArtistList: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarItems(trailing: HStack {
-            SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend)
+            SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
         })
         .onChange(of: sortType) { newSort in
-            artistDict = festivalVM.getArtistDict(currList: artistList, sort: newSort, secondWeekend: currentFestival.secondWeekend)
+            artistDict = festivalVM.getArtistDict(currList: artistList, sort: newSort, secondWeekend: currentFestival.secondWeekend,  groupFavs: groupFavs)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
         }
 //        .if(!friendList) { view in
@@ -291,7 +291,7 @@ struct ArtistList: View {
                 ForEach(Array(data.getDictKeysSorted(currDict: artistDict, sort: sortType).enumerated()), id: \.element) { i, section in
                     if let artistArray = artistDict[section] {
                         if !artistArray.isEmpty {
-                            if sortType != .alpha {
+                            if sortType != .alpha && sortType != .group {
                                 HStack {
                                     Text(section)
                                     if viewSubsection[i] {
@@ -314,7 +314,11 @@ struct ArtistList: View {
 //                                    }
                                 Divider().padding(.horizontal, 20)
                                 ForEach(artistArray, id: \.self) { artist in
-                                    ArtistLink(artist: artist, shuffleList: data.getArtistList(currDict: artistDict), titleText: titleText, currentFestival: currentFestival, groupFavorites: self.groupFavorites, groupPhotos: self.groupPhotos)
+                                    ArtistLink(artist: artist,
+                                               shuffleList: data.getArtistList(currDict: artistDict),
+                                               titleText: titleText,
+                                               currentFestival: currentFestival,
+                                               memberIDs: groupFavs?.first(where: { $0.artistID == artist.id })?.userIDs)
                                 }
                             }
 //                            Section(header: Group {
@@ -575,6 +579,9 @@ struct ArtistLink: View {
     var groupFavorites: [String : [String]]?
     var groupPhotos: [String : UIImage]?
     
+    var memberIDs: [String]? = nil
+//    var groupFavs: Array<UserFestivalFavorites>? = nil
+    
     @State private var showOverlay: Bool = false
     
     var body: some View {
@@ -590,7 +597,9 @@ struct ArtistLink: View {
                             ArtistImage(imageURL: artist.imageURL, frame: 50)
                             Text(artist.name)
                             Spacer()
-                            if titleText != "Favorites" && festivalVM.favoriteList.contains(artist.id) {
+                            if let members = memberIDs {
+                                GroupMemberPhotos(memberIDs: members)
+                            } else if /*titleText != "Favorites" && */festivalVM.favoriteList.contains(artist.id) {
                                 Image(systemName: "heart.fill")
                                     .imageScale(.large)
                                     .foregroundStyle(.red)
@@ -808,6 +817,9 @@ struct SortMenu: View {
     
     var editing: Bool = false
     
+
+    var groupFavs: Array<UserFestivalFavorites>? = nil
+
     var body: some View {
         Group {
             let dayBool = festivalVM.listHasDays(currList: currList, secondWeekend: currentFestival.secondWeekend)
@@ -818,6 +830,19 @@ struct SortMenu: View {
             
             //            if dayBool || genreBool || stageBool || tierBool {
             Menu(content: {
+                if let groupDict = groupFavs {
+                    Button (action: {
+                        sortType = .group
+                    }, label: {
+                        HStack {
+                            Text("Sort By Group")
+                            if sortType == .group {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    })
+                }
                 //View by Alphabetically
                 Button (action: {
                     sortType = .alpha

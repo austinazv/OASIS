@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 struct GroupPage: View {
     @EnvironmentObject var data: DataSet
@@ -26,6 +27,8 @@ struct GroupPage: View {
     @State var attendedFestivals = Array<DataSet.Festival>()
     
     @State var members = Array<UserProfile>()
+    
+    @State var showEditGroupSheet: Bool = false
     
     
     var body: some View {
@@ -68,12 +71,20 @@ struct GroupPage: View {
             .task {
                 loadGroup()
             }
-            .onChange(of: firestore.profileDidChange) { bool in
-                if bool {
-                    loadUser()
-                    firestore.profileDidChange = false
+            .onChange(of: group.members) { newMemberIDs in
+                Task {
+                    members = await firestore.users(from: newMemberIDs)
                 }
             }
+            .sheet(isPresented: $showEditGroupSheet) {
+                EditGroupSheet(showEditGroupSheet: $showEditGroupSheet, currentGroup: $group)
+            }
+//            .onChange(of: firestore.profileDidChange) { bool in
+//                if bool {
+//                    loadUser()
+//                    firestore.profileDidChange = false
+//                }
+//            }
             .toolbar {
 
                 ToolbarItem(placement: .principal) {
@@ -91,6 +102,11 @@ struct GroupPage: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu(content: {
+                        if let myID = firestore.getUserID(), myID == group.ownerID {
+                            Button (action: { showEditGroupSheet = true }) {
+                                Text("Edit Group")
+                            }
+                        }
                         if firestore.myUserProfile.safeGroups.contains(group.id!) {
                             Button (action: leaveGroup) {
                                 Text("Leave Group")
@@ -100,7 +116,6 @@ struct GroupPage: View {
                                 Text("Join Group")
                             }
                         }
-                        
                     }, label: {
                         Group {
                             Image(systemName: "gear")
@@ -174,13 +189,23 @@ struct GroupPage: View {
     
     func joinGroup() {
         firestore.joinGroup(groupID: group.id!) { success in
-            group.members.append(firestore.getUserID()!)
+
+            if success {
+                group.members.append(firestore.getUserID()!)
+                firestore.myUserProfile.groups?.append(group.id!)
+            }
         }
     }
     
     func leaveGroup() {
         firestore.leaveGroup(groupID: group.id!) { success in
-            group.members.removeAll(where: { $0 == firestore.getUserID()! })
+
+            if success {
+                group.members.removeAll(where: { $0 == firestore.getUserID()! })
+                firestore.myUserProfile.groups?.removeAll(where: { $0 == group.id! })
+                firestore.mySocialGroups.removeAll(where: { $0.id == group.id! })
+                navigationPath.removeLast()
+            }
         }
     }
     
@@ -413,7 +438,8 @@ struct GroupPage: View {
             if upcomingFestivals.isEmpty && attendedFestivals.isEmpty {
                 Spacer()
                 Group {
-                    Text("There are no saved festivals yet.")
+                    Text("This group has no connected festivals yet.")
+//                    Text("There are no festivals connected to this group yet.")
                 }
                 .foregroundStyle(.black)
                 Spacer()
@@ -431,12 +457,11 @@ struct GroupPage: View {
         VStack {
             if members.isEmpty {
                 Spacer()
-                //THERE"S NO WORLD WHERE THIS SHOULD HAPPEN
                 Text("There are no current members.")
                     .foregroundStyle(.black)
                 Spacer()
             } else {
-                ProfilesListed(navigationPath: $navigationPath, profiles: members, maxHeight: 370)
+                ProfilesListed(navigationPath: $navigationPath, profiles: members, maxHeight: 370, topUser: group.ownerID)
                     .padding(.top, LIST_PADDING)
                     .fixedSize(horizontal: false, vertical: true)
                 
@@ -735,6 +760,244 @@ struct GroupPage: View {
 //    }
     
     
+    
+    
+}
+
+struct EditGroupSheet: View {
+    @EnvironmentObject var firestore: FirestoreViewModel
+    
+    @Binding var showEditGroupSheet: Bool
+    @Binding var currentGroup: SocialGroup
+    
+    @State var groupNameText: String = ""
+    @State private var isLoading = false
+    @State private var setupDone = false
+    
+    @State private var showPhotoPicker = false
+    @State private var selectedItem: PhotosPickerItem?
+    @State var selectedImage: UIImage?
+    
+    @State var createdGroup: DataSet.SocialGroup?
+//    @State private var editedPhotoURL: String?
+    
+    @State var errorAlert: Bool = false
+    
+    @State private var didRemovePhoto = false
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                Text("Edit Group Details")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .padding(5)
+                
+                ZStack(alignment: .center) {
+                    if let selectedImage {
+                        ZStack(alignment: .topTrailing) {
+                            Image(uiImage: selectedImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 130, height: 130)
+                                .clipShape(Circle())
+
+                            Button {
+                                withAnimation {
+                                    self.selectedImage = nil
+                                    selectedItem = nil
+                                }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(6)
+                                    .background(Color.black.opacity(0.7))
+                                    .clipShape(Circle())
+                            }
+                            .offset(x: 6, y: -6)
+                        }
+
+                    } else if let urlString = currentGroup.photo,
+                              !didRemovePhoto,
+                              let url = URL(string: urlString) {
+
+                        ZStack(alignment: .topTrailing) {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            } placeholder: {
+                                Image("Default Group Profile Picture")
+                                    .resizable()
+                                    .scaledToFill()
+                            }
+                            .frame(width: 130, height: 130)
+                            .clipShape(Circle())
+
+                            Button {
+                                withAnimation {
+                                    selectedImage = nil
+                                    selectedItem = nil
+                                    didRemovePhoto = true
+                                }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(6)
+                                    .background(Color.black.opacity(0.7))
+                                    .clipShape(Circle())
+                            }
+                            .offset(x: 6, y: -6)
+                        }
+
+                    } else {
+                        ZStack {
+                            Image("Default Group Profile Picture")
+                                .resizable()
+                                .frame(width: 130, height: 130)
+                                .clipShape(Circle())
+
+                            Text("Upload Image")
+                                .foregroundStyle(Color.black)
+                        }
+                    }
+                }
+                .shadow(radius: 4)
+                .onTapGesture {
+                    showPhotoPicker = true
+                }
+
+                ZStack {
+                    TextField("Group Name", text: $groupNameText)
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                        .autocapitalization(.words)
+                    if !groupNameText.isEmpty {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "xmark.circle")
+                                .padding(.horizontal, 10)
+                                .foregroundStyle(.gray)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    groupNameText = ""
+                                }
+                        }
+                    }
+                }
+                HStack {
+                    Button(action: { showEditGroupSheet = false }) {
+                        Text("Cancel")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(.red)
+                            .foregroundStyle(.white)
+                            .cornerRadius(10)
+                    }
+                    //                .disabled(groupNameText.isEmpty || isLoading)
+                    
+                    Button(action: editGroup) {
+                        Group {
+                            if isLoading {
+                                ProgressView()
+                            } else {
+                                Text("Save")
+                            }
+                        }
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(groupNameText.isEmpty ? Color.gray : .green)
+                            .foregroundStyle(.white)
+                            .cornerRadius(10)
+                    }
+                    .disabled(groupNameText.isEmpty || isLoading)
+                }
+            }
+        }
+        .padding()
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem)
+        .onChange(of: selectedItem) { newItem in
+            Task {
+                // Retrieve the image from the PhotosPickerItem
+                if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data) {
+                    selectedImage = uiImage
+                }
+            }
+        }
+        .alert(isPresented: $errorAlert) {
+            Alert(
+                title: Text("Something went wrong"),
+                message: Text("Please try again later"),
+                dismissButton: .default(Text("Ok"))
+            )
+        }
+        .onAppear() {
+            groupNameText = currentGroup.name
+            
+        }
+    }
+    
+    func editGroup() {
+        Task {
+            isLoading = true
+            do {
+                let groupID = currentGroup.id!
+                var finalPhotoURL: String? = currentGroup.photo
+
+                // 1️⃣ Photo changed
+                if let selectedImage {
+                    let path = "groupImages/\(groupID).jpg"
+
+                    finalPhotoURL = await withCheckedContinuation { continuation in
+                        firestore.uploadGroupImageToFirebase(
+                            image: selectedImage,
+                            path: path
+                        ) { url in
+                            continuation.resume(returning: url)
+                        }
+                    }
+                }
+
+                // 2️⃣ Photo deleted
+                if didRemovePhoto {
+                    try await firestore.deleteGroupImage(groupID: groupID)
+                    finalPhotoURL = nil
+                }
+
+                // 3️⃣ Update Firestore doc
+                try await firestore.updateGroup(
+                    groupID: groupID,
+                    name: groupNameText,
+                    photoURL: finalPhotoURL
+                )
+
+                // 4️⃣ Update local state
+                currentGroup.name = groupNameText
+                currentGroup.photo = finalPhotoURL
+                
+                if let index = firestore.mySocialGroups.firstIndex(where: { $0.id == $currentGroup.id! }) {
+                    firestore.mySocialGroups[index] = currentGroup
+                } else {
+                    firestore.mySocialGroups.append(currentGroup)
+                }
+
+                showEditGroupSheet = false
+
+            } catch {
+                print("❌ Failed to edit group:", error)
+                errorAlert = true
+            }
+
+            isLoading = false
+        }
+    }
+
 }
 
 //#Preview {

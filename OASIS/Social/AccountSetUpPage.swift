@@ -155,7 +155,7 @@ struct AccountSetUpPage: View {
             // Add a circular black outline and subtle shadow to both cases
             .overlay(
                 Circle()
-                    .stroke(.oasisDarkOrange, lineWidth: 2)
+                    .stroke(.oasisDarkBlue, lineWidth: 2)
                     .frame(width: 130, height: 130)
             )
             .shadow(radius: 4)
@@ -174,11 +174,11 @@ struct AccountSetUpPage: View {
             TextField("", text: $name)
                 .padding()
                 .autocorrectionDisabled(true)
-                .background(.oasisDarkOrange.opacity(0.2))
+                .background(.oasisDarkBlue.opacity(0.2))
                 .cornerRadius(10)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(.oasisDarkOrange, lineWidth: 2)
+                        .stroke(.oasisDarkBlue, lineWidth: 2)
                 )
                 .overlay(
                     Group {
@@ -210,11 +210,11 @@ struct AccountSetUpPage: View {
             TextField("", text: $phoneNumber)
                 .keyboardType(.numbersAndPunctuation)
                 .padding()
-                .background(.oasisDarkOrange.opacity(0.2))
+                .background(.oasisDarkBlue.opacity(0.2))
                 .cornerRadius(10)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(.oasisDarkOrange, lineWidth: 2)
+                        .stroke(.oasisDarkBlue, lineWidth: 2)
                 )
                 .overlay(
                     Group {
@@ -320,11 +320,11 @@ struct AccountSetUpPage: View {
             Spacer().frame(width: 26)
             TextField("", text: $codeText)
                 .padding()
-                .background(.oasisDarkOrange.opacity(0.2))
+                .background(.oasisDarkBlue.opacity(0.2))
                 .cornerRadius(10)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(.oasisDarkOrange, lineWidth: 2)
+                        .stroke(.oasisDarkBlue, lineWidth: 2)
                 )
                 .overlay(
                     Group {

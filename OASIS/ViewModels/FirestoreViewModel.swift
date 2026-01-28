@@ -21,7 +21,14 @@ class FirestoreViewModel: ObservableObject {
     @Published var hasAcctName: Bool = false
     @Published var phoneConnected: Bool = false
     
-    @Published var myUserProfile = UserProfile()
+    @Published var myUserProfile = UserProfile() {
+        didSet {
+            if let id = myUserProfile.id {
+                usersByID[id] = myUserProfile
+            }
+        }
+    }
+
     @Published var usersByID: [String: UserProfile] = [:]
     @Published var mySocialGroups = Array<SocialGroup>()
     
@@ -145,6 +152,7 @@ class FirestoreViewModel: ObservableObject {
         if let firebaseUID = Auth.auth().currentUser?.uid {
             do {
                 let profile = try await fetchUserProfile(userID: firebaseUID)
+                print("MY PROFILE: \(profile)")
                 
                 // Save to published var
                 await MainActor.run {
@@ -701,7 +709,57 @@ class FirestoreViewModel: ObservableObject {
         }
     }
     
-    func saveNamePhoneAndHash(name: String, phoneNumber: String?, phoneHash: String?, completion: @escaping (Bool) -> Void) {
+//    func saveNamePhoneAndHash(name: String, phoneNumber: String?, phoneHash: String?, completion: @escaping (Bool) -> Void) {
+//        guard let user = Auth.auth().currentUser else {
+//            completion(false)
+//            return
+//        }
+//
+//        let userRef = db.collection("users").document(user.uid)
+//
+//        userRef.getDocument { document, error in
+//            if let document = document, document.exists {
+//                var dataToUpdate: [String: Any] = ["name": name]
+//                if let phoneNumber = phoneNumber { dataToUpdate["phoneNumber"] = phoneNumber }
+//                if let phoneHash = phoneHash { dataToUpdate["phoneHash"] = phoneHash }
+//
+//                userRef.updateData(dataToUpdate) { error in
+//                    if let error = error {
+//                        print("❌ Error updating user: \(error.localizedDescription)")
+//                        completion(false)
+//                    } else {
+//                        print("✅ User updated successfully!")
+//                        self.hasAcctName = true
+//                        completion(true)
+//                    }
+//                }
+//            } else {
+//                var dataToSet: [String: Any] = [
+//                    "name": name,
+//                    "createdAt": FieldValue.serverTimestamp()
+//                ]
+//                if let phoneNumber = phoneNumber { dataToSet["phoneNumber"] = phoneNumber }
+//                if let phoneHash = phoneHash { dataToSet["phoneHash"] = phoneHash }
+//
+//                userRef.setData(dataToSet) { error in
+//                    if let error = error {
+//                        print("❌ Error saving user: \(error.localizedDescription)")
+//                        completion(false)
+//                    } else {
+//                        print("✅ User saved successfully!")
+//                        self.hasAcctName = true
+//                        completion(true)
+//                    }
+//                }
+//            }
+//        }
+//    }
+    func saveNamePhoneAndHash(
+        name: String,
+        phoneNumber: String?,
+        phoneHash: String?,
+        completion: @escaping (Bool) -> Void
+    ) {
         guard let user = Auth.auth().currentUser else {
             completion(false)
             return
@@ -711,41 +769,83 @@ class FirestoreViewModel: ObservableObject {
 
         userRef.getDocument { document, error in
             if let document = document, document.exists {
-                var dataToUpdate: [String: Any] = ["name": name]
-                if let phoneNumber = phoneNumber { dataToUpdate["phoneNumber"] = phoneNumber }
-                if let phoneHash = phoneHash { dataToUpdate["phoneHash"] = phoneHash }
+
+                var dataToUpdate: [String: Any] = [
+                    "name": name
+                ]
+
+                if let phoneNumber = phoneNumber {
+                    dataToUpdate["phoneNumber"] = phoneNumber
+                }
+                if let phoneHash = phoneHash {
+                    dataToUpdate["phoneHash"] = phoneHash
+                }
 
                 userRef.updateData(dataToUpdate) { error in
                     if let error = error {
                         print("❌ Error updating user: \(error.localizedDescription)")
                         completion(false)
-                    } else {
-                        print("✅ User updated successfully!")
-                        self.hasAcctName = true
-                        completion(true)
+                        return
+                    }
+
+                    // 🔒 Ensure arrays exist
+                    userRef.updateData([
+                        "following": FieldValue.arrayUnion([]),
+                        "followers": FieldValue.arrayUnion([])
+                    ]) { error in
+                        if let error = error {
+                            print("❌ Error ensuring follow arrays: \(error.localizedDescription)")
+                            completion(false)
+                        } else {
+                            print("✅ User updated & follow arrays ensured!")
+                            self.hasAcctName = true
+                            completion(true)
+                        }
                     }
                 }
+
             } else {
+
                 var dataToSet: [String: Any] = [
                     "name": name,
-                    "createdAt": FieldValue.serverTimestamp()
+                    "createdAt": FieldValue.serverTimestamp(),
+                    "following": [],
+                    "followers": []
                 ]
-                if let phoneNumber = phoneNumber { dataToSet["phoneNumber"] = phoneNumber }
-                if let phoneHash = phoneHash { dataToSet["phoneHash"] = phoneHash }
+
+                if let phoneNumber = phoneNumber {
+                    dataToSet["phoneNumber"] = phoneNumber
+                }
+                if let phoneHash = phoneHash {
+                    dataToSet["phoneHash"] = phoneHash
+                }
 
                 userRef.setData(dataToSet) { error in
                     if let error = error {
                         print("❌ Error saving user: \(error.localizedDescription)")
                         completion(false)
-                    } else {
-                        print("✅ User saved successfully!")
-                        self.hasAcctName = true
-                        completion(true)
+                        return
+                    }
+
+                    // 🔒 Extra safety (harmless if already present)
+                    userRef.updateData([
+                        "following": FieldValue.arrayUnion([]),
+                        "followers": FieldValue.arrayUnion([])
+                    ]) { error in
+                        if let error = error {
+                            print("❌ Error ensuring follow arrays: \(error.localizedDescription)")
+                            completion(false)
+                        } else {
+                            print("✅ User saved & follow arrays ensured!")
+                            self.hasAcctName = true
+                            completion(true)
+                        }
                     }
                 }
             }
         }
     }
+
 
     
     func uploadImageAndSaveToFirestore(image: UIImage, completion: @escaping (Bool) -> Void) {
@@ -782,6 +882,196 @@ class FirestoreViewModel: ObservableObject {
             isUploading = false
         }
     }
+    
+    func uploadGroupImageToFirebase(
+        image: UIImage,
+        path: String,
+        completion: @escaping (String?) -> Void
+    ) {
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+            completion(nil)
+            return
+        }
+
+        let storageRef = Storage.storage().reference()
+        let imageRef = storageRef.child(path)
+
+        cancelPreviousUpload()
+        isUploading = true
+
+        currentUploadTask = imageRef.putData(imageData, metadata: nil) { _, error in
+            if let error = error {
+                print("❌ Upload failed:", error)
+                self.isUploading = false
+                completion(nil)
+                return
+            }
+
+            imageRef.downloadURL { url, error in
+                self.isUploading = false
+                completion(url?.absoluteString)
+            }
+        }
+    }
+    
+    func updateGroup(
+        groupID: String,
+        name: String,
+        photoURL: String?
+    ) async throws {
+        let groupRef = db.collection("groups").document(groupID)
+
+        var updates: [String: Any] = [
+            "name": name
+        ]
+
+        if let photoURL {
+            updates["photo"] = photoURL
+        } else {
+            updates["photo"] = FieldValue.delete()
+        }
+
+        try await groupRef.updateData(updates)
+    }
+    
+    func deleteGroupImage(groupID: String) async throws {
+        let ref = Storage.storage()
+            .reference()
+            .child("groupImages/\(groupID).jpg")
+
+        do {
+            try await ref.delete()
+        } catch let error as NSError {
+            if error.code == StorageErrorCode.objectNotFound.rawValue {
+                return
+            }
+            throw error
+        }
+    }
+    
+    func deleteImageFromStorage(imageURL: String, completion: @escaping (Bool) -> Void) {
+        let storageRef = Storage.storage().reference(forURL: imageURL)
+        
+        storageRef.delete { error in
+            if let error = error {
+                print("❌ Error deleting image: \(error.localizedDescription)")
+                completion(false)
+            } else {
+                print("🗑️ Old image deleted successfully")
+                completion(true)
+            }
+        }
+    }
+    
+    func updateUserInfo(
+        name: String,
+        newPhoto: UIImage?,
+        didDeletePhoto: Bool
+    ) async -> Bool {
+        
+        guard let userID = Auth.auth().currentUser?.uid else {
+            return false
+        }
+        
+        let userRef = db.collection("users").document(userID)
+        
+        do {
+            // Fetch current user data
+            let snapshot = try await userRef.getDocument()
+            let oldURL = snapshot.data()?["profileImageURL"] as? String
+            
+            // CASE 1:
+            // No new photo + no delete → just update name
+            if newPhoto == nil && !didDeletePhoto {
+                try await userRef.updateData([
+                    "name": name
+                ])
+                await MainActor.run {
+                    myUserProfile.name = name
+                }
+                return true
+            }
+            
+            // CASE 2:
+            // No new photo + did delete → delete old (if exists), clear URL
+            if newPhoto == nil && didDeletePhoto {
+                
+                if let oldURL = oldURL {
+                    _ = await deleteImageAsync(imageURL: oldURL)
+                }
+                
+                try await userRef.updateData([
+                    "name": name,
+                    "profilePic": FieldValue.delete()
+                ])
+                await MainActor.run {
+                    myUserProfile.name = name
+                    myUserProfile.profilePic = nil
+                }
+                return true
+            }
+            
+            // CASE 3:
+            // New photo uploaded → upload new, delete old, update URL
+            if let image = newPhoto {
+                
+                guard let newURL = await uploadImageAsync(image) else {
+                    return false
+                }
+                
+                if let oldURL = oldURL {
+                    _ = await deleteImageAsync(imageURL: oldURL)
+                }
+                
+                try await userRef.updateData([
+                    "name": name,
+                    "profilePic": newURL
+                ])
+                await MainActor.run {
+                    myUserProfile.name = name
+                    myUserProfile.profilePic = newURL
+                }
+                return true
+            }
+            
+            return false
+            
+        } catch {
+            print("❌ Error updating user: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    
+    func uploadImageAsync(_ image: UIImage) async -> String? {
+        await withCheckedContinuation { continuation in
+            uploadImageToFirebase(image: image) { url in
+                Task { @MainActor in
+                    continuation.resume(returning: url)
+                }
+            }
+        }
+    }
+    
+    func deleteImageAsync(imageURL: String) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let storageRef = Storage.storage().reference(forURL: imageURL)
+            storageRef.delete { error in
+                Task { @MainActor in
+                    if let error = error {
+                        print("❌ Error deleting image: \(error.localizedDescription)")
+                        continuation.resume(returning: false)
+                    } else {
+                        print("🗑️ Old image deleted")
+                        continuation.resume(returning: true)
+                    }
+                }
+            }
+        }
+    }
+
+
+
     
     func uploadImageToFirebase(image: UIImage, completion: @escaping (String?) -> Void) {
         // Convert the UIImage to Data
@@ -980,26 +1270,62 @@ class FirestoreViewModel: ObservableObject {
     func addFestivalToGroups(
         groupIDs: [String],
         festivalID: String
-    ) {
+
+    ) async -> Bool {
         let db = Firestore.firestore()
         let groupsRef = db.collection("groups")
 
-        for groupID in groupIDs {
-            let docRef = groupsRef.document(groupID)
+        var didFail = false
 
-            docRef.updateData([
-                "festivals": FieldValue.arrayUnion([festivalID])
-            ]) { error in
-                if let error = error as NSError? {
-                    // Ignore "not found" errors, log anything else if you want
-                    if error.code != FirestoreErrorCode.notFound.rawValue {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for groupID in groupIDs {
+                taskGroup.addTask {
+                    let docRef = groupsRef.document(groupID)
+                    do {
+                        try await docRef.updateData([
+                            "festivals": FieldValue.arrayUnion([festivalID])
+                        ])
+
+                        await MainActor.run {
+                            if let index = self.mySocialGroups.firstIndex(where: { $0.id == groupID }) {
+                                self.mySocialGroups[index].festivals.append(festivalID)
+                            }
+                        }
+
+                    } catch {
                         print("Failed to update group \(groupID): \(error.localizedDescription)")
+                        didFail = true
                     }
                 }
             }
         }
+
+        return !didFail
     }
 
+
+
+
+    func addFestivalsToGroup(
+        groupID: String,
+        festivalIDs: [String]
+    ) {
+        guard !festivalIDs.isEmpty else { return }
+
+        let db = Firestore.firestore()
+        let groupRef = db.collection("groups").document(groupID)
+
+        groupRef.updateData([
+            "festivals": FieldValue.arrayUnion(festivalIDs)
+        ]) { error in
+            if let error = error as NSError? {
+                // Ignore "not found" errors
+                if error.code != FirestoreErrorCode.notFound.rawValue {
+                    print("Failed to update group \(groupID): \(error.localizedDescription)")
+                }
+            }
+        }
+    }
 
 
 

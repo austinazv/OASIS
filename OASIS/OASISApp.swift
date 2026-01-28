@@ -555,7 +555,12 @@ extension View {
                 }
             }
             .navigationDestination(for: DataSet.ArtistListStruct.self) { page in
-                ArtistList(navigationPath: navigationPath, titleText: page.titleText, artistList: page.list)
+                ArtistList(navigationPath: navigationPath,
+                           titleText: page.titleText,
+                           artistList: page.list,
+                           groupFavs: page.groupFavs,
+                           sortType: page.groupFavs == nil ? .alpha : .group
+                )
                     .environmentObject(festivalVM)
             }
             .navigationDestination(for: DataSet.ArtistPageStruct.self) { page in
@@ -572,7 +577,13 @@ extension View {
             .navigationDestination(for: String.self) { value in
                 switch value {
                 case "Settings":
-                    SettingsHomePage()
+                    SettingsHomePage(navigationPath: navigationPath)
+                case "Edit Profile":
+                    AccountEditPage(navigationPath: navigationPath)
+                case "Spotify Account":
+                    SpotifyAccount()
+                case "About Page":
+                    AboutPage()
                 case "Festival Settings":
                     FestivalSettingsPage(navigationPath: navigationPath)
                 case "Favorites":

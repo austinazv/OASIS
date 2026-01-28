@@ -21,62 +21,79 @@ struct LogInPage: View {
     @State private var errorMessage = ""
     
     var body: some View {
-        VStack(spacing: 0) {
-            
-            Text("Welcome to")
-                .font(Font.system(size: 20))
-                .padding(10)
-            OASISTitle(fontSize: 75.0)
-               
-            
-            Spacer()
-                .frame(height: 90)
-            
-            // Apple Sign-In Button
-            SignInWithAppleButton(.signIn) { request in
-                // Generate raw nonce and store it
-                let nonce = randomNonceString()
-                // Apple requires the SHA256 hash of the raw nonce in the request
-                request.requestedScopes = [.fullName, .email]
-                request.nonce = sha256(nonce)
-                print("Apple Sign-In: Prepared request with hashed nonce.")
-            } onCompletion: { result in
-                print("Apple Sign-In: onCompletion called with result: \(result)")
-                handleAppleSignIn(result: result)
-            }
-            .signInWithAppleButtonStyle(.whiteOutline)
-            .frame(height: 50)
-            .padding()
-            .shadow(radius: 5)
-            
-            // Google Sign-In Button (custom to match Apple white outline style)
-            Button(action: {
-                signInWithGoogle()
-            }) {
-                HStack(spacing: 8) {
-                    Image("Google Logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 18, height: 18)
-                    Text("Sign in with Google")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.black)
+        ZStack {
+            VStack(spacing: 0) {
+                
+                Text("Welcome to")
+                    .font(Font.system(size: 20))
+                    .padding(10)
+                OASISTitle(fontSize: 75.0)
+                
+                
+                Spacer()
+                    .frame(height: 90)
+                
+                // Apple Sign-In Button
+                SignInWithAppleButton(.signIn) { request in
+                    // Generate raw nonce and store it
+                    let nonce = randomNonceString()
+                    // Apple requires the SHA256 hash of the raw nonce in the request
+                    request.requestedScopes = [.fullName, .email]
+                    request.nonce = sha256(nonce)
+                    print("Apple Sign-In: Prepared request with hashed nonce.")
+                } onCompletion: { result in
+                    print("Apple Sign-In: onCompletion called with result: \(result)")
+                    handleAppleSignIn(result: result)
                 }
-                .frame(maxWidth: .infinity, alignment: .center) // center the whole [logo + text]
+                .signInWithAppleButtonStyle(.whiteOutline)
                 .frame(height: 50)
-                .background(Color.white)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.black, lineWidth: 1)
-                )
-                .cornerRadius(8)
+                .padding()
+                .shadow(radius: 5)
+                
+                // Google Sign-In Button (custom to match Apple white outline style)
+                Button(action: {
+                    signInWithGoogle()
+                }) {
+                    HStack(spacing: 8) {
+                        Image("Google Logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 18, height: 18)
+                        Text("Sign in with Google")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.black)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center) // center the whole [logo + text]
+                    .frame(height: 50)
+                    .background(Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.black, lineWidth: 1)
+                    )
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .padding()
+                .shadow(radius: 5)
+                
+                Spacer()
+                    .frame(height: 130)
             }
-            .buttonStyle(.plain)
-            .padding()
-            .shadow(radius: 5)
-            
-            Spacer()
-                .frame(height: 130)
+            HStack {
+                Spacer()
+                VStack {
+                    Image(systemName: "info.circle")
+                        .imageScale(.large)
+                        .padding(.horizontal, 30)
+                        .padding(.vertical, 15)
+                        .onTapGesture {
+                            if let url = URL(string: "https://www.austinzv.com/") {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                    Spacer()
+                }
+            }
         }
         .alert(isPresented: $showError) {
             Alert(title: Text("Login Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))

@@ -29,6 +29,8 @@ struct NewEventPage: View {
     
     let FRAME_HEIGHT = 40.0
     
+    @State var oldVersion: DataSet.Festival
+    
 //    init(festivalCreator: FestivalViewModel) {
 //        self.festivalCreator = festivalCreator
 ////        _draft = StateObject(wrappedValue: NewEventPageViewModel(festivalCreator: festivalCreator))
@@ -37,10 +39,10 @@ struct NewEventPage: View {
     init(festival: DataSet.Festival, /*festivalCreator: FestivalViewModel,*/ navigationPath: Binding<NavigationPath>) {
         _navigationPath = navigationPath
         _draft = StateObject(wrappedValue: NewEventPageViewModel(festival: festival))
+        oldVersion = festival
     }
     
     @State var discardChangesAlert: Bool = false
-    
     
     var body: some View {
         Group {
@@ -81,10 +83,11 @@ struct NewEventPage: View {
             ToolbarItem(placement: .topBarLeading) {
                 Group {
                     Button (action: {
-                        if hasBeenEdited {
-                            discardChangesAlert = true
-                        } else {
+//                        if hasBeenEdited {
+                        if draft.newFestival == oldVersion {
                             navigationPath.removeLast()
+                        } else {
+                            discardChangesAlert = true
                         }
                     }, label: {
                         Image(systemName: "chevron.left")
@@ -132,7 +135,7 @@ struct NewEventPage: View {
                         })
                     } else {
                         Button (action: {
-                            festivalVM.saveDraft(draft.newFestival)
+//                            festivalVM.saveDraft(draft.newFestival)
                             navigationPath.removeLast()
                         }, label: {
                             HStack {
@@ -173,6 +176,8 @@ struct NewEventPage: View {
             }
         }
         .onAppear() {
+            
+            
             if let logoPath = draft.newFestival.logoPath {
                 FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
                     if let logo = logo {
@@ -194,6 +199,11 @@ struct NewEventPage: View {
             return Alert(title: Text("Discard Changes?"),
                          message: Text("Are you sure you want to leave without saving?"),
                          primaryButton: .destructive(Text("Discard Changes")) {
+                if festivalVM.isNewFestival(oldVersion) {
+                    festivalVM.deleteEvent(id: oldVersion.id)
+                } else {
+                    draft.newFestival = oldVersion
+                }
                 navigationPath.removeLast()
             }, secondaryButton: .cancel()
             )
@@ -341,11 +351,17 @@ struct NewEventPage: View {
                     draft.newFestival.endDate = newDate
                 }
             }
-            .onChange(of: draft.newFestival) { _ in
-                if !hasBeenEdited {
-                    hasBeenEdited = true
-                }
+            .onChange(of: draft.newFestival) { newVersion in
+                festivalVM.saveDraft(newVersion)
+//                if !hasBeenEdited {
+//                    hasBeenEdited = true
+//                }
             }
+//            .onChange(of: draft.newFestival) { _ in
+//                if !hasBeenEdited {
+//                    hasBeenEdited = true
+//                }
+//            }
             
         }
     }

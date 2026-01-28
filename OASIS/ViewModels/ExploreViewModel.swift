@@ -20,7 +20,7 @@ class ExploreViewModel: ObservableObject {
     @Published var errorMessage: String?
     
     let client: SearchClient
-
+    
     init() {
         isLoading = true
         
@@ -38,8 +38,8 @@ class ExploreViewModel: ObservableObject {
     }
     
     func fetchVerifiedFestivals() {
-//        guard !isLoading else { return } // prevent double fetch
-//        isLoading = true
+        //        guard !isLoading else { return } // prevent double fetch
+        //        isLoading = true
         
         downloadVerifiedFestivals { [weak self] result in
             DispatchQueue.main.async {
@@ -63,9 +63,9 @@ class ExploreViewModel: ObservableObject {
         
         db.collection("festivals")
             .whereField("verified", isEqualTo: true)
-            // Only festivals starting today or later (ignores time-of-day by using startOfDay)
+        // Only festivals starting today or later (ignores time-of-day by using startOfDay)
             .whereField("startDate", isGreaterThanOrEqualTo: startOfToday)
-            // Optional but recommended for deterministic ordering and to align with range filter
+        // Optional but recommended for deterministic ordering and to align with range filter
             .order(by: "startDate", descending: false)
             .getDocuments { snapshot, error in
                 if let error = error {
@@ -148,7 +148,7 @@ class ExploreViewModel: ObservableObject {
     @MainActor
     func fetchFestivalsByIDs(
         ids: [String]
-//        client: SearchClient
+        //        client: SearchClient
     ) async -> [DataSet.Festival] {
         
         guard !ids.isEmpty else { return [] }
@@ -176,7 +176,68 @@ class ExploreViewModel: ObservableObject {
         
         return festivals
     }
-
+    
+    @Published var searchResults: [DataSet.Festival] = []
+    @Published var isSearchLoading = false
+    
+    private var searchTask: Task<Void, Never>?
+    
+    @MainActor
+    func search(_ text: String) {
+        searchTask?.cancel()
+        
+        searchTask = Task {
+            // ⏳ debounce delay
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            
+            guard !Task.isCancelled else { return }
+            
+            isSearchLoading = true
+            defer { isSearchLoading = false }
+            
+            do {
+                searchResults = try await searchFestivals(searchText: text)
+            } catch {
+                searchResults = []
+                print("Search error:", error)
+            }
+        }
+    }
+    
+    func searchFestivals(searchText: String) async throws -> [DataSet.Festival] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        
+        let db = Firestore.firestore()
+        let festivalsRef = db.collection("festivals")
+        
+        let queryText = trimmed.lowercased()
+        let spaceQuery = " " + queryText
+        
+        async let startsWithQuery = festivalsRef
+            .whereField("name_lowercase", isGreaterThanOrEqualTo: queryText)
+            .whereField("name_lowercase", isLessThanOrEqualTo: queryText + "\u{f8ff}")
+            .getDocuments()
+        
+        async let containsWordQuery = festivalsRef
+            .whereField("name_lowercase", isGreaterThanOrEqualTo: spaceQuery)
+            .whereField("name_lowercase", isLessThanOrEqualTo: spaceQuery + "\u{f8ff}")
+            .getDocuments()
+        
+        let (startsSnap, containsSnap) = try await (startsWithQuery, containsWordQuery)
+        
+        var unique: [UUID: DataSet.Festival] = [:]
+        
+        for doc in startsSnap.documents + containsSnap.documents {
+            if let festival = try? doc.data(as: DataSet.Festival.self) {
+                unique[festival.id] = festival
+            }
+        }
+        
+        return Array(unique.values)
+    }
+    
+    
     
     @MainActor
     func searchAlgoliaDatabase(
@@ -342,7 +403,7 @@ class ExploreViewModel: ObservableObject {
         var weekend: String?
         var tier: String?
         var stage: String?
-//        var performanceDate: Double? // Future Date field in milliseconds
+        //        var performanceDate: Double? // Future Date field in milliseconds
     }
-
+    
 }
