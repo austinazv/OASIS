@@ -22,7 +22,7 @@ struct FestivalPage: View {
     
     var previewView: Bool = false
     
-    var friendFavorites: FriendFavorites? = nil
+//    var friendFavorites: FriendFavorites? = nil
     
     var body: some View {
         VStack(spacing: 0) {
@@ -359,9 +359,11 @@ struct FestivalPage: View {
         UIApplication.shared.open(fileURL)
     }
     
+    @State var showAddFestivalToGroupSheet = false
+    
     var FestivalOptionsBar: some View {
         Group {
-            HStack(spacing: 30) {
+            HStack(spacing: 32) {
                 ZStack {
                     Circle()
                         .foregroundStyle(Color("BW Color Switch Reverse"))
@@ -370,39 +372,62 @@ struct FestivalPage: View {
                         .imageScale(.large)
                         .foregroundStyle(.blue)
                 }
-                if let url = currentFestival.website {
-                    ZStack {
-                        Circle()
-                            .foregroundStyle(Color("BW Color Switch Reverse"))
-                            .shadow(radius: SHADOW)
-                        Image(systemName: "network")
-                            .imageScale(.large)
-                            .foregroundStyle(.blue)
-                    }
-                    .onTapGesture {
-                        if let URL = URL(string: toHttpWww(url)) {
-                            UIApplication.shared.open(URL)
-                        }
-                    }
-                }
+                .frame(height: LARGE_BUTTON_HEIGHT/1.3)
+                
                 ZStack {
                     Circle()
                         .foregroundStyle(Color("BW Color Switch Reverse"))
                         .shadow(radius: SHADOW)
                     Image(systemName: festivalVM.festivalIsFavorited(festivalID: currentFestival.id) ? "star.fill" : "star")
                         .foregroundStyle(.yellow)
-                        .imageScale(.large)
+//                        .imageScale(.large)
+                        .font(.system(size: 34))
                         .onTapGesture() {
                             festivalVM.festivalStarPressed(festival: currentFestival)
                         }
                 }
+                .frame(height: LARGE_BUTTON_HEIGHT/1.05)
+                
+                ZStack {
+                    Circle()
+                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .shadow(radius: SHADOW)
+                    Image(systemName: "person.2.badge.plus.fill")
+                        .foregroundStyle(.blue)
+                        .font(.system(size: 20))
+//                        .imageScale(.medium)
+                        .onTapGesture() {
+                            showAddFestivalToGroupSheet = true
+                            //TODO: Show Add to Group Sheet
+//                            festivalVM.festivalStarPressed(festival: currentFestival)
+                        }
+                }
+                .frame(height: LARGE_BUTTON_HEIGHT/1.3) 
             }
             .foregroundStyle(Color("BW Color Switch"))
-            .frame(height: LARGE_BUTTON_HEIGHT/1.3)
             .padding(5)
         }
         .padding(.top, 10)
+        .sheet(isPresented: $showAddFestivalToGroupSheet) {
+            AddFestivalToGroupSheet(festival: currentFestival, showAddFestivalToGroupSheet: $showAddFestivalToGroupSheet)
+        }
     }
+    
+//    if let url = currentFestival.website {
+//        ZStack {
+//            Circle()
+//                .foregroundStyle(Color("BW Color Switch Reverse"))
+//                .shadow(radius: SHADOW)
+//            Image(systemName: "network")
+//                .imageScale(.large)
+//                .foregroundStyle(.blue)
+//        }
+//        .onTapGesture {
+//            if let URL = URL(string: toHttpWww(url)) {
+//                UIApplication.shared.open(URL)
+//            }
+//        }
+//    }
     
     func toHttpWww(_ input: String) -> String {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -494,18 +519,46 @@ struct FestivalPage: View {
                 .frame(height: SMALL_BUTTON_HEIGHT)
             }
         }
-        .onAppear() {
-            Task {
-                let result = await firestore.fetchFriendsFestivalFavs(
-                    festivalID: currentFestival.id.uuidString,
-                    friendIDs: firestore.myUserProfile.safeFollowing
-                )
-                await MainActor.run {
-                    self.friendsFavs = result
-                    
+        .task {
+            await MainActor.run {
+                isLoadingFriends = true
+            }
+            defer {
+                Task { @MainActor in
+                    isLoadingFriends = false
                 }
             }
+
+            let following = await firestore.users(from: firestore.myUserProfile.safeFollowing)
+            let festivalID = currentFestival.id.uuidString
+
+            let newFriendFavs: [UserProfile: [String]] = Dictionary(
+                uniqueKeysWithValues: following.compactMap { user in
+                    guard let fav = user.festivalFavorites?[festivalID] else { return nil }
+                    return (user, fav)
+                }
+            )
+
+            await MainActor.run {
+                friendsFavs = newFriendFavs
+                print(friendsFavs)
+            }
         }
+
+//        .onAppear() {
+//            Task {
+//                let result = await firestore.fetchFriendsFestivalFavs(
+//                    festivalID: currentFestival.id.uuidString,
+//                    friendIDs: firestore.myUserProfile.safeFollowing
+//                )
+//                await MainActor.run {
+//                    self.friendsFavs = result
+//                }
+////                for group in firestore.myUserProfile.groups {
+//                    //TODO:
+////                }
+//            }
+//        }
         .onChange(of: friendsFavs) { newFriends in
             if !newFriends.isEmpty {
                 withAnimation {
@@ -519,10 +572,11 @@ struct FestivalPage: View {
         }
     }
     
-    
+    @State var isLoadingFriends = false
     @State var showFriends = false
     @State var showFriendList = false
     @State var friendsFavs = [UserProfile : [String]]()
+    @State var groupFavorites = [[UserProfile : [String]]]()
     
     
     var FriendsFavoritesButton: some View {
@@ -560,8 +614,9 @@ struct FestivalPage: View {
                                                                                festival: currentFestival,
                                                                                list: festivalVM.getArtistListFromID(artistIDs: friendsFavs[profile]!, festival: currentFestival))) {
                                     ZStack {
-                                        UnevenRoundedRectangle(bottomLeadingRadius: lastSectionBool ? CORNER_RADIUS : 0,
-                                                               bottomTrailingRadius: lastSectionBool ? CORNER_RADIUS : 0,
+                                        let lastFriendBool = (index == friendsFavs.keys.count - 1)
+                                        UnevenRoundedRectangle(bottomLeadingRadius: lastFriendBool ? CORNER_RADIUS : 0,
+                                                               bottomTrailingRadius: lastFriendBool ? CORNER_RADIUS : 0,
                                                                style: .continuous)
                                         .foregroundStyle(Color("BW Color Switch Reverse"))
                                         HStack {
@@ -1147,6 +1202,162 @@ struct FriendFavorites {
     let name: String
     let favorite: Array<String>
 }
+
+struct AddFestivalToGroupSheet: View {
+    @EnvironmentObject var firestore: FirestoreViewModel
+    
+    var festival: DataSet.Festival
+    
+    @Binding var showAddFestivalToGroupSheet: Bool
+    
+    @State var selectedGroups: Set<String> = []
+    
+    var body: some View {
+        VStack {
+            NavigationButtons
+            Text("Add \(festival.name) To Your Groups")
+                .font(.title3)
+                .padding(.vertical)
+            ScrollView {
+                VStack(spacing: 0) {
+                    let sortedGroups = firestore.mySocialGroups.sorted(by: { $0.name < $1.name })
+                    
+                    ForEach(sortedGroups.indices, id: \.self) { index in
+                        let group = sortedGroups[index]
+                        HStack {
+                            SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+                            Text(group.name)
+                                .foregroundStyle(.black)
+                            Spacer()
+                            GroupMemberPhotos(memberIDs: group.members)
+                            Image(systemName: selectedGroups.contains(group.id!) ? "checkmark.square.fill" : "square")
+                                .foregroundColor(Color("OASIS Dark Orange"))
+                                .imageScale(.large)
+                                .padding(.leading, 20)
+                            //                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
+                            //                            Image(systemName: "chevron.right")
+                            //                                .foregroundStyle(.black)
+                            //                        } else {
+                            //                            FollowButtonShort(profile: profile)
+                            //                        }
+                        }
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                        .padding(.horizontal, 10)
+                        .onTapGesture {
+                            if selectedGroups.contains(group.id!) {
+                                selectedGroups.remove(group.id!)
+                            } else {
+                                selectedGroups.insert(group.id!)
+                            }
+                        }
+                        if index < sortedGroups.count - 1 {
+                            Divider()
+                        }
+                    }
+                    
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .background(Color.white)
+                //                .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
+                .cornerRadius(10)
+                .border(Color.gray, width: 2)
+                .padding(.horizontal, 10)
+            }
+        }
+//        .onAppear() {
+//            groupSelection = Array(repeating: false, count: firestore.mySocialGroups.count)
+//        }
+    }
+    
+    var NavigationButtons: some View {
+        VStack {
+            HStack {
+                Button(action: {
+                    showAddFestivalToGroupSheet = false
+                }, label: {
+                    Text("Cancel")
+                        .foregroundStyle(.red)
+                })
+                Spacer()
+                Button(action: {
+                    addGroups()
+                    showAddFestivalToGroupSheet = false
+                }, label: {
+                    Group {
+                        Text("Add")
+                    }
+//                    .foregroundStyle(newArtist == oldArtist ? .gray : .blue)
+                })
+                //                        .disabled(newArtist == oldArtist)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+//            Divider()
+        }
+    }
+    
+    func addGroups() {
+        firestore.addFestivalToGroups(groupIDs: Array(selectedGroups), festivalID: festival.id.uuidString)
+    }
+}
+
+//struct GroupSelector: View {
+//    @EnvironmentObject var firestore: FirestoreViewModel
+//    
+//    @Binding var navigationPath: NavigationPath
+//    var groups: [SocialGroup]
+//
+//    var maxHeight: CGFloat = 300
+//
+//    var body: some View {
+//        ScrollView {
+//            VStack(spacing: 0) {
+//                let sortedGroups = groups.sorted(by: { $0.name < $1.name })
+//                
+//                ForEach(sortedGroups.indices, id: \.self) { index in
+//                    let group = sortedGroups[index]
+//                    HStack {
+//                        SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+////                        VStack(alignment: .leading, spacing: 5) {
+//                            Text(group.name)
+////                                .bold()
+////                                .font(.title)
+//                                .foregroundStyle(.black)
+////                                .padding(.leading, 10)
+//                            
+////                        }
+//                        Spacer()
+//                        GroupMemberPhotos(memberIDs: group.members)
+////                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
+//                            Image(systemName: "chevron.right")
+//                                .foregroundStyle(.black)
+////                        } else {
+////                            FollowButtonShort(profile: profile)
+////                        }
+//                    }
+//                    .padding(.vertical, 8)
+//                    .contentShape(Rectangle())
+//                    .padding(.horizontal, 10)
+//                    .onTapGesture {
+//                        navigationPath.append(group)
+//                    }
+//
+//                    if index < sortedGroups.count - 1 {
+//                        Divider()
+//                    }
+//                }
+//
+//            }
+//            .fixedSize(horizontal: false, vertical: true)
+//        }
+//        .background(Color.white)
+//        .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
+//        .cornerRadius(10)
+//        .border(Color.gray, width: 2)
+//        .padding(.horizontal, 10)
+//    }
+//}
 
 
 

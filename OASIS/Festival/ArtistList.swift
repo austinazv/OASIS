@@ -62,7 +62,7 @@ struct ArtistList: View {
                                     ShuffleButtonSection
                                     CreatePlaylistSection
                                 }
-                                .padding(10)
+                                .padding(15)
                                 .frame(height: 80)
                                 .shadow(radius: 5)
                                 FullList
@@ -806,6 +806,8 @@ struct SortMenu: View {
     
     @State var currentFestival = DataSet.Festival.newFestival()
     
+    var editing: Bool = false
+    
     var body: some View {
         Group {
             let dayBool = festivalVM.listHasDays(currList: currList, secondWeekend: currentFestival.secondWeekend)
@@ -882,6 +884,33 @@ struct SortMenu: View {
                         HStack {
                             Text("Sort by Tier")
                             if sortType == .billing {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    })
+                }
+                
+                if editing {
+                    //TODO: FIX
+                    Button (action: {
+                        sortType = .addDate
+                    }, label: {
+                        HStack {
+                            Text("Sort by Date Added")
+                            if sortType == .addDate {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    })
+                    
+                    Button (action: {
+                        sortType = .modifyDate
+                    }, label: {
+                        HStack {
+                            Text("Sort by Date Modified")
+                            if sortType == .modifyDate {
                                 Spacer()
                                 Image(systemName: "checkmark")
                             }

@@ -65,8 +65,8 @@ struct GroupPage: View {
                 Spacer()
             }
             .background(Color(.white))
-            .onAppear {
-                loadUser()
+            .task {
+                loadGroup()
             }
             .onChange(of: firestore.profileDidChange) { bool in
                 if bool {
@@ -90,43 +90,22 @@ struct GroupPage: View {
 //                    .foregroundStyle(.black)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Group {
-                        //TODO: Group Settings Button
+                    Menu(content: {
+                        if firestore.myUserProfile.safeGroups.contains(group.id!) {
+                            Button (action: leaveGroup) {
+                                Text("Leave Group")
+                            }
+                        } else {
+                            Button (action: joinGroup) {
+                                Text("Join Group")
+                            }
+                        }
                         
-//                        if let profileID = profile.id {
-//                            if profileID == firestore.getUserID() {
-//                                Button {
-//                                    navigationPath.append("Settings")
-//                                } label: {
-//                                    Image(systemName: "gear")
-//                                        .imageScale(.large)
-//                                        .accessibilityLabel("Settings")
-//                                }
-//                            } else {
-//                                Menu(content: {
-//                                    
-//                                    if firestore.myUserProfile.safeFollowing.contains(profileID) {
-//                                        Button (action: {
-//                                            firestore.unfollowUser(profileID)
-//                                        }, label: {
-//                                            Text("Unfollow \(profile.name)")
-//                                        })
-//                                    } else {
-//                                        Button (action: {
-//                                            firestore.followUser(profileID)
-//                                        }, label: {
-//                                            Text("Follow \(profile.name)")
-//                                        })
-//                                    }
-//                                    
-//                                }, label: {
-//                                    Group {
-//                                        Image(systemName: "person.2.badge.gearshape.fill")
-//                                    }
-//                                })
-//                            }
-//                        }
-                    }
+                    }, label: {
+                        Group {
+                            Image(systemName: "gear")
+                        }
+                    })
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -193,6 +172,33 @@ struct GroupPage: View {
 //        }
     }
     
+    func joinGroup() {
+        firestore.joinGroup(groupID: group.id!) { success in
+            group.members.append(firestore.getUserID()!)
+        }
+    }
+    
+    func leaveGroup() {
+        firestore.leaveGroup(groupID: group.id!) { success in
+            group.members.removeAll(where: { $0 == firestore.getUserID()! })
+        }
+    }
+    
+    func loadGroup() {
+        isLoading = true
+        
+        Task {
+            defer { isLoading = false }
+            
+            let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: group.festivals)
+            let split = festivalVM.splitFestivals(likedFestivals)
+            attendedFestivals = split.attended
+            upcomingFestivals = split.upcoming
+            
+//            followers = await firestore.users(from: profile.safeFollowers)
+            members = await firestore.users(from: group.members)
+        }
+    }
     
     func loadUser() {
         isLoading = true
@@ -211,9 +217,9 @@ struct GroupPage: View {
                 }
                 
                 // ✅ 2. Fetch members
-                if !group.members.isEmpty {
-                    members = try await social.fetchUsers(from: group.members)
-                }
+//                if !group.members.isEmpty {
+//                    members = try await social.fetchUsers(from: group.members)
+//                }
 //                
 //                // ✅ 3. Fetch followers
 //                if !profile.safeFollowers.isEmpty  {
@@ -239,7 +245,7 @@ struct GroupPage: View {
                         .foregroundStyle(.black)
                         .multilineTextAlignment(.center)
                         .font(Font.system(size: 25))
-                    ShareGroupButton
+                    GroupSocialButton
 //                    ProfileButton(profile: profile)
                     
                     //                if profile.id! != firestore.getUserID() && !firestore.myUserProfile.safeFollowing.contains(profile.id!) {
@@ -254,20 +260,32 @@ struct GroupPage: View {
         
     }
     
-    var ShareGroupButton: some View {
-        ShareLink(item: shareGroupURL()) {
-            HStack {
-                Text("Invite Friends")
-                Image(systemName: "person.fill.badge.plus")
+    var GroupSocialButton: some View {
+        Group {
+            if let myID = firestore.getUserID(), group.members.contains(myID) {
+                ShareLink(item: shareGroupURL()) {
+                    HStack {
+                        Text("Invite Friends")
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    
+                }
+            } else {
+                Button (action: joinGroup) {
+                    HStack {
+                        Text("Join Group")
+                        Image(systemName: "person.3.fill")
+                    }
+                }
             }
-                .foregroundStyle(.white)
-                .frame(width: 160, height: 40)
-                .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(.blue)
-                )
-                .shadow(radius: 5)
         }
+        .foregroundStyle(.white)
+        .frame(width: 160, height: 40)
+        .background(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(.blue)
+        )
+        .shadow(radius: 5)
         .buttonStyle(.plain)
         .padding(0)
     }

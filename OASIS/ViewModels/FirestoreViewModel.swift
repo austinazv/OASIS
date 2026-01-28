@@ -22,6 +22,14 @@ class FirestoreViewModel: ObservableObject {
     @Published var phoneConnected: Bool = false
     
     @Published var myUserProfile = UserProfile()
+    @Published var usersByID: [String: UserProfile] = [:]
+    @Published var mySocialGroups = Array<SocialGroup>()
+    
+    @Published var socialLoading = true
+
+//    @Published var myFollowing = Array<UserProfile>()
+//    @Published var myFollowers = Array<UserProfile>()
+    
     
     var currentUploadTask: StorageUploadTask?
     @Published var isUploading = false
@@ -35,31 +43,80 @@ class FirestoreViewModel: ObservableObject {
     @Published var profileDidChange = false
     
     
+    
     init(name: String) {
         self.saveName = name
         self.publicFestivals = []
-        
         self.isLoggedIn = (Auth.auth().currentUser != nil)
-        
-//        TODO: Remove
-//        let phoneNumber = "5419082599"
-//        let phoneData = Data(phoneNumber.utf8)
-//        let phoneHash = SHA256.hash(data: phoneData)
-//        let toPrint = phoneHash.compactMap { String(format: "%02x", $0) }.joined()
-//        print("Eitan hash: \(toPrint)")
-        
+
         Task {
-            await loadMyUserProfile()   // 🔥 Load user profile on init
-//            print("My Profile: \(myUserProfile)")
-            
-            if self.isLoggedIn {
-                let result = await userHasPhoneHash()
-                await MainActor.run {
-                    self.phoneConnected = result
+            defer {
+                Task { @MainActor in
+                    self.socialLoading = false
                 }
+            }
+
+            await loadMyUserProfile()
+            guard isLoggedIn else { return }
+
+            let hasPhone = await userHasPhoneHash()
+            await MainActor.run {
+                self.phoneConnected = hasPhone
+            }
+            guard hasPhone else { return }
+
+            do {
+                // 1️⃣ Fetch groups (final usable structs)
+                let groups = try await fetchGroups(from: myUserProfile.safeGroups)
+
+                // 2️⃣ Collect all user IDs
+                let allUserIDs = Array(
+                    Set(
+                        myUserProfile.safeFollowing +
+                        myUserProfile.safeFollowers +
+                        groups.flatMap { $0.members }
+                    )
+                )
+
+                // 3️⃣ Fetch all users once
+                let fetchedUsersByID = try await fetchUsersByID(allUserIDs)
+
+                // 4️⃣ Publish results
+                await MainActor.run {
+                    self.mySocialGroups = groups
+                    self.usersByID = fetchedUsersByID
+                }
+
+            } catch {
+                print("❌ Social init failed: \(error)")
             }
         }
     }
+
+    
+//    init(name: String) {
+//        self.saveName = name
+//        self.publicFestivals = []
+//        
+//        self.isLoggedIn = (Auth.auth().currentUser != nil)
+//        
+//        Task {
+//            await loadMyUserProfile()   // 🔥 Load user profile on init
+//            if self.isLoggedIn {
+//                let result = await userHasPhoneHash()
+//                await MainActor.run {
+//                    self.phoneConnected = result
+//                }
+//            }
+//        }
+//    }
+    
+    //        TODO: Remove
+    //        let phoneNumber = "5419082599"
+    //        let phoneData = Data(phoneNumber.utf8)
+    //        let phoneHash = SHA256.hash(data: phoneData)
+    //        let toPrint = phoneHash.compactMap { String(format: "%02x", $0) }.joined()
+    //        print("Eitan hash: \(toPrint)")
 
     
 //    struct UserProfile: Identifiable, Codable, Hashable {
@@ -80,7 +137,7 @@ class FirestoreViewModel: ObservableObject {
 //        return Auth.auth().currentUser != nil
 //    }
     
-    @MainActor
+//    @MainActor
     func loadMyUserProfile() async {
         let defaultsKey = "\(saveName)/myUserProfile"
 
@@ -90,7 +147,9 @@ class FirestoreViewModel: ObservableObject {
                 let profile = try await fetchUserProfile(userID: firebaseUID)
                 
                 // Save to published var
-                self.myUserProfile = profile
+                await MainActor.run {
+                    self.myUserProfile = profile
+                }
                 
                 // Save to UserDefaults
                 UserDefaults.standard.saveCodable(profile, forKey: defaultsKey)
@@ -120,6 +179,106 @@ class FirestoreViewModel: ObservableObject {
             groups: []
         )
     }
+    
+    func fetchUsersByID(_ ids: [String]) async throws -> [String: UserProfile] {
+        let db = Firestore.firestore()
+
+        // Defensive: avoid wasted work
+        let uniqueIDs = Array(Set(ids))
+        guard !uniqueIDs.isEmpty else { return [:] }
+
+        return try await withThrowingTaskGroup(of: UserProfile?.self) { group in
+
+            for id in uniqueIDs {
+                group.addTask {
+                    let snapshot = try await db
+                        .collection("users")
+                        .document(id)
+                        .getDocument()
+
+                    guard snapshot.exists else {
+                        return nil
+                    }
+
+                    let user = try snapshot.data(as: UserProfile.self)
+
+                    guard let userID = user.id else {
+                        return nil
+                    }
+
+                    return user
+                }
+            }
+
+            var usersByID: [String: UserProfile] = [:]
+
+            for try await user in group {
+                if let user {
+                    usersByID[user.id!] = user
+                }
+            }
+
+            return usersByID
+        }
+    }
+    
+    private var userFetchTasks: [String: Task<UserProfile?, Error>] = [:]
+    
+    func user(_ id: String) async throws -> UserProfile? {
+        if let cached = usersByID[id] {
+            return cached
+        }
+
+        if let task = userFetchTasks[id] {
+            return try await task.value
+        }
+
+        let task = Task<UserProfile?, Error> {
+            let snapshot = try await Firestore.firestore()
+                .collection("users")
+                .document(id)
+                .getDocument()
+
+            guard snapshot.exists else { return nil }
+
+            let user = try snapshot.data(as: UserProfile.self)
+            guard let userID = user.id else { return nil }
+
+            await MainActor.run {
+                self.usersByID[userID] = user
+            }
+
+            return user
+        }
+
+        userFetchTasks[id] = task
+
+        defer { userFetchTasks[id] = nil }
+
+        return try await task.value
+    }
+
+
+    func users(from ids: [String]) async -> [UserProfile] {
+        await withTaskGroup(of: UserProfile?.self) { group in
+            for id in Set(ids) {   // defensive dedupe
+                group.addTask {
+                    try? await self.user(id)
+                }
+            }
+
+            var results: [UserProfile] = []
+
+            for await user in group {
+                if let user {
+                    results.append(user)
+                }
+            }
+
+            return results
+        }
+    }
+
 
     
     
@@ -128,14 +287,132 @@ class FirestoreViewModel: ObservableObject {
             .collection("users")
             .document(userID)
             .getDocument()
-
-        if let data = doc.data() {
-            print("Raw Firestore data:", data)
-        }
-        
         return try doc.data(as: UserProfile.self)
     }
     
+    func fetchFollowingFollowers(
+        followingIDs: [String],
+        followerIDs: [String]
+    ) async throws -> (following: [UserProfile], followers: [UserProfile]) {
+
+        let allIDs = Array(Set(followingIDs + followerIDs))
+        let db = Firestore.firestore()
+
+        let usersByID: [String: UserProfile] = try await withThrowingTaskGroup(
+            of: UserProfile?.self
+        ) { group in
+
+            for id in allIDs {
+                group.addTask {
+                    let snapshot = try await db
+                        .collection("users")
+                        .document(id)
+                        .getDocument()
+
+                    guard snapshot.exists else { return nil }
+
+                    let user = try snapshot.data(as: UserProfile.self)
+                    guard let id = user.id else { return nil }
+
+                    return user
+                }
+            }
+
+            var dict: [String: UserProfile] = [:]
+
+            for try await user in group {
+                if let user {
+                    dict[user.id!] = user
+                }
+            }
+
+            return dict
+        }
+
+        let following = followingIDs.compactMap { usersByID[$0] }
+        let followers = followerIDs.compactMap { usersByID[$0] }
+
+        return (following, followers)
+    }
+
+    
+    
+    func fetchUsersOLD(from ids: [String]) async throws -> [UserProfile] {
+        let db = Firestore.firestore()
+        
+        return try await withThrowingTaskGroup(of: UserProfile?.self) { group in
+            for id in ids {
+                group.addTask {
+                    let snapshot = try await db
+                        .collection("users")
+                        .document(id)
+                        .getDocument()
+
+                    guard snapshot.exists else {
+                        return nil
+                    }
+
+                    let user = try snapshot.data(as: UserProfile.self)
+
+                    guard user.id != nil else {
+                        return nil
+                    }
+
+                    return user
+                }
+            }
+            
+            var users: [UserProfile] = []
+            
+            for try await user in group {
+                if let user {
+                    users.append(user)
+                }
+            }
+            return users
+        }
+    }
+    
+    func fetchGroups(from ids: [String]) async throws -> [SocialGroup] {
+        print("IDs: \(ids)")
+        
+        let db = Firestore.firestore()
+        
+        return try await withThrowingTaskGroup(of: SocialGroup?.self) { group in
+            for id in ids {
+                group.addTask {
+                    let snapshot = try await db
+                        .collection("groups")
+                        .document(id)
+                        .getDocument()
+
+                    guard snapshot.exists else {
+                        return nil
+                    }
+
+                    let socialGroup = try snapshot.data(as: SocialGroup.self)
+
+//                    guard socialGroup.id != nil else {
+//                        return nil
+//                    }
+
+                    return socialGroup
+                }
+            }
+            
+            var socialGroups: [SocialGroup] = []
+            
+            for try await socialGroup in group {
+                if let socialGroup {
+                    socialGroups.append(socialGroup)
+                }
+            }
+            
+            print("Groups: \(socialGroups)")
+            
+            return socialGroups
+        }
+    }
 
     func fetchFriendsFestivalFavs(festivalID: String, friendIDs: [String]) async -> [UserProfile: [String]] {
         
@@ -212,7 +489,7 @@ class FirestoreViewModel: ObservableObject {
 
         // 2️⃣ Add groupID to user's `groups` array
         batch.updateData([
-            "groups": FieldValue.arrayUnion([group.id])
+            "groups": FieldValue.arrayUnion([group.id!])
         ], forDocument: userRef)
 
         // Commit atomically
@@ -224,61 +501,107 @@ class FirestoreViewModel: ObservableObject {
     }
 
     
-    func joinGroup(groupID: String) async throws {
+    func joinGroup(groupID: String, completion: @escaping (Bool) -> Void) {
         guard let uid = Auth.auth().currentUser?.uid else {
-            throw NSError(domain: "AuthError", code: 401, userInfo: [
-                NSLocalizedDescriptionKey: "User not authenticated"
-            ])
+            completion(false)
+            return
         }
 
         let db = Firestore.firestore()
-
         let groupRef = db.collection("groups").document(groupID)
         let userRef = db.collection("users").document(uid)
 
         let batch = db.batch()
 
-        // 1️⃣ Add user to group members
         batch.updateData([
             "members": FieldValue.arrayUnion([uid])
         ], forDocument: groupRef)
 
-        // 2️⃣ Add groupID to user's groups
         batch.updateData([
             "groups": FieldValue.arrayUnion([groupID])
         ], forDocument: userRef)
 
-        try await batch.commit()
+        batch.commit { error in
+            if let error = error {
+                print("joinGroup failed:", error)
+                completion(false)
+            } else {
+                self.myUserProfile.groups?.append(groupID)
+                completion(true)
+            }
+        }
     }
+
     
-    func leaveGroup(groupID: String) async throws {
+    func leaveGroup(groupID: String, completion: @escaping (Bool) -> Void) {
         guard let uid = Auth.auth().currentUser?.uid else {
-            throw NSError(domain: "AuthError", code: 401, userInfo: [
-                NSLocalizedDescriptionKey: "User not authenticated"
-            ])
+            completion(false)
+            return
         }
 
         let db = Firestore.firestore()
-
         let groupRef = db.collection("groups").document(groupID)
         let userRef = db.collection("users").document(uid)
 
-        let batch = db.batch()
+        groupRef.getDocument { snapshot, error in
+            if let error = error {
+                print("Failed to fetch group:", error)
+                completion(false)
+                return
+            }
 
-        // 1️⃣ Remove user from group members
-        batch.updateData([
-            "members": FieldValue.arrayRemove([uid])
-        ], forDocument: groupRef)
+            guard
+                let snapshot = snapshot,
+                let group = try? snapshot.data(as: SocialGroup.self)
+            else {
+                completion(false)
+                return
+            }
 
-        // 2️⃣ Remove groupID from user's groups
-        batch.updateData([
-            "groups": FieldValue.arrayRemove([groupID])
-        ], forDocument: userRef)
+            let batch = db.batch()
 
-        try await batch.commit()
+            // Always remove group from user's groups
+            batch.updateData([
+                "groups": FieldValue.arrayRemove([groupID])
+            ], forDocument: userRef)
+
+            let remainingMembers = group.members.filter { $0 != uid }
+
+            // CASE 1: Leaving user is the OWNER
+            if group.ownerID == uid {
+
+                // No members left → delete group
+                if remainingMembers.isEmpty {
+                    batch.deleteDocument(groupRef)
+
+                // Members remain → transfer ownership
+                } else {
+                    let newOwnerID = remainingMembers[0] // cheapest + deterministic
+
+                    batch.updateData([
+                        "ownerID": newOwnerID,
+                        "members": remainingMembers
+                    ], forDocument: groupRef)
+                }
+
+            // CASE 2: Leaving user is NOT the owner
+            } else {
+                batch.updateData([
+                    "members": FieldValue.arrayRemove([uid])
+                ], forDocument: groupRef)
+            }
+
+            batch.commit { error in
+                if let error = error {
+                    print("leaveGroup failed:", error)
+                    completion(false)
+                } else {
+                    self.myUserProfile.groups?.removeAll(where: { $0 == groupID })
+                    completion(true)
+                }
+            }
+        }
     }
-
-    
     
     func getUserID() -> String? {
         return Auth.auth().currentUser?.uid
@@ -526,23 +849,26 @@ class FirestoreViewModel: ObservableObject {
     @Published var followUnfollowLoading: Bool = false
     @Published var followUnfollowLoadingArray = Array<String>()
 
-    func followUser(_ userID: String) {
+    func followUser(_ userID: String, completion: @escaping (Bool) -> Void) {
         followUnfollowLoadingArray.append(userID)
-//        followUnfollowLoading = true
+
         addFollowerFirestore(userID: userID) { result in
             switch result {
-            case .success():
+            case .success:
                 self.myUserProfile.following?.append(userID)
-                self.followUnfollowLoadingArray.removeAll(where: { $0 == userID })
+                self.followUnfollowLoadingArray.removeAll { $0 == userID }
                 self.profileDidChange = true
-//                self.followUnfollowLoading = false
                 print("Successfully followed new user.")
+                completion(true)
+
             case .failure(let error):
-                self.followUnfollowLoading = false
+                self.followUnfollowLoadingArray.removeAll { $0 == userID }
                 print("Failed to follow user: \(error.localizedDescription)")
+                completion(false)
             }
         }
     }
+
 
     func addFollowerFirestore(userID: String, completion: @escaping (Result<Void, Error>) -> Void) {
         guard let currentUserID = Auth.auth().currentUser?.uid else {
@@ -597,19 +923,25 @@ class FirestoreViewModel: ObservableObject {
 //        }
 //    }
     
-    func unfollowUser(_ userID: String) {
+    func unfollowUser(_ userID: String, completion: @escaping (Bool) -> Void) {
         followUnfollowLoading = true
         followUnfollowLoadingArray.append(userID)
+
         removeFollowerFirestore(userID: userID) { result in
             switch result {
-            case .success():
+            case .success:
                 self.myUserProfile.following?.removeAll { $0 == userID }
-                self.followUnfollowLoadingArray.removeAll(where: { $0 == userID })
+                self.followUnfollowLoadingArray.removeAll { $0 == userID }
+                self.followUnfollowLoading = false
                 self.profileDidChange = true
-                print("Successfully unfollowed new user.")
+                print("Successfully unfollowed user.")
+                completion(true)
+
             case .failure(let error):
+                self.followUnfollowLoadingArray.removeAll { $0 == userID }
                 self.followUnfollowLoading = false
                 print("Failed to unfollow user: \(error.localizedDescription)")
+                completion(false)
             }
         }
     }
@@ -644,6 +976,30 @@ class FirestoreViewModel: ObservableObject {
             }
         }
     }
+
+    func addFestivalToGroups(
+        groupIDs: [String],
+        festivalID: String
+    ) {
+        let db = Firestore.firestore()
+        let groupsRef = db.collection("groups")
+
+        for groupID in groupIDs {
+            let docRef = groupsRef.document(groupID)
+
+            docRef.updateData([
+                "festivals": FieldValue.arrayUnion([festivalID])
+            ]) { error in
+                if let error = error as NSError? {
+                    // Ignore "not found" errors, log anything else if you want
+                    if error.code != FirestoreErrorCode.notFound.rawValue {
+                        print("Failed to update group \(groupID): \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+    }
+
 
 
 

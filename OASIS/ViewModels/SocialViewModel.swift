@@ -162,82 +162,84 @@ class SocialViewModel: ObservableObject {
         }
     }
 
-    func fetchUsers(from ids: [String]) async throws -> [UserProfile] {
-        let db = Firestore.firestore()
-        
-        return try await withThrowingTaskGroup(of: UserProfile?.self) { group in
-            for id in ids {
-                group.addTask {
-                    let snapshot = try await db
-                        .collection("users")
-                        .document(id)
-                        .getDocument()
-
-                    guard snapshot.exists else {
-                        return nil
-                    }
-
-                    let user = try snapshot.data(as: UserProfile.self)
-
-                    guard user.id != nil else {
-                        return nil
-                    }
-
-                    return user
-                }
-            }
-            
-            var users: [UserProfile] = []
-            
-            for try await user in group {
-                if let user {
-                    users.append(user)
-                }
-            }
-            return users
-        }
-    }
-    
-    func fetchGroups(from ids: [String]) async throws -> [SocialGroup] {
-        print("IDs: \(ids)")
-        
-        let db = Firestore.firestore()
-        
-        return try await withThrowingTaskGroup(of: SocialGroup?.self) { group in
-            for id in ids {
-                group.addTask {
-                    let snapshot = try await db
-                        .collection("groups")
-                        .document(id)
-                        .getDocument()
-
-                    guard snapshot.exists else {
-                        return nil
-                    }
-
-                    let socialGroup = try snapshot.data(as: SocialGroup.self)
-
-//                    guard socialGroup.id != nil else {
+//    func fetchUsers(from ids: [String]) async throws -> [UserProfile] {
+//        let db = Firestore.firestore()
+//        
+//        return try await withThrowingTaskGroup(of: UserProfile?.self) { group in
+//            for id in ids {
+//                group.addTask {
+//                    let snapshot = try await db
+//                        .collection("users")
+//                        .document(id)
+//                        .getDocument()
+//
+//                    guard snapshot.exists else {
 //                        return nil
 //                    }
-
-                    return socialGroup
-                }
-            }
-            
-            var socialGroups: [SocialGroup] = []
-            
-            for try await socialGroup in group {
-                if let socialGroup {
-                    socialGroups.append(socialGroup)
-                }
-            }
-            
-            print("Groups: \(socialGroups)")
-            
-            return socialGroups
-        }
-    }
+//
+//                    let user = try snapshot.data(as: UserProfile.self)
+//
+//                    guard user.id != nil else {
+//                        return nil
+//                    }
+//
+//                    return user
+//                }
+//            }
+//            
+//            var users: [UserProfile] = []
+//            
+//            for try await user in group {
+//                if let user {
+//                    users.append(user)
+//                }
+//            }
+//            return users
+//        }
+//    }
+//    
+//    func fetchGroups(from ids: [String]) async throws -> [SocialGroup] {
+//        print("IDs: \(ids)")
+//        
+//        let db = Firestore.firestore()
+//        
+//        return try await withThrowingTaskGroup(of: SocialGroup?.self) { group in
+//            for id in ids {
+//                group.addTask {
+//                    let snapshot = try await db
+//                        .collection("groups")
+//                        .document(id)
+//                        .getDocument()
+//
+//                    guard snapshot.exists else {
+//                        return nil
+//                    }
+//
+//                    let socialGroup = try snapshot.data(as: SocialGroup.self)
+//
+////                    guard socialGroup.id != nil else {
+////                        return nil
+////                    }
+//
+//                    return socialGroup
+//                }
+//            }
+//            
+//            var socialGroups: [SocialGroup] = []
+//            
+//            for try await socialGroup in group {
+//                if let socialGroup {
+//                    socialGroups.append(socialGroup)
+//                }
+//            }
+//            
+//            print("Groups: \(socialGroups)")
+//            
+//            return socialGroups
+//        }
+//    }
+    
+    
 
 
 

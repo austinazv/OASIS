@@ -267,6 +267,10 @@ class DataSet: ObservableObject {
                 $0.lowercased() < $1.lowercased()
             })
             break
+        case .addDate:
+            break
+        case .modifyDate:
+            break
         }
         return dictKeys
     }
@@ -2735,6 +2739,10 @@ class DataSet: ObservableObject {
             return dayLables
         case .genre:
             return genreLables
+        case .addDate:
+            return allLable
+        case .modifyDate:
+            return allLable
         }
     }
     
@@ -2807,6 +2815,8 @@ class DataSet: ObservableObject {
         var weekend: String = "Both"
         var tier: String = "-- N/A --"
         var stage: String = "-- N/A --"
+        var addDate/*: Date?*/ = Date()
+        var modifyDate/*: Date?*/ = Date()
     }
     
 //    struct artistWithPhoto: ``
@@ -2872,6 +2882,8 @@ class DataSet: ObservableObject {
         case day
         case stage
         case genre
+        case addDate
+        case modifyDate
     }
 
     
@@ -3008,7 +3020,7 @@ extension UserProfile {
     var safeFollowing: [String] { following ?? [] }
     var safeFollowers: [String] { followers ?? [] }
     var safeFestivalFavorites: [String: [String]] { festivalFavorites ?? [:] }
-    var safegroups: [String] { groups ?? [] }
+    var safeGroups: [String] { groups ?? [] }
     
     init() {
         self.id = nil
@@ -3029,6 +3041,15 @@ struct SocialGroup: Hashable, Identifiable, Codable {
     var members: [String] = []
     var festivals: [String] = []
 }
+
+//struct SocialGroup: Hashable, Identifiable, Codable {
+//    var id: String
+//    var ownerID: String
+//    var name: String
+//    var photo: String?
+//    var members: [UserProfile] = []
+//    var festivals: [String] = []
+//}
 
 extension UserDefaults {
     func saveCodable<T: Codable>(_ value: T, forKey key: String) {

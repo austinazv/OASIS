@@ -76,10 +76,10 @@ struct MyFestivalsPage: View {
                 }
             }
         }
-        .onAppear {
-            print(festivalDrafts)
-            
-        }
+//        .onAppear {
+//            print(festivalDrafts)
+//            
+//        }
     }
     
     //            self.selectedFestival = nil

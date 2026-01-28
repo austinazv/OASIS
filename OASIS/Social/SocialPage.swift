@@ -17,16 +17,17 @@ struct SocialPage: View {
     @EnvironmentObject var festivalVM: FestivalViewModel
     @EnvironmentObject var firestore: FirestoreViewModel
     
-    @StateObject var social = SocialViewModel()
+//    @StateObject var social = SocialViewModel()
+    @EnvironmentObject var social: SocialViewModel
     
     
     @State private var navigationPath = NavigationPath()
     
     @State var isLoadingFriends = false
-    @State var friends = Array<UserProfile>()
+    @State var following = Array<UserProfile>()
     
     @State var isLoadingGroups = false
-    @State var groups = Array<SocialGroup>()
+//    @State var groups = Array<SocialGroup>()
     
 //    @State var profile: DataSet.UserProfile?
 //    @State private var isProfileLoaded = false
@@ -90,17 +91,17 @@ struct SocialPage: View {
         Group {
             Menu(content: {
                 Button (action: {
-                    showAddFriendsSheet = true
-                }, label: {
-                    Text("Find People")
-                    Image(systemName: "person.2.fill")
-                })
-                Button (action: {
                     //TODO: Group stuff
                     showGroupSheet = true
                 }, label: {
                     Text("New Group")
                     Image(systemName: "person.3.fill")
+                })
+                Button (action: {
+                    showAddFriendsSheet = true
+                }, label: {
+                    Text("Find People")
+                    Image(systemName: "person.2.fill")
                 })
             }, label: {
                 Image(systemName: "person.2.fill")
@@ -140,8 +141,8 @@ struct SocialPage: View {
                         .border(Color.gray, width: 2)
                         .padding([.leading, .trailing, .bottom], 10)
                     } else {
-                        if !friends.isEmpty {
-                            ProfilesListed(navigationPath: $navigationPath, profiles: friends)
+                        if !following.isEmpty {
+                            ProfilesListed(navigationPath: $navigationPath, profiles: following)
                         } else {
 //                            Button(action: { showAddFriendsSheet = true }) {
                                 HStack {
@@ -167,47 +168,57 @@ struct SocialPage: View {
         .sheet(isPresented: $showAddFriendsSheet) {
             AddFriendsSheet
         }
-        .onAppear {
-            loadFriends()
-            loadGroups()
+        .task {
+            isLoadingFriends = true
+            defer { isLoadingFriends = false }
+
+            following = await firestore.users(from: firestore.myUserProfile.safeFollowing)
         }
         .onChange(of: showAddFriendsSheet) { newValue in
             if !newValue {
-                loadFriends()
+                Task {
+                    isLoadingFriends = true
+                    defer { isLoadingFriends = false }
+                    
+                    following = await firestore.users(from: firestore.myUserProfile.safeFollowing)
+                }
             }
         }
         .onChange(of: navigationPath) { _ in
             showAddFriendsSheet = false
+            showGroupSheet = false
         }
     }
     
-    func loadFriends() {
-        if friends.isEmpty { isLoadingFriends = true }
-        Task {
-            do {
-                friends = try await social.fetchUsers(from: firestore.myUserProfile.safeFollowing)
-                isLoadingFriends = false
-                
-            } catch {
-                print("Error:", error)
-                isLoadingFriends = false
-            }
-        }
-    }
+//    func loadFriends() {
+//        isLoadingFriends = true
+        
+//        if friends.isEmpty { isLoadingFriends = true }
+//        Task {
+//            do {
+//                friends = try await social.fetchUsers(from: firestore.myUserProfile.safeFollowing)
+//                isLoadingFriends = false
+//                
+//            } catch {
+//                print("Error:", error)
+//                isLoadingFriends = false
+//            }
+//        }
+//    }
     
-    func loadGroups() {
-        if groups.isEmpty { isLoadingGroups = true }
-        Task {
-            do {
-                groups = try await social.fetchGroups(from: firestore.myUserProfile.safegroups)
-                isLoadingGroups = false
-                
-            } catch {
-                print("Error:", error)
-                isLoadingGroups = false
-            }
-        }
-    }
+//    func loadGroups() {
+//        if groups.isEmpty { isLoadingGroups = true }
+//        Task {
+//            do {
+//                groups = try await social.fetchGroups(from: firestore.myUserProfile.safeGroups)
+//                isLoadingGroups = false
+//                
+//            } catch {
+//                print("Error:", error)
+//                isLoadingGroups = false
+//            }
+//        }
+//    }
     
 //    struct AddFriendsSheet: View {
 //        @EnvironmentObject var social: SocialViewModel
@@ -239,6 +250,7 @@ struct SocialPage: View {
                             .shadow(radius: 5)
                             //                    .padding(10)
                         }
+                        FollowersListed
                         if contactsManager.permissionGranted {
                             ContactsListed
                         } else {
@@ -278,41 +290,117 @@ struct SocialPage: View {
                 .onAppear {
                     Task {
                         await contactsManager.loadFriendsFromContacts()
-                        print(contactsManager.matchedFriends)
+//                        print(contactsManager.matchedFriends)
                     }
                 }
             }
         }
+    
+    var ContactsListed: some View {
+        Group {
+            VStack {
+                HStack {
+                    Text("Contacts on OASIS")
+                        .bold()
+                    Spacer()
+                    Button(action: {
+                        Task {
+                            await contactsManager.loadFriendsFromContacts(forceRefresh: true)
+                        }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .padding(.horizontal, 12)
+                if contactsManager.isLoadingContacts {
+                    HStack {
+                        ProgressView()
+                        Text("Connecting Contacts...")
+                            .italic()
+                    }
+                    .padding()
+                } else {
+                    let listedContacts = contactsManager.matchedFriends.filter { !firestore.myUserProfile.safeFollowing.contains($0.id!)
+                    }
+                    if listedContacts.isEmpty {
+                        HStack {
+                            Spacer()
+                            Text("No new contacts found.")
+                                .padding(10)
+                            Spacer()
+                        }
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .border(Color.gray, width: 2)
+                        .padding(.horizontal, 10)
+                    } else {
+                        ProfilesListed(navigationPath: $navigationPath, profiles: listedContacts, maxHeight: 230)
+                    }
+                }
+            }
+            .padding(.top, 10)
+        }
+    }
+    
+    @State var followersLoading: Bool = false
+    @State var followersNotFollowing = Array<UserProfile>()
         
-        var ContactsListed: some View {
+        var FollowersListed: some View {
             Group {
                 VStack {
                     HStack {
-                        Text("Contacts on OASIS")
+                        Text("Follow Back")
                             .bold()
                         Spacer()
                         Button(action: {
                             Task {
-                                await contactsManager.loadFriendsFromContacts(forceRefresh: true)
+                                await firestore.loadMyUserProfile()
+                                await loadFollowers()
+                                //TODO: Reload Followers/Following
+//                                await contactsManager.loadFriendsFromContacts(forceRefresh: true)
                             }
                         }) {
                             Image(systemName: "arrow.clockwise")
                         }
                     }
                     .padding(.horizontal, 12)
-                    if contactsManager.isLoadingFriends {
+                    if followersLoading {
                         HStack {
                             ProgressView()
-                            Text("Connecting Contacts...")
+                            Text("Loading Followers...")
                                 .italic()
                         }
                     } else {
-                        ProfilesListed(navigationPath: $navigationPath, profiles: contactsManager.matchedFriends)
+                        ProfilesListed(navigationPath: $navigationPath, profiles: followersNotFollowing, maxHeight: 230)
                     }
                 }
                 .padding(.top, 10)
             }
+            .task {
+                await loadFollowers()
+            }
+
         }
+    
+    func loadFollowers() async {
+//        followersLoading = true
+//        defer { followersLoading = false }
+//        
+//        do {
+//            followersNotFollowing = try await social.fetchUsers(from: firestore.myUserProfile.safeFollowers.filter { !firestore.myUserProfile.safeFollowing.contains($0)
+//            })
+//        } catch {
+//            print("Error:", error)
+//        }
+    }
+    
+//    func followersNotFollowingIDs() -> [String] {
+//        let profile = firestore.myUserProfile
+//        return profile.safeFollowers.filter { !profile.safeFollowing.contains($0) }
+//    }
+
+    
+    
 //    }
     
     
@@ -345,8 +433,8 @@ struct SocialPage: View {
                         .border(Color.gray, width: 2)
                         .padding([.leading, .trailing, .bottom], 10)
                     } else {
-                        if !groups.isEmpty {
-                            GroupsList(navigationPath: $navigationPath, groups: groups)
+                        if !firestore.mySocialGroups.isEmpty {
+                            GroupsList(navigationPath: $navigationPath, groups: firestore.mySocialGroups)
                             //                        ForEach(social.groups) { group in
                             ////                            EmptyView()
                             //                            HStack {
@@ -544,8 +632,10 @@ struct SocialPage: View {
                     name: groupName,
                     photo: nil
                 )
-//                fire
-                print("Created group:", newGroup.id)
+                firestore.myUserProfile.groups?.append(newGroup.id!)
+                firestore.mySocialGroups.append(newGroup)
+                navigationPath.append(newGroup)
+                print("Created group:", newGroup.id!)
             } catch {
                 print("Failed to create group:", error)
             }
@@ -770,7 +860,7 @@ struct ProfilesListed: View {
     @EnvironmentObject var firestore: FirestoreViewModel
     
     @Binding var navigationPath: NavigationPath
-    @State var profiles: [UserProfile]
+    var profiles: [UserProfile]
 
     var maxHeight: CGFloat = 300
     
@@ -781,8 +871,8 @@ struct ProfilesListed: View {
             VStack(spacing: 0) {
                 let sortedProfiles = profiles.sorted(by: { $0.name < $1.name })
                 
-                ForEach(sortedProfiles.indices, id: \.self) { index in
-                    let profile = sortedProfiles[index]
+                ForEach(sortedProfiles) { profile in
+//                    let profile = sortedProfiles[index]
                     HStack {
                         SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 50)
                         Text(profile.name)
@@ -806,7 +896,7 @@ struct ProfilesListed: View {
                         }
                     }
 
-                    if index < sortedProfiles.count - 1 {
+                    if profile.id != sortedProfiles.last?.id {
                         Divider()
                     }
                 }
@@ -819,6 +909,12 @@ struct ProfilesListed: View {
         .cornerRadius(10)
         .border(Color.gray, width: 2)
         .padding(.horizontal, 10)
+//        .onAppear() {
+//            print("On Appear: \(profiles)")
+//        }
+//        .onChange(of: profiles) { newList in
+//            print("NOW SHOWING: \(newList)")
+//        }
     }
     
     
@@ -836,7 +932,10 @@ struct FollowButtonShort: View {
             if let profileID = profile.id {
                 if profileID != firestore.getUserID() {
                     Button {
-                        firestore.followUser(profileID)
+                        firestore.followUser(profileID) { success in
+                            
+                            print("Follow is a \(success)")
+                        }
                     } label: {
                         Group {
                             if firestore.followUnfollowLoadingArray.contains(profileID) {
@@ -869,7 +968,9 @@ struct FollowButtonShort: View {
 
 struct ProfileButton: View {
     @EnvironmentObject var firestore: FirestoreViewModel
-    let profile: UserProfile
+    @EnvironmentObject var social: SocialViewModel
+    
+    @Binding var profile: UserProfile
     
     var body: some View {
         if let profileID = profile.id, profileID != firestore.getUserID() {
@@ -895,7 +996,12 @@ struct ProfileButton: View {
                 text: "Follow Back",
                 color: .blue
             ) {
-                firestore.followUser(profileID)
+                firestore.followUser(profileID) { success in
+                    if success {
+                        profile.followers?.append(firestore.myUserProfile.id!)
+                    }
+                }
+                
             }
         } else {
             FollowButtonLong(
@@ -904,54 +1010,58 @@ struct ProfileButton: View {
                 symbol: "person.fill.badge.plus",
                 color: .blue
             ) {
-                firestore.followUser(profileID)
+                firestore.followUser(profileID) { success in
+                    if success {
+                        profile.followers?.append(firestore.myUserProfile.id!)
+                    }
+                }
             }
         }
     }
 }
 
-struct ShareGroupButton: View {
-    @EnvironmentObject var firestore: FirestoreViewModel
-    let profile: UserProfile
-    
-    var body: some View {
-        if let profileID = profile.id, profileID != firestore.getUserID() {
-            button(for: profileID)
-        }
-    }
-    
-    @ViewBuilder
-    private func button(for profileID: String) -> some View {
-        if firestore.myUserProfile.safeFollowing.contains(profileID) {
-            FollowButtonLong(
-                profileID: profileID,
-                text: "Following",
-//                symbol: "person.fill.xmark",
-                color: .gray,
-                shadow: 0
-            ) {
-//                firestore.unfollowUser(profileID)
-            }
-        } else if firestore.myUserProfile.safeFollowers.contains(profileID) {
-            FollowButtonLong(
-                profileID: profileID,
-                text: "Follow Back",
-                color: .blue
-            ) {
-                firestore.followUser(profileID)
-            }
-        } else {
-            FollowButtonLong(
-                profileID: profileID,
-                text: "Follow",
-                symbol: "person.fill.badge.plus",
-                color: .blue
-            ) {
-                firestore.followUser(profileID)
-            }
-        }
-    }
-}
+//struct ShareGroupButton: View {
+//    @EnvironmentObject var firestore: FirestoreViewModel
+//    let profile: UserProfile
+//    
+//    var body: some View {
+//        if let profileID = profile.id, profileID != firestore.getUserID() {
+//            button(for: profileID)
+//        }
+//    }
+//    
+//    @ViewBuilder
+//    private func button(for profileID: String) -> some View {
+//        if firestore.myUserProfile.safeFollowing.contains(profileID) {
+//            FollowButtonLong(
+//                profileID: profileID,
+//                text: "Following",
+////                symbol: "person.fill.xmark",
+//                color: .gray,
+//                shadow: 0
+//            ) {
+////                firestore.unfollowUser(profileID)
+//            }
+//        } else if firestore.myUserProfile.safeFollowers.contains(profileID) {
+//            FollowButtonLong(
+//                profileID: profileID,
+//                text: "Follow Back",
+//                color: .blue
+//            ) {
+//                firestore.followUser(profileID)
+//            }
+//        } else {
+//            FollowButtonLong(
+//                profileID: profileID,
+//                text: "Follow",
+//                symbol: "person.fill.badge.plus",
+//                color: .blue
+//            ) {
+//                firestore.followUser(profileID)
+//            }
+//        }
+//    }
+//}
 
 
 struct FollowButtonLong: View {
@@ -993,6 +1103,7 @@ struct FollowButtonLong: View {
                 } else {
                     HStack(spacing: 6) {
                         Text(text)
+                            .foregroundStyle(color == .gray ? .black : .white)
                         if let symbol {
                             Image(systemName: symbol)
                         }
@@ -1009,7 +1120,7 @@ struct FollowButtonLong: View {
         }
         .buttonStyle(.plain)
         .padding(0)
-        .disabled(isLoading)
+        .disabled(isLoading || color == .gray)
     }
 }
 
@@ -1073,6 +1184,7 @@ struct GroupsList: View {
 
 struct GroupMemberPhotos: View {
     @EnvironmentObject var social: SocialViewModel
+    @EnvironmentObject var firestore: FirestoreViewModel
     
     @State var isLoading = false
     
@@ -1112,22 +1224,29 @@ struct GroupMemberPhotos: View {
             }
 //            .offset(x: -5)
         }
-        .onAppear() {
+        .task {
             isLoading = true
-            
-            Task {
-                do {
-                    if !memberIDs.isEmpty {
-                        members = try await social.fetchUsers(from: memberIDs)
-                    }
-                    isLoading = false
-    //
-                } catch {
-                    print("Error:", error)
-                    isLoading = false
-                }
-            }
+            defer { isLoading = false }
+
+            members = await firestore.users(from: memberIDs)
         }
+//        .onAppear() {
+            
+//            isLoading = true
+//            
+//            Task {
+//                do {
+//                    if !memberIDs.isEmpty {
+//                        members = try await social.fetchUsers(from: memberIDs)
+//                    }
+//                    isLoading = false
+//    //
+//                } catch {
+//                    print("Error:", error)
+//                    isLoading = false
+//                }
+//            }
+//        }
     }
 }
 
@@ -1247,7 +1366,7 @@ class ContactsManager: ObservableObject {
     @Published var hashedContacts: [String] = []
     @Published var isLoaded = false
     @Published var matchedFriends: [UserProfile] = []
-    @Published var isLoadingFriends = false
+    @Published var isLoadingContacts = false
 
     private let store = CNContactStore()
     private let db = Firestore.firestore()
@@ -1274,7 +1393,7 @@ class ContactsManager: ObservableObject {
         // 4️⃣ Cached matched friend IDs (do NOT fetch yet)
             if let cachedIDs = UserDefaults.standard.stringArray(forKey: cachedMatchedIDsKey),
                !cachedIDs.isEmpty {
-                print("📦 Found \(cachedIDs.count) cached matched friend IDs")
+//                print("📦 Found \(cachedIDs.count) cached matched friend IDs")
             }
     }
 
@@ -1442,7 +1561,7 @@ class ContactsManager: ObservableObject {
             return
         }
 
-        isLoadingFriends = true
+        isLoadingContacts = true
 
         // 2️⃣ Ensure hashes exist
         if hashedContacts.isEmpty {
@@ -1455,7 +1574,7 @@ class ContactsManager: ObservableObject {
         }
 
         guard !hashedContacts.isEmpty else {
-            isLoadingFriends = false
+            isLoadingContacts = false
             return
         }
 
@@ -1470,7 +1589,7 @@ class ContactsManager: ObservableObject {
         matchedFriends = filtered
         saveMatchedFriendIDs(filtered.compactMap(\.id))
 
-        isLoadingFriends = false
+        isLoadingContacts = false
         print("🎉 Found \(filtered.count) friends")
     }
 
@@ -1487,7 +1606,7 @@ class ContactsManager: ObservableObject {
     func restoreCachedFriends(from ids: [String]) async {
         guard !ids.isEmpty else { return }
 
-        isLoadingFriends = true
+        isLoadingContacts = true
         print("📦 Restoring \(ids.count) cached friends")
 
         var users: [UserProfile] = []
@@ -1500,7 +1619,7 @@ class ContactsManager: ObservableObject {
         }
 
         matchedFriends = users
-        isLoadingFriends = false
+        isLoadingContacts = false
     }
 
 

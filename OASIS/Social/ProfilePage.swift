@@ -52,10 +52,12 @@ struct ProfilePage: View {
 
                         case .followers:
                             FollowersView
+                                .id(profile.safeFollowers.count)
                                 .transition(pageSlideTransition)
 
                         case .following:
                             FollowingView
+                                .id(profile.safeFollowing.count)
                                 .transition(pageSlideTransition)
                         }
                     }
@@ -66,15 +68,31 @@ struct ProfilePage: View {
                 Spacer()
             }
             .background(Color(.white))
-            .onAppear {
+            .task {
                 loadUser()
             }
-            .onChange(of: firestore.profileDidChange) { bool in
-                if bool {
-                    loadUser()
-                    firestore.profileDidChange = false
+            .onChange(of: profile.safeFollowers) { newFollowerIDs in
+                Task {
+                    followers = await firestore.users(from: newFollowerIDs)
                 }
             }
+            .onChange(of: profile.safeFollowing) { newFollowingIDs in
+                Task {
+                    following = await firestore.users(from: newFollowingIDs)
+                }
+            }
+//            .onAppear {
+//                loadUser()
+//            }
+//            .onChange(of: firestore.profileDidChange) { bool in
+//                print("CALLED")
+//                if bool {
+//                    print("LOADING")
+//                    loadUser()
+//                    print("NEW PROFILE: \(profile)")
+//                    firestore.profileDidChange = false
+//                }
+//            }
             .toolbar {
                 if true {
                     ToolbarItem(placement: .principal) {
@@ -102,16 +120,24 @@ struct ProfilePage: View {
                                 }
                             } else {
                                 Menu(content: {
-                                    
                                     if firestore.myUserProfile.safeFollowing.contains(profileID) {
                                         Button (action: {
-                                            firestore.unfollowUser(profileID)
+                                            firestore.unfollowUser(profileID) { success in
+                                                if success {
+                                                    profile.followers?.removeAll(where: { $0 == firestore.myUserProfile.id! })
+                                                }
+                                            }
+                                            
                                         }, label: {
                                             Text("Unfollow \(profile.name)")
                                         })
                                     } else {
                                         Button (action: {
-                                            firestore.followUser(profileID)
+                                            firestore.followUser(profileID) { success in
+                                                if success {
+                                                    profile.followers?.append(firestore.myUserProfile.id!)
+                                                }
+                                            }
                                         }, label: {
                                             Text("Follow \(profile.name)")
                                         })
@@ -193,36 +219,52 @@ struct ProfilePage: View {
         isLoading = true
         
         Task {
-            do {
-                profile = (try? await firestore.fetchUserProfile(userID: profile.id!)) ?? profile
-                
-                // ✅ 1. Fetch festivals
-                if !profile.safeFestivalFavorites.isEmpty {
-                    let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: Array(profile.safeFestivalFavorites.keys))
-                    
-                    let split = festivalVM.splitFestivals(likedFestivals)
-                    attendedFestivals = split.attended
-                    upcomingFestivals = split.upcoming
-                }
-                
-                // ✅ 2. Fetch following
-                if !profile.safeFollowing.isEmpty {
-                    following = try await social.fetchUsers(from: profile.safeFollowing)
-                }
-                
-                // ✅ 3. Fetch followers
-                if !profile.safeFollowers.isEmpty  {
-                    followers = try await social.fetchUsers(from: profile.safeFollowers)
-                }
-                
-                isLoading = false
-                
-            } catch {
-                print("Error:", error)
-                isLoading = false
-            }
+            defer { isLoading = false }
+            
+            let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: Array(profile.safeFestivalFavorites.keys))
+            let split = festivalVM.splitFestivals(likedFestivals)
+            attendedFestivals = split.attended
+            upcomingFestivals = split.upcoming
+            
+            followers = await firestore.users(from: profile.safeFollowers)
+            following = await firestore.users(from: profile.safeFollowing)
         }
     }
+//            do {
+//                profile = (try? await firestore.fetchUserProfile(userID: profile.id!)) ?? profile
+//                
+//                // ✅ 1. Fetch festivals
+//                if !profile.safeFestivalFavorites.isEmpty {
+//                    let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: Array(profile.safeFestivalFavorites.keys))
+//                    
+//                    let split = festivalVM.splitFestivals(likedFestivals)
+//                    attendedFestivals = split.attended
+//                    upcomingFestivals = split.upcoming
+//                }
+//                
+//                // ✅ 2. Fetch following
+//                if profile.safeFollowing.isEmpty {
+//                    following = []
+//                } else {
+//                    following = try await social.fetchUsers(from: profile.safeFollowing)
+//                }
+//                
+//                // ✅ 3. Fetch followers
+//                if profile.safeFollowers.isEmpty  {
+//                    followers = []
+//                } else {
+//                    print("UPDATING USER'S FOLLOWERS")
+//                    followers = try await social.fetchUsers(from: profile.safeFollowers)
+//                }
+//                
+//                isLoading = false
+//                
+//            } catch {
+//                print("Error:", error)
+//                isLoading = false
+//            }
+//        }
+//    }
     
     var UserHeaderSection: some View {
             HStack {
@@ -234,7 +276,7 @@ struct ProfilePage: View {
                         .foregroundStyle(.black)
                         .multilineTextAlignment(.center)
                         .font(Font.system(size: 25))
-                    ProfileButton(profile: profile)
+                    ProfileButton(profile: $profile)
                     //                if profile.id! != firestore.getUserID() && !firestore.myUserProfile.safeFollowing.contains(profile.id!) {
                     //                    FollowButtonLong(profile: profile/*, longView: true*/)
                     //                }
@@ -357,6 +399,7 @@ struct ProfilePage: View {
     }
     
     let LIST_PADDING: CGFloat = 8
+    
     
     var FestivalsView: some View {
         VStack {

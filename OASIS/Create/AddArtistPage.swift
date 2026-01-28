@@ -140,6 +140,8 @@ struct AddArtistPage: View {
             newArtist.stage = data.NA_TITLE_BLOCK
         }
         
+        newArtist.modifyDate = Date()
+        
         if let index = newFestival.artistList.firstIndex(where: { $0.name == newArtist.name }) {
             newFestival.artistList.remove(at: index)
         } else if let image = artistImage {

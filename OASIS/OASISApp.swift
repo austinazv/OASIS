@@ -84,10 +84,16 @@ struct OASISApp: App {
                 Group {
                     if Auth.auth().currentUser != nil {
                         if let request = pendingRequest {
-                            GroupRequestSheet(request: request, onAccept: groupRequest ? acceptGroupRequest : acceptFriendRequest, onReject: rejectRequest, showRequestSheet: $showRequestSheet)
-                                .environmentObject(social)
-                                .environmentObject(firestore)
-//                            FriendRequestSheet(request: request, onAccept: groupRequest ? acceptGroupRequest : acceptFriendRequest, onReject: rejectRequest, groupRequest: groupRequest)
+                            if groupRequest {
+                                GroupRequestSheet(request: request, showRequestSheet: $showRequestSheet)
+                                    .id(request.id)
+                                    .environmentObject(social)
+                                    .environmentObject(firestore)
+                            } else {
+                                FriendRequestSheet(request: request, showRequestSheet: $showRequestSheet)
+                                    .id(request.id)
+                                    .environmentObject(firestore)
+                            }
                         } else {
                             Text("Loading...")
                         }
@@ -293,70 +299,67 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 }
 
 struct FriendRequestSheet:  View {
+    @EnvironmentObject var firestore: FirestoreViewModel
+    
     let request: DataSet.Request
-    let onAccept: (String) -> Void
-    let onReject: (String) -> Void
-    let groupRequest: Bool
+    
+    @Binding var showRequestSheet: Bool
     
     var body: some View {
         Group {
-            VStack {
-                Text(groupRequest ? "Join Group?" : "New Friend Request")
-                    .font(Font.system(size: 30))
-                    .multilineTextAlignment(.center)
-                    .padding()
-                Group {
-                    if let profilePic = request.photo, let url = URL(string: profilePic) {
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        } placeholder: {
-                            ProgressView()
-                        }
-                        .frame(width: 130, height: 130)
-                        .clipShape(Circle())
-                    } else {
-                        Image("Default Profile Picture")
-                            .resizable()
-                            .frame(width: 130, height: 130, alignment: .center)
-                            .clipShape(Circle())
+            ZStack {
+                LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color("OASIS Dark Orange"),
+                            Color("OASIS Light Orange"),
+                            Color("OASIS Light Blue"),
+                            Color("OASIS Dark Blue")
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                .ignoresSafeArea()
+//                .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
+                VStack {
+                    Spacer().frame(height: 30)
+                    Text(request.name)
+                        .font(Font.system(size: 30))
+                        .multilineTextAlignment(.center)
+                        .padding()
+                    SocialImage(imageURL: request.photo, name: request.name, frame: 140)
+                    //                    .padding(.bottom, 10)
+                    HStack {
+                        Button(action: {
+                            showRequestSheet = false
+                        }, label: {
+                            Text("Cancel")
+                                .frame(width: 120, height: 40)
+                                .background(Color.red)
+                                .foregroundStyle(.white)
+                                .cornerRadius(10)
+                                .shadow(radius: 5)
+                            
+                        })
+                        .padding(.horizontal, 10)
+                        Button(action: {
+                            firestore.followUser(request.id) { success in
+                                print("Follow is a \(success)")
+                            }
+                        }, label: {
+                            Text("Follow")
+                                .frame(width: 120, height: 40)
+                                .background(Color.green)
+                                .foregroundStyle(.white)
+                                .cornerRadius(10)
+                                .shadow(radius: 5)
+                            
+                        })
+                        .padding(.horizontal, 10)
                     }
+                    
+                    Spacer()
+                    
                 }
-                .padding(10)
-                Text(request.name)
-                    .font(Font.system(size: 25))
-                    .padding()
-                    .multilineTextAlignment(.center)
-                HStack {
-                    Button(action: {
-                        onReject(request.id)
-                    }, label: {
-                        Text("Reject")
-                            .frame(width: 100, height: 40)
-                            .background(Color.red)
-                            .foregroundStyle(.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                        
-                    })
-                    .padding(.horizontal, 10)
-                    Button(action: {
-                        onAccept(request.id)
-                    }, label: {
-                        Text("Accept")
-                            .frame(width: 100, height: 40)
-                            .background(Color.green)
-                            .foregroundStyle(.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                        
-                    })
-                    .padding(.horizontal, 10)
-                }
-                
-                Spacer()
-                
             }
         }
     }
@@ -367,8 +370,6 @@ struct GroupRequestSheet:  View {
     @EnvironmentObject var firestore: FirestoreViewModel
     
     let request: DataSet.Request
-    let onAccept: (String) -> Void
-    let onReject: (String) -> Void
     
     @Binding var showRequestSheet: Bool
     
@@ -379,138 +380,155 @@ struct GroupRequestSheet:  View {
     
     var body: some View {
         Group {
-            VStack {
-                Text(request.name)
-                    .font(Font.system(size: 30))
-                    .multilineTextAlignment(.center)
-                    .padding(.top)
-//                Group {
-                    SocialImage(imageURL: request.photo, name: request.name, frame: 130)
-                    .padding(5)
-                    
-//                }
-//                .padding(10)
-//                Text(request.name)
-//                    .font(Font.system(size: 25))
-////                    .padding()
-//                    .multilineTextAlignment(.center)
-//                    .padding(.bottom, 5)
-//                if !members.isEmpty {
+            ZStack {
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color("OASIS Dark Orange"),
+                        Color("OASIS Light Orange"),
+                        Color("OASIS Light Blue"),
+                        Color("OASIS Dark Blue")
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
                 VStack {
-                    if let memberIDs = request.groupMembers, !memberIDs.isEmpty {
-                        Group {
-                            HStack {
-                                Text("Members:")
-                                Spacer()
+                    Spacer().frame(height: 30)
+                    Text(request.name)
+                        .font(Font.system(size: 30))
+                        .multilineTextAlignment(.center)
+                        .padding(.top)
+                    //                Group {
+                    SocialImage(imageURL: request.photo, name: request.name, frame: 130)
+                        .padding(5)
+                    
+                    //                }
+                    //                .padding(10)
+                    //                Text(request.name)
+                    //                    .font(Font.system(size: 25))
+                    ////                    .padding()
+                    //                    .multilineTextAlignment(.center)
+                    //                    .padding(.bottom, 5)
+                    //                if !members.isEmpty {
+                    VStack {
+                        if let memberIDs = request.groupMembers, !memberIDs.isEmpty {
+                            Group {
+                                HStack {
+                                    Text("Members:")
+                                    Spacer()
+                                }
+                                .padding(.leading, 10)
+                                if isMembersLoading {
+                                    ProgressView()
+                                } else {
+                                    ProfilesListed(navigationPath: $dummyPath, profiles: members, maxHeight: 225, allowNavigation: false)
+                                    //                                .padding(.top, LIST_PADDING)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
                             }
-                            .padding(.leading, 10)
-                            if isMembersLoading {
-                                ProgressView()
-                            } else {
-                                ProfilesListed(navigationPath: $dummyPath, profiles: members, maxHeight: 225, allowNavigation: false)
-                                //                                .padding(.top, LIST_PADDING)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
+                            .padding(.horizontal, 20)
+                            
+                            
+                            
+                            
+                            
+                            //                        Group {
+                            //                            if isMembersLoading {
+                            //                                ProgressView()
+                            //                            } else {
+                            //                                if members.count > 4 {
+                            //                                    ScrollView(.horizontal) {
+                            //                                        LazyHStack {
+                            //                                            ForEach(Array(members.sorted(by: { $0.name < $1.name }))) { member in
+                            //                                                SocialImage(imageURL: member.profilePic, name: member.name, frame: 45)
+                            //                                                    .padding(.horizontal, 3)
+                            //                                            }
+                            //                                        }
+                            //                                    }
+                            //                                } else {
+                            //                                    HStack {
+                            //                                        ForEach(Array(members.sorted(by: { $0.name < $1.name }))) { member in
+                            //                                            SocialImage(imageURL: member.profilePic, name: member.name, frame: 45)
+                            //                                                .padding(.horizontal, 3)
+                            //                                        }
+                            //                                    }
+                            //                                }
+                            //                            }
+                            //                        }
+                            //                        .padding(5)
+                            //                        .frame(width: 270, height: 65)
+                            //                        //                    .background(
+                            //                        //                        RoundedRectangle(cornerRadius: 15)
+                            //                        //                            .fill(Color("BW Color Switch Reverse"))
+                            //                        //                            .shadow(color: .black, radius: 2, x: 0, y: 2)
+                            //                        //                    )
+                            //                        .overlay(
+                            //                            RoundedRectangle(cornerRadius: 10)
+                            //                                .stroke(.black, lineWidth: 1)
+                            //                        )
                         }
-                        .padding(.horizontal, 20)
-                        
-                        
-                        
-                        
-                        
-//                        Group {
-//                            if isMembersLoading {
-//                                ProgressView()
-//                            } else {
-//                                if members.count > 4 {
-//                                    ScrollView(.horizontal) {
-//                                        LazyHStack {
-//                                            ForEach(Array(members.sorted(by: { $0.name < $1.name }))) { member in
-//                                                SocialImage(imageURL: member.profilePic, name: member.name, frame: 45)
-//                                                    .padding(.horizontal, 3)
-//                                            }
-//                                        }
-//                                    }
-//                                } else {
-//                                    HStack {
-//                                        ForEach(Array(members.sorted(by: { $0.name < $1.name }))) { member in
-//                                            SocialImage(imageURL: member.profilePic, name: member.name, frame: 45)
-//                                                .padding(.horizontal, 3)
-//                                        }
-//                                    }
+                    }
+                    .padding(.vertical, 5)
+                    HStack {
+                        Button(action: {
+                            showRequestSheet = false
+                        }, label: {
+                            Text("Cancel")
+                                .frame(width: 120, height: 40)
+                                .background(Color.red)
+                                .foregroundStyle(.white)
+                                .cornerRadius(10)
+                                .shadow(radius: 5)
+                            
+                        })
+                        .padding(.horizontal, 10)
+                        Button(action: {
+                            Task { @MainActor in
+                                defer { showRequestSheet = false }
+                                
+//                                do {
+                                    firestore.joinGroup(groupID: request.id) { success in
+                                        print("Joined group: \(success)")
+                                    }
+//                                    try await firestore.joinGroup(groupID: request.id)
+//                                } catch {
+//                                    print("Failed to join group:", error)
 //                                }
-//                            }
-//                        }
-//                        .padding(5)
-//                        .frame(width: 270, height: 65)
-//                        //                    .background(
-//                        //                        RoundedRectangle(cornerRadius: 15)
-//                        //                            .fill(Color("BW Color Switch Reverse"))
-//                        //                            .shadow(color: .black, radius: 2, x: 0, y: 2)
-//                        //                    )
-//                        .overlay(
-//                            RoundedRectangle(cornerRadius: 10)
-//                                .stroke(.black, lineWidth: 1)
-//                        )
-                    }
-                }
-                .padding(.vertical, 5)
-                HStack {
-                    Button(action: {
-                        showRequestSheet = false
-                    }, label: {
-                        Text("Cancel")
-                            .frame(width: 120, height: 40)
-                            .background(Color.red)
-                            .foregroundStyle(.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                        
-                    })
-                    .padding(.horizontal, 10)
-                    Button(action: {
-                        Task { @MainActor in
-                            defer { showRequestSheet = false }
-
-                            do {
-                                try await firestore.joinGroup(groupID: request.id)
-                            } catch {
-                                print("Failed to join group:", error)
                             }
-                        }
-//                        social.joinGroup(groupID: request.id)
-//                        onAccept(request.id)
-                    }, label: {
-                        Text("Join Group")
-                            .frame(width: 120, height: 40)
-                            .background(Color.green)
-                            .foregroundStyle(.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                        
-                    })
-                    .padding(.horizontal, 10)
-                }
-                .padding()
-                Spacer()
-                
-            }
-        }
-        .onAppear() {
-            isMembersLoading = true
-            if let memberIDs = request.groupMembers {
-                Task {
-                    do {
-                        members = try await social.fetchUsers(from: memberIDs)
-                        isMembersLoading = false
-                        //
-                    } catch {
-                        print("Error:", error)
-                        isMembersLoading = false
+                            //                        social.joinGroup(groupID: request.id)
+                            //                        onAccept(request.id)
+                        }, label: {
+                            Text("Join Group")
+                                .frame(width: 120, height: 40)
+                                .background(Color.green)
+                                .foregroundStyle(.white)
+                                .cornerRadius(10)
+                                .shadow(radius: 5)
+                            
+                        })
+                        .padding(.horizontal, 10)
                     }
+                    .padding()
+                    Spacer()
+                    
                 }
-            } else {
-                isMembersLoading = false
+            }
+            .onAppear() {
+//                isMembersLoading = true
+//                if let memberIDs = request.groupMembers {
+//                    Task {
+//                        do {
+//                            members = try await social.fetchUsers(from: memberIDs)
+//                            isMembersLoading = false
+//                            //
+//                        } catch {
+//                            print("Error:", error)
+//                            isMembersLoading = false
+//                        }
+//                    }
+//                } else {
+//                    isMembersLoading = false
+//                }
             }
         }
     }

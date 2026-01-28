@@ -259,6 +259,8 @@ class FestivalViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        silentlyRefreshFestivalsIfNeeded()
     }
     
     
@@ -299,6 +301,49 @@ class FestivalViewModel: ObservableObject {
 
         ImageCache.shared.cacheImage(data, for: urlString)
     }
+    
+    func silentlyRefreshFestivalsIfNeeded() {
+        guard !myFestivals.isEmpty else { return }
+
+        let ids = myFestivals.map { $0.id.uuidString }
+        let db = Firestore.firestore()
+
+        Task.detached(priority: .background) {
+            do {
+                let snapshot = try await db
+                    .collection("festivals")
+                    .whereField(FieldPath.documentID(), in: ids)
+                    .getDocuments()
+
+                var updated = self.myFestivals
+                var didChange = false
+
+                for doc in snapshot.documents {
+                    let firestoreFestival = try doc.data(as: DataSet.Festival.self)
+
+                    if let index = updated.firstIndex(where: { $0.id == firestoreFestival.id }) {
+                        let localFestival = updated[index]
+
+                        if firestoreFestival.saveDate > localFestival.saveDate {
+                            updated[index] = firestoreFestival
+                            didChange = true
+                        }
+                    }
+                }
+
+                if didChange {
+                    let newFestivals = updated
+                    await MainActor.run {
+                        self.myFestivals = newFestivals
+                    }
+                }
+            } catch {
+                // totally fine — offline or transient failure
+                print("Silent festival sync failed:", error)
+            }
+        }
+    }
+
 
     
     
@@ -877,6 +922,10 @@ class FestivalViewModel: ObservableObject {
             return(sortStage(currList: newList, secondWeekend: secondWeekend))
         case .genre:
             return(sortGenre(currList: newList, secondWeekend: secondWeekend).allGenres)
+        case .addDate:
+            return(sortDateAdded(currList: newList))
+        case .modifyDate:
+            return(sortDateModified(currList: newList))
         }
     }
     
@@ -1018,6 +1067,27 @@ class FestivalViewModel: ObservableObject {
         let topFive: [String: [DataSet.Artist]] = Dictionary(uniqueKeysWithValues: topFiveArray)
 
         return (allGenres: sortedDictionary, topGenres: topFive)
+    }
+    
+    func sortDateAdded(currList: Array<DataSet.Artist>) -> [String : Array<DataSet.Artist>] {
+        let returnList = currList.sorted(by: {
+            $0.addDate > $1.addDate
+        })
+        return ["" : returnList]
+//        return ["" : currList]
+    }
+    
+    func sortDateModified(currList: Array<DataSet.Artist>) -> [String : Array<DataSet.Artist>] {
+        let returnList = currList.sorted(by: {
+            $0.modifyDate > $1.modifyDate
+        })
+        return ["" : returnList]
+//        return ["" : currList]
+    }
+    
+    func reverseArtistDict(currDict: [String : Array<DataSet.Artist>]) -> [String : Array<DataSet.Artist>] {
+        let newList = Array(currDict.values.first!.reversed())
+        return ["" : newList]
     }
 
     

@@ -16,8 +16,9 @@ struct ArtistEditingList: View {
     
     @State var artistDict: [String : Array<DataSet.Artist>] = [:]
     @State var viewSubsection = Array<Bool>()
+    @State var reverse = false
     
-    @State var sortType: DataSet.sortType = .alpha
+    @State var sortType: DataSet.sortType = .addDate
     
     @State var showArtistSearchPage = false
     @State private var selectedArtist: DataSet.Artist? = nil
@@ -34,23 +35,34 @@ struct ArtistEditingList: View {
                     if let artistArray = artistDict[section] {
                         if !artistArray.isEmpty /*&& (sortType != .genre || artistArray.count > 1)*/  {
                             if sortType != .alpha {
-                                HStack {
-                                    Text(section)
-                                    if viewSubsection[i] {
-                                        Image(systemName: "chevron.up")
+                                Group {
+                                    if sortType == .addDate || sortType == .modifyDate {
+                                        HStack {
+                                            Text(reverse ? "Most Recent Last" : "Most Recent First")
+                                            Image(systemName: "arrow.up.arrow.down")
+                                            Spacer()
+                                        }
+                                        .onTapGesture(perform: {
+                                            reverse.toggle()
+                                            artistDict = festivalVM.reverseArtistDict(currDict: artistDict)
+                                        })
                                     } else {
-                                        Image(systemName: "chevron.down")
+                                        HStack {
+                                            Text(section)
+                                            Image(systemName: viewSubsection[i] ? "chevron.up" : "chevron.down")
+                                            Spacer()
+                                        }
+                                        .onTapGesture(perform: {
+                                            viewSubsection[i] = !viewSubsection[i]
+                                        })
                                     }
-                                    Spacer()
                                 }
 //                                .padding(.horizontal, 20)
                                 .padding(.bottom, 3)
                                 .padding(.top, 0)
                                 .font(.headline)
                                 .listRowBackground(Color("Same As Background"))
-                                .onTapGesture(perform: {
-                                    viewSubsection[i] = !viewSubsection[i]
-                                })
+                                
 //                                .listRowBackground(Color)
                             }
                             if viewSubsection[i] {
@@ -101,9 +113,10 @@ struct ArtistEditingList: View {
         .onChange(of: sortType) { newSort in
             artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: newSort, secondWeekend: newFestival.secondWeekend)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+            reverse = false
         }
         .navigationBarItems(trailing: HStack {
-            SortMenu(sortType: $sortType, currList: newFestival.artistList, secondWeekend: newFestival.secondWeekend)
+            SortMenu(sortType: $sortType, currList: newFestival.artistList, secondWeekend: newFestival.secondWeekend, editing: true)
         })
         .navigationTitle("\(newFestival.name) Artist List")
         .searchable(text: $searchText)

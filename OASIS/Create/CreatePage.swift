@@ -85,14 +85,23 @@ struct CreatePage: View {
                     }
                     .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
                     .onAppear() {
-                        if let id = firestore.getUserID() {
-                            for i in 0..<festivalVM.festivalDrafts.count {
-                                festivalVM.festivalDrafts[i].ownerID = id
-                            }
-                            for j in 0..<festivalVM.publishedFestivals.count {
-                                festivalVM.publishedFestivals[j].ownerID = id
-                            }
-                        }
+//                        if let id = firestore.getUserID() {
+//                            for i in 0..<festivalVM.publishedFestivals.count {
+//                                for a_i in 0..<festivalVM.publishedFestivals[i].artistList.count {
+//                                    festivalVM.publishedFestivals[i].artistList[a_i].addDate = Date()
+//                                    festivalVM.publishedFestivals[i].artistList[a_i].modifyDate = Date()
+//                                }
+//                                festivalVM.uploadFestival(festivalVM.publishedFestivals[i]) { success in
+//                                    print("\(festivalVM.publishedFestivals[i].name) : \(success)")
+//                                }
+////                                    .saveDraft(festivalVM.publishedFestivals[i])
+//                                
+////                                festivalVM.festivalDrafts[i].ownerID = id
+//                            }
+//                            for j in 0..<festivalVM.publishedFestivals.count {
+//                                festivalVM.publishedFestivals[j].ownerID = id
+//                            }
+//                        }
                     }
 //                }
                 
