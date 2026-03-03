@@ -19,7 +19,7 @@ struct FestivalPage: View {
     
     @Binding var navigationPath: NavigationPath
     
-    @State var currentFestival = DataSet.Festival.newFestival()
+    @State var currentFestival: DataSet.Festival
     
     var previewView: Bool = false
     
@@ -100,6 +100,7 @@ struct FestivalPage: View {
 //        .navigationBarBackButtonDisplayMode
 //        .navigationBarBa
 //        .navigationBarBackButtonDisplayMode(.minimal)
+        
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if !previewView {
@@ -132,12 +133,21 @@ struct FestivalPage: View {
             }
         }
         .onAppear() {
-            if let festival = festivalVM.currentFestival {
-                currentFestival = festival
-            } else {
-                navigationPath.removeLast()
-            }
+//            festivalVM.currentFestival = currentFestival
         }
+//        .onAppear() {
+//            if let festival = festivalVM.currentFestival {
+//                currentFestival = festival
+//            } else {
+//                navigationPath.removeLast()
+//            }
+//        }
+//        .onChange(of: festivalVM.currentFestival) { newFestival in
+//            guard let festival = newFestival else { return }
+//            if currentFestival.id == newFestival.id {
+//                currentFestival = newFestival
+//            }
+//        }
     }
     
 //    func starPressed() {
@@ -366,16 +376,19 @@ struct FestivalPage: View {
     var FestivalOptionsBar: some View {
         Group {
             HStack(spacing: 32) {
-                ZStack {
-                    Circle()
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
-                        .shadow(radius: SHADOW)
-                    Image(systemName: "square.and.arrow.up")
-                        .imageScale(.large)
-                        .foregroundStyle(.blue)
-                        .offset(y: -3)
+                ShareLink(item: getFestivalLink()) {
+                    ZStack {
+                        Circle()
+                            .foregroundStyle(Color("BW Color Switch Reverse"))
+                            .shadow(radius: SHADOW)
+                        Image(systemName: "square.and.arrow.up")
+                            .imageScale(.large)
+                            .foregroundStyle(.blue)
+                            .offset(y: -3)
+                    }
                 }
                 .frame(height: LARGE_BUTTON_HEIGHT/1.3)
+                    
                 
                 ZStack {
                     Circle()
@@ -415,6 +428,11 @@ struct FestivalPage: View {
             AddFestivalToGroupSheet(festival: currentFestival, showAddFestivalToGroupSheet: $showAddFestivalToGroupSheet)
         }
     }
+    
+    func getFestivalLink() -> String {
+        "https://oasis-austinzv.web.app/share/festival/\(currentFestival.id)"
+    }
+
     
 //    if let url = currentFestival.website {
 //        ZStack {
@@ -490,13 +508,16 @@ struct FestivalPage: View {
 //        .shadow(radius: SHADOW)
     }
     
-    
+    @State var myFavorites = Array<DataSet.Artist>()
     
     var MyFavoritesButton: some View {
         Group {
             let lastSectionBool: Bool = friendsFavs.isEmpty && groupFavorites.isEmpty
-            if !festivalVM.favoriteList.isEmpty {
-                NavigationLink(value: "Favorites") {
+            if !myFavorites.isEmpty {
+                NavigationLink(value: DataSet.ArtistListStruct(titleText: "My Favorites",
+                                                               festival: currentFestival,
+                                                               list: myFavorites)) {
+//                NavigationLink(value: myFavorites) {
                     ZStack {
                         UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS,
                                                bottomLeadingRadius: lastSectionBool ? CORNER_RADIUS : 0,
@@ -507,7 +528,7 @@ struct FestivalPage: View {
 //                        .shadow(radius: SHADOW)
                         HStack{
                             Spacer()
-                            Text("My Favorites")
+                            Text("My Favorites").bold()
                             Image(systemName: "heart.fill")
                                 .imageScale(.large)
                                 .foregroundStyle(.red)
@@ -528,7 +549,7 @@ struct FestivalPage: View {
 //                        .shadow(radius: SHADOW)
                     HStack{
                         Spacer()
-                        Text("No Favorites Yet")
+                        Text("No Favorites Yet").bold()
                         Image(systemName: "heart")
                             .imageScale(.large)
                             .foregroundStyle(.red)
@@ -544,6 +565,11 @@ struct FestivalPage: View {
         }
         .onChange(of: firestore.mySocialGroups) { _ in
             loadGroups()
+        }
+        .onAppear {
+            if let myFavoriteIDs = firestore.myUserProfile.festivalFavorites?[currentFestival.id.uuidString] {
+                myFavorites = festivalVM.getArtistListFromID(artistIDs: myFavoriteIDs, festival: currentFestival)
+            }
         }
 //        .onChange(of: friendsFavs) { newFriends in
 //            if !newFriends.isEmpty {
@@ -644,7 +670,7 @@ struct FestivalPage: View {
                             Image(systemName: showFriendList ? "chevron.up" : "chevron.down")
                             if !showGroupList {
                                 Spacer()
-                                Text("Friends")
+                                Text("Friends").bold()
                                 Image(systemName: "person.2.fill")
                                 Spacer()
                             } else {
@@ -756,7 +782,7 @@ struct FestivalPage: View {
                             Image(systemName: showGroupList ? "chevron.up" : "chevron.down")
                             if !showFriendList {
                                 Spacer()
-                                Text("Groups")
+                                Text("Groups").bold()
                                 Image(systemName: "person.3.fill")
                                 Spacer()
                             } else {
@@ -958,7 +984,7 @@ struct FestivalPage: View {
                             .shadow(radius: SHADOW)
                         HStack{
                             Spacer()
-                            Text("Full List")
+                            Text("Full List").bold()
                             Image(systemName: "list.bullet")
                                 .imageScale(.large)
                             Spacer()
@@ -983,7 +1009,7 @@ struct FestivalPage: View {
                         .shadow(radius: SHADOW)
                     HStack{
                         Spacer()
-                        Text("Random")
+                        Text("Random").bold()
                         Image(systemName: "shuffle")
                             .imageScale(.large)
                         Spacer()
@@ -995,7 +1021,7 @@ struct FestivalPage: View {
                 .padding(10)
                 .onTapGesture {
                     if let randomArtist = festivalVM.shuffleArtist(currentList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend) {
-                        navigationPath.append(DataSet.ArtistPageStruct(artist: randomArtist,
+                        navigationPath.append(DataSet.ArtistPageStruct(artist: randomArtist, festival: currentFestival,
                                                                        shuffleTitle: "All Artists",
                                                                        shuffleList: currentFestival.artistList))
                     }
@@ -1070,7 +1096,7 @@ struct FestivalPage: View {
                 HStack {
                     Image(systemName: genreAccordian ? "chevron.up" : "chevron.down")
                     Spacer()
-                    Text("Genres")
+                    Text("Genres").bold()
                     Image(systemName: "theatermasks")
                     Spacer()
                     Image(systemName: genreAccordian ? "chevron.up" : "chevron.down")
@@ -1162,7 +1188,7 @@ struct FestivalPage: View {
                 HStack {
                     Image(systemName: dayAccordian ? "chevron.up" : "chevron.down")
                     Spacer()
-                    Text("Days")
+                    Text("Days").bold()
                     Image(systemName: "calendar")
                     Spacer()
                     Image(systemName: dayAccordian ? "chevron.up" : "chevron.down")
@@ -1257,7 +1283,7 @@ struct FestivalPage: View {
                 HStack {
                     Image(systemName: stageAccordian ? "chevron.up" : "chevron.down")
                     Spacer()
-                    Text("Stages")
+                    Text("Stages").bold()
                     Image(systemName: "map")
                     Spacer()
                     Image(systemName: stageAccordian ? "chevron.up" : "chevron.down")
@@ -1326,7 +1352,7 @@ struct FestivalPage: View {
                 HStack {
                     Image(systemName: tierAccordian ? "chevron.up" : "chevron.down")
                     Spacer()
-                    Text("Billing")
+                    Text("Billing").bold()
                     Image(systemName: "list.bullet.indent")
                     Spacer()
                     Image(systemName: tierAccordian ? "chevron.up" : "chevron.down")
@@ -1413,7 +1439,7 @@ struct FestivalPage: View {
                     .shadow(radius: SHADOW)
                     HStack{
                         Spacer()
-                        Text("Website")
+                        Text("Website").bold()
                         Image(systemName: "network")
                             .imageScale(.large)
                         Spacer()
@@ -1522,7 +1548,8 @@ struct AddFestivalToGroupSheet: View {
         VStack {
             NavigationStack(path: $navigationPath) {
                 NavigationButtons
-                Text("Add \(festival.name) To Your Groups")
+                (Text("Add ") + Text(festival.name).bold() + Text(" To Your Groups"))
+//                Text("Add \(festival.name) To Your Groups")
                     .font(.title3)
                     .padding(.vertical)
                 let sortedGroups = firestore.mySocialGroups.sorted(by: { $0.name < $1.name })
@@ -1678,11 +1705,10 @@ struct AddFestivalToGroupSheet: View {
                     addGroups()
                     showAddFestivalToGroupSheet = false
                 }, label: {
-                    Group {
                         Text("Add")
-                    }
-//                    .foregroundStyle(newArtist == oldArtist ? .gray : .blue)
+                    .foregroundStyle(selectedGroups.isEmpty ? .gray : .blue)
                 })
+                .disabled(selectedGroups.isEmpty)
                 //                        .disabled(newArtist == oldArtist)
             }
             .padding(.horizontal, 24)

@@ -21,7 +21,7 @@ struct SocialPage: View {
     @EnvironmentObject var social: SocialViewModel
     
     
-    @State private var navigationPath = NavigationPath()
+    @Binding var navigationPath: NavigationPath
     
     @State var isLoadingFriends = false
     @State var following = Array<UserProfile>()
@@ -102,14 +102,8 @@ struct SocialPage: View {
                     Text("New Group")
                     Image(systemName: "person.3.fill")
                 })
-                Button (action: {
-                    showAddFriendsSheet = true
-                }, label: {
-                    Text("Find People")
-                    Image(systemName: "person.2.fill")
-                })
             }, label: {
-                Image(systemName: "person.2.fill")
+                Image(systemName: "person.2.badge.plus.fill")
                     .imageScale(.large)
                     .foregroundStyle(.blue)
             })

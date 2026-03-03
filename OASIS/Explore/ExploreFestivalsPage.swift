@@ -12,10 +12,9 @@ struct ExploreFestivalsPage: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var firestore: FirestoreViewModel
     @EnvironmentObject var festivalVM: FestivalViewModel
+    @EnvironmentObject var explore: ExploreViewModel
     
-    @StateObject private var explore = ExploreViewModel()
-    
-    @State private var navigationPath = NavigationPath()
+    @Binding var navigationPath: NavigationPath
     
     @State var searching: Bool = false
     
@@ -77,7 +76,7 @@ struct ExploreFestivalsPage: View {
         }
         .onAppear() {
             if !explore.isLoading {
-                print("updating...")
+                print("updating..")
                 explore.fetchVerifiedFestivals()
             }
             //            print(firestore.isLoggedIn())

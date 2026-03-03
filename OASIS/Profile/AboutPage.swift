@@ -50,7 +50,7 @@ struct AboutPage: View {
             .font(.callout)
     }
     
-    let aboutMeText = "Hello & welcome to OASIS!\nMy name is Austin Zambito-Valente, and I am the sole developer of OASIS. I started creating OASIS as a personal way to discover new artists and new events around me, but it blossed to become the best way to connect with friends and community before and during music festivals. Please feel free to reach out with any questions, comments, bugs, or collaboration requests.\nMost importantly, enjoy OASIS!"
+    let aboutMeText = "Hello & welcome to OASIS!\nMy name is Austin Zambito-Valente, and I am the sole developer of OASIS. I started creating OASIS as a personal way to discover new artists and new events around me, but it blossomed to become the best way to connect with friends and community before and during music festivals. Please feel free to reach out with any questions, comments, bugs, or collaboration requests.\nMost importantly, enjoy OASIS!"
     
     var ContactMeOptions: some View {
         Group {
@@ -129,7 +129,7 @@ struct AboutPage: View {
                 .frame(height: SMALL_BUTTON_HEIGHT)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    if let url = URL(string: "https://www.austinzv.com/") {
+                    if let url = URL(string: "https://www.austinzv.com/oasis") {
                         UIApplication.shared.open(url)
                     }
                 }

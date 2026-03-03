@@ -21,6 +21,8 @@ struct AddArtistPage: View {
     
     @State var isLoading = true
     
+    @State var isGenreLoading = true
+    
     var body: some View {
         Group {
             if isLoading {
@@ -41,12 +43,14 @@ struct AddArtistPage: View {
             }
         }
         .onAppear() {
+            
             if artistImage == nil {
                 Task {
                     artistImage = await data.loadArtistImage(artistID: newArtist.id, imageURL: newArtist.imageURL)
                 }
             }
             if !newFestival.artistList.contains(where: {$0.id == newArtist.id}) {
+                isGenreLoading = true
                 var genreList = newArtist.genres.map { $0.capitalized }
                 fetchGenresFromLastFM(artistName: newArtist.name) { genres in
                     for genre in genres.map({ $0.capitalized }) {
@@ -59,6 +63,8 @@ struct AddArtistPage: View {
                         $0.contains("Vocalists") ||
                         $0.contains("Better") ||
                         $0.contains("My Top") ||
+                        $0.contains("Lidarr") ||
+                        $0.contains("Batch") ||
                         $0.contains(newArtist.name)
                     })
                     if genreList.contains("Hip Hop") {
@@ -80,6 +86,7 @@ struct AddArtistPage: View {
                         genreList.append("USA")
                     }
                     newArtist.genres = genreList
+                    isGenreLoading = false
                     
                     //                newArtist.genres.append(contentsOf: genres)
                     //                newArtist.genres = newArtist.genres.map { $0.capitalized }
@@ -90,6 +97,7 @@ struct AddArtistPage: View {
                 isLoading = false
             } else {
                 isLoading = false
+                isGenreLoading = false
             }
         }
     }
@@ -106,16 +114,27 @@ struct AddArtistPage: View {
                 Spacer()
                 Group {
                     if let oldArtist = newFestival.artistList.first(where: { $0.id == newArtist.id }) {
-                        Button(action: {
-                            addArtist()
-                            showArtistSearchPage = false
-                        }, label: {
-                            Group {
-                                Text("Update")
-                            }
-                            .foregroundStyle(newArtist == oldArtist ? .gray : .blue)
-                        })
-                        .disabled(newArtist == oldArtist)
+                        if newArtist == oldArtist {
+                            Button(action: {
+                                showArtistSearchPage = false
+                            }, label: {
+                                Group {
+                                    Text("Done")
+                                }
+                                .foregroundStyle(.blue)
+                            })
+                        } else {
+                            Button(action: {
+                                addArtist()
+                                showArtistSearchPage = false
+                            }, label: {
+                                Group {
+                                    Text("Update")
+                                }
+                                .foregroundStyle(.blue)
+                            })
+                        }
+//                        .disabled(newArtist == oldArtist)
                     } else {
                         Button(action: {
                             addArtist()
@@ -124,8 +143,9 @@ struct AddArtistPage: View {
                             Group {
                                 Text("Add Artist")
                             }
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(isGenreLoading ? .gray : .blue)
                         })
+                        .disabled(isGenreLoading)
                     }
                 }
             }
@@ -397,67 +417,71 @@ struct AddArtistPage: View {
     var ArtistGenres: some View {
         Group {
             Section (header: Text("Genres")) {
-                VStack {
-                    if !newArtist.genres.isEmpty {
-                        FlowLayout(spacing: 8) {
-                            ForEach(newArtist.genres.sorted(), id: \.self) { genre in
-                                HStack {
-                                    Text(genre)
-                                        .foregroundStyle(Color("OASIS Dark Orange"))
-                                    Image(systemName: "x.circle")
-                                }
-                                .padding(6)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                    //                                    .stroke(Color("OASIS Dark Orange"), lineWidth: 1)
-                                        .stroke(.black, lineWidth: 1)
-                                        .foregroundStyle(.white)
-                                )
-                                .onTapGesture {
-                                    if let originalIndex = newArtist.genres.firstIndex(of: genre) {
-                                        newArtist.genres.remove(at: originalIndex)
+                if isGenreLoading {
+                    ProgressView()
+                } else {
+                    VStack {
+                        if !newArtist.genres.isEmpty {
+                            FlowLayout(spacing: 8) {
+                                ForEach(newArtist.genres.sorted(), id: \.self) { genre in
+                                    HStack {
+                                        Text(genre)
+                                            .foregroundStyle(Color("OASIS Dark Orange"))
+                                        Image(systemName: "x.circle")
+                                    }
+                                    .padding(6)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                        //                                    .stroke(Color("OASIS Dark Orange"), lineWidth: 1)
+                                            .stroke(.black, lineWidth: 1)
+                                            .foregroundStyle(.white)
+                                    )
+                                    .onTapGesture {
+                                        if let originalIndex = newArtist.genres.firstIndex(of: genre) {
+                                            newArtist.genres.remove(at: originalIndex)
+                                        }
                                     }
                                 }
                             }
+                            Divider()
                         }
-                        Divider()
-                    }
-                    HStack {
-                        ZStack {
-                            TextField("Add Genre", text: $genreName)
-                                .padding(5)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(5)
-                                .autocapitalization(.words)
-                                .frame(height: FRAME_HEIGHT)
-                                .submitLabel(.return)
-                                .focused($genreNameFocused)
-                                .onSubmit {
+                        HStack {
+                            ZStack {
+                                TextField("Add Genre", text: $genreName)
+                                    .padding(5)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(5)
+                                    .autocapitalization(.words)
+                                    .frame(height: FRAME_HEIGHT)
+                                    .submitLabel(.return)
+                                    .focused($genreNameFocused)
+                                    .onSubmit {
+                                        addGenre()
+                                    }
+                                if !genreName.isEmpty {
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "xmark.circle")
+                                            .padding(.horizontal, 10)
+                                            .foregroundStyle(.gray)
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                genreName = ""
+                                            }
+                                    }
+                                }
+                            }
+                            Image(systemName: "plus.circle")
+                                .imageScale(.large)
+                                .foregroundStyle(stageName == "" ? Color.gray : Color.blue /*Color("OASIS Dark Orange")*/)
+                                .frame(width: FRAME_HEIGHT)
+                                .onTapGesture {
                                     addGenre()
                                 }
-                            if !genreName.isEmpty {
-                                HStack {
-                                    Spacer()
-                                    Image(systemName: "xmark.circle")
-                                        .padding(.horizontal, 10)
-                                        .foregroundStyle(.gray)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            genreName = ""
-                                        }
-                                }
-                            }
                         }
-                        Image(systemName: "plus.circle")
-                            .imageScale(.large)
-                            .foregroundStyle(stageName == "" ? Color.gray : Color.blue /*Color("OASIS Dark Orange")*/)
-                            .frame(width: FRAME_HEIGHT)
-                            .onTapGesture {
-                                addGenre()
-                            }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
                 }
             }
 //            }

@@ -489,28 +489,37 @@ struct AccountSetUpPage: View {
 
         isLoading = true
 
+        // Create the phone credential
         let credential = PhoneAuthProvider.provider().credential(
             withVerificationID: verificationID,
             verificationCode: codeText
         )
 
-        // Step 1: Verify the code with Firebase Auth
-        Auth.auth().signIn(with: credential) { authResult, error in
-            if let error = error {
-                isLoading = false
-                errorMessage = "Verification failed: \(error.localizedDescription)"
+        // ✅ Link phone credential to the currently signed-in user
+        guard let currentUser = Auth.auth().currentUser else {
+            isLoading = false
+            errorMessage = "No signed-in user found."
+            return
+        }
+
+        currentUser.link(with: credential) { authResult, error in
+            isLoading = false
+
+            if let error = error as NSError? {
+                // Handle already-in-use error (user might already have linked this phone to another account)
+                if error.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
+                    errorMessage = "This phone number is already linked to another account."
+                } else {
+                    errorMessage = "Verification failed: \(error.localizedDescription)"
+                }
                 return
             }
 
-            // ✅ Code is valid — user is now signed in (or reauthenticated)
-            guard let user = authResult?.user else {
-                isLoading = false
-                errorMessage = "Could not retrieve user after verification."
-                return
-            }
+            // ✅ Phone linked successfully, `authResult.user.uid` is same as currentUser.uid
+            print("Phone number linked successfully!")
 
             // Step 2: Save user info to Firestore
-            saveUserInfo(for: user)
+            saveUserInfo(for: currentUser)
         }
     }
 
@@ -526,7 +535,7 @@ struct AccountSetUpPage: View {
             phoneNumber: rawPhoneNumber,
             phoneHash: phoneHash
         ) { success in
-            isLoading = false
+//            isLoading = false
             if success {
                 if let photo = selectedImage {
                     firestore.uploadImageAndSaveToFirestore(image: photo) { _ in

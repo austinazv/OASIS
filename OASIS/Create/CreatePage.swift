@@ -13,12 +13,12 @@ struct CreatePage: View {
     @EnvironmentObject var festivalVM: FestivalViewModel
     @EnvironmentObject var firestore: FirestoreViewModel
     
-    @State private var navigationPath = NavigationPath()
+    @Binding var navigationPath: NavigationPath
     
     @State var selectedFestival: DataSet.Festival?
     
     @State var festivalDrafts: Array<DataSet.Festival> = []
-    @State var festivalsPublished: Array<DataSet.Festival>
+//    @State var festivalsPublished: Array<DataSet.Festival>
     
     var body: some View {
         VStack {
@@ -86,6 +86,12 @@ struct CreatePage: View {
                     .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
                     .onAppear() {
 //                        if let id = firestore.getUserID() {
+//                            for i in 0..<festivalVM.festivalDrafts.count {
+//                                festivalVM.festivalDrafts[i].ownerID = id
+//                            }
+//                            for j in 0..<festivalVM.publishedFestivals.count {
+//                                festivalVM.publishedFestivals[j].ownerID = id
+//                            }
 //                            for i in 0..<festivalVM.publishedFestivals.count {
 //                                for a_i in 0..<festivalVM.publishedFestivals[i].artistList.count {
 //                                    festivalVM.publishedFestivals[i].artistList[a_i].addDate = Date()
@@ -184,9 +190,9 @@ struct CreatePage: View {
     
     
     
-    init() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        self.festivalsPublished = []
-    }
+//    init() {
+//        let formatter = DateFormatter()
+//        formatter.dateFormat = "yyyy-MM-dd"
+//        self.festivalsPublished = []
+//    }
 }

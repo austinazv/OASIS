@@ -237,6 +237,28 @@ class ExploreViewModel: ObservableObject {
         return Array(unique.values)
     }
     
+    func fetchFestival(with festivalID: String) async throws -> DataSet.Festival {
+        let db = Firestore.firestore()
+        let docRef = db.collection("festivals").document(festivalID)
+
+        let snapshot = try await docRef.getDocument()
+
+        guard snapshot.exists else {
+            throw NSError(domain: "FestivalError",
+                          code: 404,
+                          userInfo: [NSLocalizedDescriptionKey: "Festival not found"])
+        }
+
+        var festival = try snapshot.data(as: DataSet.Festival.self)
+
+        // If your Firestore document ID is the UUID string:
+        if let uuid = UUID(uuidString: festivalID) {
+            festival.id = uuid
+        }
+
+        return festival
+    }
+    
     
     
     @MainActor

@@ -33,6 +33,7 @@ struct PlaylistCreationSheet: View {
     
     @State var arrayLength = 0
 //    @State private var progress: Float = 0.0
+    @State var titleText: String?
     
     @State private var progressText = "Adding songs..."
     
@@ -163,7 +164,8 @@ struct PlaylistCreationSheet: View {
     var PlaylistNameSection: some View {
         Section(header: Text("Playlist Name")) {
             HStack {
-                TextField("My \(currentFestival.name) Playlist", text: $playlistName)
+                var promptText = titleText == nil ? "My \(currentFestival.name) Playlist" : "My \(currentFestival.name) \(titleText!) Playlist"
+                TextField(promptText, text: $playlistName)
                     .autocapitalization(.words)
                     .textFieldStyle(PlainTextFieldStyle())
             }
@@ -202,7 +204,14 @@ struct PlaylistCreationSheet: View {
                                 Image(systemName: sectionBools[section] == true ? "checkmark.square.fill" : "square")
                                     .foregroundColor(Color("OASIS Dark Orange"))
                                     .imageScale(.large)
-                                Text(section)
+                                Group {
+                                    if sortType == .alpha {
+                                        if let text = titleText { Text("All \(text) Artists") }
+                                        else { Text("All Artists") }
+                                    } else {
+                                        Text(section)
+                                    }
+                                }
                                     .foregroundStyle(Color("BW Color Switch"))
                                 Spacer()
                             }

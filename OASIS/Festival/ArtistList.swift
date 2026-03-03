@@ -28,7 +28,7 @@ struct ArtistList: View {
    
     var titleText: String?
 //    var currentFestival: DataSet.Festival
-    @State var currentFestival = DataSet.Festival.newFestival()
+    @State var currentFestival: DataSet.Festival
     
     @State var artistList: Array<DataSet.Artist>
     @State var artistDict = [String : Array<DataSet.Artist>]()
@@ -116,13 +116,15 @@ struct ArtistList: View {
 //            
 //        }
         .onAppear() {
-            if let festival = festivalVM.currentFestival {
-                currentFestival = festival
-                artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
-                viewSubsection = Array(repeating: true, count: artistDict.keys.count)
-            } else {
-                navigationPath.removeLast()
-            }
+            artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
+            viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+//            if let festival = festivalVM.currentFestival {
+//                currentFestival = festival
+//                artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
+//                viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+//            } else {
+//                navigationPath.removeLast()
+//            }
         }
 //        .onChange(of: selectedItem) { newItem in
 //            
@@ -139,7 +141,7 @@ struct ArtistList: View {
             })
         }
         .sheet(isPresented: $createPlaylistSheet) {
-            PlaylistCreationSheet(artistList: artistList, playlistCreatedAlert: $playlistCreatedAlert)
+            PlaylistCreationSheet(artistList: artistList, playlistCreatedAlert: $playlistCreatedAlert, titleText: titleText)
 //            PlaylistCreationSheet(artistDict: data.getArtistDict(currDict: artistDict, favorites: favorites, sort: .alpha), sortType: .alpha, playlistCreatedAlert: self.$playlistCreatedAlert).environmentObject(data)
         }
 //        .alert(isPresented: self.$errorAlert) {
@@ -201,7 +203,7 @@ struct ArtistList: View {
             .onTapGesture {
                 let currentList = data.getArtistList(currDict: artistDict)
                 if let randomArtist = festivalVM.shuffleArtist(currentList: currentList, secondWeekend: currentFestival.secondWeekend) {
-                    navigationPath.append(DataSet.ArtistPageStruct(artist: randomArtist,
+                    navigationPath.append(DataSet.ArtistPageStruct(artist: randomArtist, festival: currentFestival,
                                                                    shuffleTitle: titleText != nil ? titleText! : "All Artists",
                                                                    shuffleList: currentList))
                 }
@@ -587,7 +589,7 @@ struct ArtistLink: View {
     var body: some View {
         Group {
             VStack {
-                NavigationLink(value: DataSet.ArtistPageStruct(artist: artist,
+                NavigationLink(value: DataSet.ArtistPageStruct(artist: artist, festival: currentFestival,
                                                                shuffleTitle: titleText != nil ? titleText! : "All Artists",
 //                                                               shuffleTitle: "All Artists",
                                                                shuffleList: shuffleList)) {
@@ -948,11 +950,11 @@ struct SortMenu: View {
                 }
             })
         }
-        .onAppear() {
-            if let festival = festivalVM.currentFestival {
-                currentFestival = festival
-            }
-        }
+//        .onAppear() {
+//            if let festival = festivalVM.currentFestival {
+//                currentFestival = festival
+//            }
+//        }
 //        .onChange(of: sortType) { newSort in
 //            artistDict = data.getArtistDictFromListNEW(currList: currList, sort: newSort, secondWeekend: secondWeekend)
 //        }

@@ -56,6 +56,10 @@ class FirestoreViewModel: ObservableObject {
         self.publicFestivals = []
         self.isLoggedIn = (Auth.auth().currentUser != nil)
 
+        setUpAccount()
+    }
+    
+    func setUpAccount() {
         Task {
             defer {
                 Task { @MainActor in
@@ -64,12 +68,19 @@ class FirestoreViewModel: ObservableObject {
             }
 
             await loadMyUserProfile()
+            
+            print("IS LOGGED IN: \(isLoggedIn)")
+            
             guard isLoggedIn else { return }
 
             let hasPhone = await userHasPhoneHash()
+
             await MainActor.run {
                 self.phoneConnected = hasPhone
             }
+            
+            print("HAS PHONE HASH: \(phoneConnected)")
+            
             guard hasPhone else { return }
 
             do {
@@ -177,15 +188,19 @@ class FirestoreViewModel: ObservableObject {
 
         // 3. Final fallback: empty UserProfile
         print("⚪ Using default empty UserProfile")
-        self.myUserProfile = UserProfile(
-            id: nil,
-            name: "",
-            profilePic: nil,
-            following: [],
-            followers: [],
-            festivalFavorites: [:],
-            groups: []
-        )
+        await MainActor.run {
+            self.myUserProfile = UserProfile(
+                id: nil,
+                name: "",
+                profilePic: nil,
+                following: [],
+                followers: [],
+                festivalFavorites: [:],
+                groups: []
+            )
+        }
+        
+        print("MY USER PROFILE: \(self.myUserProfile)")
     }
     
     func fetchUsersByID(_ ids: [String]) async throws -> [String: UserProfile] {
@@ -643,6 +658,8 @@ class FirestoreViewModel: ObservableObject {
         guard let uid = Auth.auth().currentUser?.uid else {
             return false
         }
+        
+        print("CURRENT ID: \(uid)")
 
         let userRef = Firestore.firestore().collection("users").document(uid)
 
@@ -664,6 +681,7 @@ class FirestoreViewModel: ObservableObject {
 //                self.userInfo = nil
 //                self.userInfo = UserProfile(id: "", name: "", profilePic: nil, favorites: [], friends: [])
 //            }
+            self.phoneConnected = false
             self.isLoggedIn = false
             completion(.success(()))
         } catch let signOutError {
@@ -798,6 +816,7 @@ class FirestoreViewModel: ObservableObject {
                             completion(false)
                         } else {
                             print("✅ User updated & follow arrays ensured!")
+                            self.phoneConnected = true
                             self.hasAcctName = true
                             completion(true)
                         }
@@ -863,6 +882,7 @@ class FirestoreViewModel: ObservableObject {
             // Save the URL to Firestore
             self.saveImageURLToFirestore(imageURL: imageURL) { success in
                 if success {
+                    self.myUserProfile.profilePic = imageURL
                     print("✅ Image URL successfully saved to Firestore.")
                     completion(true)
                 } else {
@@ -1125,7 +1145,7 @@ class FirestoreViewModel: ObservableObject {
         
         let userRef = db.collection("users").document(userID)
         
-        userRef.updateData(["profileImageURL": imageURL]) { error in
+        userRef.updateData(["profilePic": imageURL]) { error in
             if let error = error {
                 print("❌ Error saving image URL: \(error.localizedDescription)")
                 completion(false)
@@ -1327,6 +1347,116 @@ class FirestoreViewModel: ObservableObject {
         }
     }
 
+    
+//    import FirebaseAuth
+//    import FirebaseFirestore
+//    import FirebaseFirestoreSwift
+
+    func deleteEntireAccount() async throws {
+        guard let user = Auth.auth().currentUser else { return }
+        let uid = user.uid
+        let db = Firestore.firestore()
+        
+        // 1️⃣ Fetch user document
+        let userSnap = try await db.collection("users").document(uid).getDocument()
+        guard let userData = userSnap.data() else { return }
+        
+        let groupIDs = userData["groups"] as? [String] ?? []
+        let followers = userData["followers"] as? [String] ?? []
+        let following = userData["following"] as? [String] ?? []
+        
+        // 2️⃣ Fetch all groups in parallel
+        var groups: [DocumentSnapshot] = []
+        for groupID in groupIDs {
+            let snap = try await db.collection("groups").document(groupID).getDocument()
+            groups.append(snap)
+        }
+        
+        // 3️⃣ Collect all write operations
+        var operations: [(WriteBatch) -> Void] = []
+        
+        // ----- GROUP LOGIC (owner transfer included) -----
+        for groupSnap in groups {
+            guard
+                let groupData = groupSnap.data(),
+                let members = groupData["members"] as? [String],
+                let ownerID = groupData["ownerID"] as? String
+            else { continue }
+            
+            let groupRef = groupSnap.reference
+            let remainingMembers = members.filter { $0 != uid }
+            
+            operations.append { batch in
+                if ownerID == uid {
+                    
+                    if remainingMembers.isEmpty {
+                        batch.deleteDocument(groupRef)
+                    } else {
+                        batch.updateData([
+                            "ownerID": remainingMembers[0],
+                            "members": remainingMembers
+                        ], forDocument: groupRef)
+                    }
+                    
+                } else {
+                    batch.updateData([
+                        "members": FieldValue.arrayRemove([uid])
+                    ], forDocument: groupRef)
+                }
+            }
+        }
+        
+        // ----- FOLLOWERS -----
+        for followerID in followers {
+            let ref = db.collection("users").document(followerID)
+            operations.append { batch in
+                batch.updateData([
+                    "following": FieldValue.arrayRemove([uid])
+                ], forDocument: ref)
+            }
+        }
+        
+        // ----- FOLLOWING -----
+        for followingID in following {
+            let ref = db.collection("users").document(followingID)
+            operations.append { batch in
+                batch.updateData([
+                    "followers": FieldValue.arrayRemove([uid])
+                ], forDocument: ref)
+            }
+        }
+        
+        // ----- DELETE USER DOC -----
+        let userRef = db.collection("users").document(uid)
+        operations.append { batch in
+            batch.deleteDocument(userRef)
+        }
+        
+        self.myUserProfile = UserProfile()
+        
+        // 4️⃣ Commit in batches (max 450 writes each)
+        let maxBatchSize = 450
+        var currentIndex = 0
+        
+        while currentIndex < operations.count {
+            let batch = db.batch()
+            let upperBound = min(currentIndex + maxBatchSize, operations.count)
+            
+            for i in currentIndex..<upperBound {
+                operations[i](batch)
+            }
+            
+            try await batch.commit()
+            currentIndex = upperBound
+        }
+        
+        // 5️⃣ Delete Auth user LAST
+        try await user.delete()
+        self.phoneConnected = false
+        self.isLoggedIn = false
+        
+//        self.signOutUser(completion: <#T##(Result<Void, any Error>) -> Void#>)
+    }
 
 
 }

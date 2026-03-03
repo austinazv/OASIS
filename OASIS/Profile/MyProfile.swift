@@ -12,18 +12,19 @@ struct MyProfile: View {
     @EnvironmentObject var festivalVM: FestivalViewModel
     @EnvironmentObject var social: SocialViewModel
     
-    @State private var navigationPath = NavigationPath()
+    @Binding var navigationPath: NavigationPath
     
     var body: some View {
         if firestore.phoneConnected {
             NavigationStack(path: $navigationPath) {
                 ProfilePage(navigationPath: $navigationPath, profile: firestore.myUserProfile)
                     .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
-                    
             }
-            
         } else {
-            AccountSetUpPage()
+            NavigationStack(path: $navigationPath) {
+                SettingsHomePage(navigationPath: $navigationPath)
+                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
+            }
         }
     }
     

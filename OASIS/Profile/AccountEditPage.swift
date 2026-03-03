@@ -18,9 +18,14 @@ struct AccountEditPage: View {
     
     @State var didInitialize = false
     @State var hasBeenEdited = false
-    @State var discardChangesAlert: Bool = false
+    
+    @State private var activeAlert: ActiveAlert?
+//    @State var discardChangesAlert: Bool = false
     
     @State private var didRemovePhoto = false
+    
+    @State private var isDeleting = false
+    @State private var deleteError: String?
     
     var body: some View {
         ZStack {
@@ -63,7 +68,8 @@ struct AccountEditPage: View {
                         if !hasBeenEdited {
                             navigationPath.removeLast()
                         } else {
-                            discardChangesAlert = true
+                            activeAlert = .discardChanges
+//                            discardChangesAlert = true
                         }
                     }, label: {
                         Image(systemName: "chevron.left")
@@ -99,14 +105,44 @@ struct AccountEditPage: View {
                     .font(.headline)
             }
         }
-        .alert(isPresented: $discardChangesAlert) {
-            return Alert(title: Text("Discard Changes?"),
-                         message: Text("Are you sure you want to leave without saving?"),
-                         primaryButton: .destructive(Text("Discard Changes")) {
-                navigationPath.removeLast()
-            }, secondaryButton: .cancel()
-            )
+        .alert(item: $activeAlert) { alert in
+            switch alert {
+                
+            case .deleteAccount:
+                return Alert(
+                    title: Text("Delete Your Account?"),
+                    message: Text("This cannot be undone."),
+                    primaryButton: .destructive(Text("Delete")) {
+                        Task {
+                            isDeleting = true
+                            do {
+                                try await firestore.deleteEntireAccount()
+                            } catch {
+                                deleteError = error.localizedDescription
+                            }
+                            isDeleting = false
+                        }
+                    },
+                    secondaryButton: .cancel()
+                )
+                
+            case .discardChanges:
+                return Alert(title: Text("Discard Changes?"),
+                             message: Text("Are you sure you want to leave without saving?"),
+                             primaryButton: .destructive(Text("Discard Changes")) {
+                    navigationPath.removeLast()
+                }, secondaryButton: .cancel()
+                )
+            }
         }
+//        .alert(isPresented: $discardChangesAlert) {
+//            return Alert(title: Text("Discard Changes?"),
+//                         message: Text("Are you sure you want to leave without saving?"),
+//                         primaryButton: .destructive(Text("Discard Changes")) {
+//                navigationPath.removeLast()
+//            }, secondaryButton: .cancel()
+//            )
+//        }
     }
     
     @State private var showPhotoPicker = false
@@ -303,11 +339,11 @@ struct AccountEditPage: View {
         
     }
     
-    @State var showDeleteAlert = false
+//    @State var showDeleteAlert = false
     
     var DeleteButton: some View {
         VStack {
-            Button(action: { showDeleteAlert = true }) {
+            Button(action: { activeAlert = .deleteAccount }) {
                 Text("Delete Account")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
@@ -330,7 +366,14 @@ struct AccountEditPage: View {
         
     }
     
-    
+    enum ActiveAlert: Identifiable {
+        case deleteAccount
+        case discardChanges
+        
+        var id: Int {
+            hashValue
+        }
+    }
     
 }
 

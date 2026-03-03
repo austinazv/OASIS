@@ -12,7 +12,7 @@ struct MyFestivalsPage: View {
     @EnvironmentObject var spotify: SpotifyViewModel
     @EnvironmentObject var festivalVM: FestivalViewModel
     
-    @State private var navigationPath = NavigationPath()
+    @Binding var navigationPath: NavigationPath
     
     @State var selectedFestival: DataSet.Festival?
     
@@ -22,9 +22,9 @@ struct MyFestivalsPage: View {
     @Binding var selectedTab: Int
     
     // Read the shared namespace from the environment (provided by OASISApp)
-    @Environment(\.oasisNamespace) private var oasisNamespaceEnv
-    @Namespace private var localNamespace // fallback for previews
-    private var ns: Namespace.ID { oasisNamespaceEnv ?? localNamespace }
+//    @Environment(\.oasisNamespace) private var oasisNamespaceEnv
+//    @Namespace private var localNamespace // fallback for previews
+//    private var ns: Namespace.ID { oasisNamespaceEnv ?? localNamespace }
     
     var body: some View {
         VStack {
@@ -41,7 +41,8 @@ struct MyFestivalsPage: View {
                         Group {
                             if !festivalVM.myFestivals.isEmpty {
                                 ScrollView {
-                                    FestivalsListed(navigationPath: $navigationPath, festivalList: festivalVM.myFestivals, title: "My Festivals", collapsable: false)
+                                    let split = festivalVM.splitFestivals(festivalVM.myFestivals)
+                                    FestivalsListed(navigationPath: $navigationPath, festivalList: split.upcoming, title: "My Festivals", largeText: true, collapsable: false)
                                     Button(action: {
                                         selectedTab = 1
                                     }) {
@@ -52,6 +53,8 @@ struct MyFestivalsPage: View {
                                     }
                                     .italic()
                                     .padding(8)
+                                    FestivalsListed(navigationPath: $navigationPath, festivalList: split.attended, title: "Attended", collapsable: true, showList: false)
+                                        .padding(.top, 5)
                                 }
                             } else {
                                 VStack {
@@ -186,6 +189,8 @@ struct MyFestivalsPage: View {
         var festivalList: Array<DataSet.Festival>
 
         var title: String
+        var largeText: Bool = false
+        
         var collapsable: Bool
         var draftView: Bool = false
         
@@ -198,11 +203,13 @@ struct MyFestivalsPage: View {
                         HStack {
                             Text(title)
                                 .padding(10)
+                                .font(largeText ? .title3 : .body)
                             if collapsable {
                                 Image(systemName: showList ? "chevron.up" : "chevron.down")
                             }
                             Spacer()
                         }
+                        .padding(.leading, 2)
                         .foregroundStyle(.black)
                         .bold()
                         .onTapGesture {
@@ -252,7 +259,7 @@ struct MyFestivalsPage: View {
                                                 navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView))
                                             } else {
                                                 festivalVM.currentFestival = festival
-                                                navigationPath.append("FestivalView")
+                                                navigationPath.append(festival)
                                             }
                                         }
                                         
@@ -326,7 +333,9 @@ struct FestivalLogoView: View {
         } else {
             Text(title)
                 .font(.title)
+                .frame(height: frame)
                 .onAppear {
+                    print(logoPath)
                     loadImage()
                 }
         }

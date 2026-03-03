@@ -12,6 +12,7 @@ import PhotosUI
 struct NewEventPage: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var spotify: SpotifyViewModel
+    @EnvironmentObject var firestore: FirestoreViewModel
     
     @EnvironmentObject var festivalVM: FestivalViewModel
     @StateObject var draft: NewEventPageViewModel
@@ -55,9 +56,13 @@ struct NewEventPage: View {
                         EventLocation
                         EventArtists
                         EventStages
-                        EventLogo
-                        EventWebsite
+                        if let uid = firestore.getUserID(), uid == "zrayyA8BieWLLpuqgJo5g1sBGYw1" {
+//                        if let uid = firestore.getUserID(), uid == "zrayyA8BieWLLpuqgJo5g1sBGYw2" {
+                            EventLogo
+                            EventWebsite
+                        }
                         DeleteButton
+                        
                         //                    Section {
                         //                        Spacer()
                         //                            .frame(height: 200)
@@ -135,12 +140,14 @@ struct NewEventPage: View {
                         })
                     } else {
                         Button (action: {
-//                            festivalVM.saveDraft(draft.newFestival)
-                            navigationPath.removeLast()
+                            Task {
+                                await saveLocally()
+                            }
+                            
                         }, label: {
                             HStack {
-                                Text("Save Draft")
-                                Image(systemName: "checkmark.seal")
+                                Text("Save")
+                                Image(systemName: "checkmark.seal.fill")
                             }
                         })
                         Button (action: {
@@ -152,7 +159,7 @@ struct NewEventPage: View {
                                     uploadingFestival = false
                                     navigationPath.removeLast()
                                 case .failure(let error):
-                                    print("Uxpload failed:", error)
+                                    print("Upload failed:", error)
                                     uploadingFestival = false
                                 }
                             }
@@ -178,14 +185,14 @@ struct NewEventPage: View {
         .onAppear() {
             
             
-            if let logoPath = draft.newFestival.logoPath {
-                FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
-                    if let logo = logo {
-                        //                , let logo = festivalVM.loadFestivalImage(filePath: logoPath) {
-                        selectedImage = logo
-                    }
-                }
-            }
+//            if let logoPath = draft.newFestival.logoPath {
+//                FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
+//                    if let logo = logo {
+//                        //                , let logo = festivalVM.loadFestivalImage(filePath: logoPath) {
+//                        selectedImage = logo
+//                    }
+//                }
+//            }
             if !festivalVM.isNewFestival(draft.newFestival) {
                 singleDayEvent = festivalVM.isSameDay(draft.newFestival.startDate, draft.newFestival.endDate)
             }
@@ -214,6 +221,23 @@ struct NewEventPage: View {
             matching: .images,
             photoLibrary: .shared()
         )
+        .onChange(of: draft.newFestival) { newVersion in
+            festivalVM.saveDraft(newVersion)
+        }
+    }
+    
+    func saveLocally() async {
+        if oldVersion.logoPath != nil, logoDeleted {
+            await firestore.deleteImageAsync(imageURL: oldVersion.logoPath!)
+            draft.newFestival.logoPath = nil
+        }
+
+        if let imageToUpload = selectedImage,
+           let logoPath = festivalVM.saveImageForFestival(imageToUpload,
+                                                          festivalID: draft.newFestival.id) {
+            draft.newFestival.logoPath = logoPath
+        }
+        navigationPath.removeLast()
     }
     
     
@@ -351,12 +375,7 @@ struct NewEventPage: View {
                     draft.newFestival.endDate = newDate
                 }
             }
-            .onChange(of: draft.newFestival) { newVersion in
-                festivalVM.saveDraft(newVersion)
-//                if !hasBeenEdited {
-//                    hasBeenEdited = true
-//                }
-            }
+            
 //            .onChange(of: draft.newFestival) { _ in
 //                if !hasBeenEdited {
 //                    hasBeenEdited = true
@@ -768,19 +787,20 @@ struct NewEventPage: View {
                                     //                                ForEach(artistSearchResults, id: \.self) { result in
                                     ForEach(artistSearchResults) { artist in
                                         HStack(spacing: 12) {
+                                            ArtistImage(imageURL: artist.imageURL, frame: 50)
                                             //                                            ArtistAsyncImage(imageURL: artist.imageURL)
-                                            Group {
-                                                if let image = artistImages[artist.id] {
-                                                    Image(uiImage: image)
-                                                        .resizable()
-                                                        .aspectRatio(contentMode: .fill)
-                                                    
-                                                    //                                                        .clipShape(Circle())
-                                                } else {
-                                                    ProgressView()
-                                                }
-                                            }
-                                            .frame(width: 50, height: 50)
+//                                            Group {
+//                                                if let image = artistImages[artist.id] {
+//                                                    Image(uiImage: image)
+//                                                        .resizable()
+//                                                        .aspectRatio(contentMode: .fill)
+//                                                    
+//                                                    //                                                        .clipShape(Circle())
+//                                                } else {
+//                                                    ProgressView()
+//                                                }
+//                                            }
+//                                            .frame(width: 50, height: 50)
                                             Text(artist.name)
                                             Spacer()
                                             Image(systemName: "plus.circle")
@@ -991,6 +1011,8 @@ struct NewEventPage: View {
     @State private var selectedItem: PhotosPickerItem?
     @State var selectedImage: UIImage?
     
+    @State var logoDeleted = false
+    
     var EventLogo: some View {
         Group {
             Section(header: Text("Logo")) {
@@ -1006,6 +1028,9 @@ struct NewEventPage: View {
                         .frame(maxHeight: 60)
                         Divider()
                         //                        .clipShape(Circle())
+                    }
+                    else if let logoPath = draft.newFestival.logoPath {
+                        FestivalLogoView(logoPath: logoPath, title: draft.newFestival.name, frame: 60)
                     }
                     HStack {
                         Text(selectedImage == nil ? "Add Logo" : "Change Logo")
@@ -1023,7 +1048,9 @@ struct NewEventPage: View {
                                 .foregroundStyle(Color.red)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
+                                    selectedItem = nil
                                     selectedImage = nil
+                                    logoDeleted = true
                                 }
 //                                .padding(.leading, 20)
                                 .padding(.vertical, 5)
@@ -1032,7 +1059,6 @@ struct NewEventPage: View {
                 }
             }
         }
-        
         .onChange(of: selectedItem) { newItem in
             Task {
                 if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
@@ -1041,17 +1067,17 @@ struct NewEventPage: View {
                 }
             }
         }
-        .onChange(of: selectedImage) { newLogo in
-            if let logo = newLogo {
-                Task {
-                    if let path = festivalVM.saveImageForFestival(logo, festivalID: draft.newFestival.id) {
-                        draft.newFestival.logoPath = path
-                    }
-                }
-            } else {
-                draft.newFestival.logoPath = nil
-            }
-        }
+//        .onChange(of: selectedImage) { newLogo in
+//            if let logo = newLogo {
+//                Task {
+//                    if let path = festivalVM.saveImageForFestival(logo, festivalID: draft.newFestival.id) {
+//                        draft.newFestival.logoPath = path
+//                    }
+//                }
+//            } else {
+//                draft.newFestival.logoPath = nil
+//            }
+//        }
     }
     
     

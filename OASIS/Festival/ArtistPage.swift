@@ -23,7 +23,7 @@ struct ArtistPage: View {
     
     @Binding var navigationPath: NavigationPath
     
-    @State var currentFestival = DataSet.Festival.newFestival()
+    @State var currentFestival: DataSet.Festival
     
 //    @State var includeFavorites: Bool
     
@@ -48,14 +48,15 @@ struct ArtistPage: View {
             
         }
         .onAppear() {
-            if let festival = festivalVM.currentFestival {
-                currentFestival = festival
-                if latestProject == nil {
-                    getLatestProject()
-                }
-            } else {
-                navigationPath.removeLast()
+            if latestProject == nil {
+                getLatestProject()
             }
+//            if let festival = festivalVM.currentFestival {
+//                currentFestival = festival
+//                
+//            } else {
+//                navigationPath.removeLast()
+//            }
         }
         .onChange(of: currentArtist) { _ in
             getLatestProject()
@@ -141,12 +142,15 @@ struct ArtistPage: View {
                             .foregroundStyle(Color("BW Color Switch"))
                             .padding(.bottom, 5)
                             HStack {
-//                                ShareLink(item: currentArtist.artistPage) {
-                                    Label("", systemImage: "square.and.arrow.up.circle")
-//                                }
-                                .imageScale(.large)
-                                .foregroundStyle(.gray)
-                                .padding([.leading, .trailing], 5)
+                                ShareLink(item: getArtistShareLink()) {
+                                    Image(systemName: "square.and.arrow.up.circle")
+                                    //                                ShareLink(item: currentArtist.artistPage) {
+                                    //                                Image("square.and.arrow.up.circle")
+                                    //                                }
+                                        .imageScale(.large)
+                                        .foregroundStyle(.blue)
+                                        .padding([.leading, .trailing], 5)
+                                }
                                 Button(action: {
                                     festivalVM.dislikeButtonPressed(currentArtist.id)
 //                                    currentArtist.favorability = data.setFavorability(liking: -1, artist: currentArtist)
@@ -183,6 +187,10 @@ struct ArtistPage: View {
         }
     }
     
+    
+    func getArtistShareLink() -> String {
+        return "https://oasis-austinzv.web.app/share/festival/\(currentFestival.id)/artist/\(currentArtist.id)"
+    }
     
     
 //    var ArtistSpotifySection: some View {
@@ -472,8 +480,8 @@ struct ArtistPage: View {
     
     var RelatedArtistsSection: some View {
         Group {
-            if let currFest = festivalVM.currentFestival {
-                let relatedArists = data.getRelatedArtists(currentArtist: currentArtist, currentList: currFest.artistList)
+//            if let currFest = festivalVM.currentFestival {
+                let relatedArists = data.getRelatedArtists(currentArtist: currentArtist, currentList: currentFestival.artistList)
                 if relatedArists.count > 0 {
 //                    Section {
                     Section(header:
@@ -485,7 +493,7 @@ struct ArtistPage: View {
                             LazyHStack {
                                 HStack {
                                     ForEach(relatedArists) { artist in
-                                        NavigationLink(destination: ArtistPage(currentArtist: artist, shuffleList: shuffleList, navigationPath: $navigationPath)) {
+                                        NavigationLink(destination: ArtistPage(currentArtist: artist, shuffleLable: "All Artists", shuffleList: currentFestival.artistList, navigationPath: $navigationPath, currentFestival: currentFestival)) {
                                             VStack {
                                                 ArtistImage(imageURL: artist.imageURL, frame: 100)
                                                     .padding(5)
@@ -514,7 +522,7 @@ struct ArtistPage: View {
                         }
                     }
                 }
-            }
+//            }
         }
        
         
@@ -539,7 +547,7 @@ struct ArtistPage: View {
     
     var ArtistDay: some View {
         Group {
-            if let currFest = festivalVM.currentFestival {
+//            if let currFest = festivalVM.currentFestival {
                 FlowLayout(spacing: 8) {
                     Text("Day:")
                         .padding(.vertical, INFO_PADDING)
@@ -548,8 +556,8 @@ struct ArtistPage: View {
                             .padding(.vertical, INFO_PADDING)
                     } else {
                         Button {
-                            let dayList = festivalVM.getDayList(currArtist: currentArtist, currList: currFest.artistList, secondWeekend: currFest.secondWeekend)
-                            navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.day, festival: currFest, list: dayList)
+                            let dayList = festivalVM.getDayList(currArtist: currentArtist, currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
+                            navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.day, festival: currentFestival, list: dayList)
                             )
                         } label: {
                             HStack {
@@ -569,10 +577,10 @@ struct ArtistPage: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        if currFest.secondWeekend && currentArtist.weekend != "Both" {
+                        if currentFestival.secondWeekend && currentArtist.weekend != "Both" {
                             Button {
-                                let weekendList = festivalVM.getWeekendList(weekend: currentArtist.weekend, currList: currFest.artistList)
-                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.weekend, festival: currFest, list: weekendList))
+                                let weekendList = festivalVM.getWeekendList(weekend: currentArtist.weekend, currList: currentFestival.artistList)
+                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.weekend, festival: currentFestival, list: weekendList))
                             } label: {
                                 HStack {
                                     Text(currentArtist.weekend)
@@ -630,14 +638,14 @@ struct ArtistPage: View {
 //                    }
 //                    Spacer()
 //                }
-            }
+//            }
         }
     }
     
     var ArtistStage: some View {
         Group {
-            if let currFest = festivalVM.currentFestival {
-                if festivalVM.listHasStages(currList: currFest.artistList, secondWeekend: currFest.secondWeekend) {
+//            if let currFest = festivalVM.currentFestival {
+                if festivalVM.listHasStages(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend) {
                     FlowLayout(spacing: 8) {
                         Text("Stage:")
                             .padding(.vertical, INFO_PADDING)
@@ -646,8 +654,8 @@ struct ArtistPage: View {
                                 .padding(.vertical, INFO_PADDING)
                         } else {
                             Button {
-                                let stageList = festivalVM.getStageList(stage: currentArtist.stage, currList: currFest.artistList)
-                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.stage, festival: currFest, list: stageList))
+                                let stageList = festivalVM.getStageList(stage: currentArtist.stage, currList: currentFestival.artistList)
+                                navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.stage, festival: currentFestival, list: stageList))
                             } label: {
                                 HStack {
                                     Text(currentArtist.stage)
@@ -689,21 +697,21 @@ struct ArtistPage: View {
 //                        }
 //                    }
                 }
-            }
+//            }
         }
     }
     
     var ArtistTier: some View {
         Group {
-            if let currFest = festivalVM.currentFestival {
+//            if let currFest = festivalVM.currentFestival {
                 if currentArtist.tier != data.NA_TITLE_BLOCK {
                     FlowLayout(spacing: 8) {
                         Text("Tier:")
                             .padding(.vertical, INFO_PADDING)
 //                        ForEach(currentArtist.genres.sorted(), id: \.self) { genre in
                         Button {
-                            let tierList = festivalVM.getTierList(tier: currentArtist.tier, currList: currFest.artistList)
-                            navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.tier, festival: currFest, list: tierList))
+                            let tierList = festivalVM.getTierList(tier: currentArtist.tier, currList: currentFestival.artistList)
+                            navigationPath.append(DataSet.ArtistListStruct(titleText: currentArtist.tier, festival: currentFestival, list: tierList))
                         } label: {
                             HStack {
                                 Text(currentArtist.tier)
@@ -740,21 +748,21 @@ struct ArtistPage: View {
 //                            }
 //                    }
                 }
-            }
+//            }
         }
     }
     
     var ArtistGenres: some View {
         Group {
-            if let currFest = festivalVM.currentFestival {
+//            if let currFest = festivalVM.currentFestival {
                 if !currentArtist.genres.isEmpty {
                     FlowLayout(spacing: 8) {
                         Text("Genres:")
                             .padding(.vertical, INFO_PADDING)
                         ForEach(currentArtist.genres.sorted(), id: \.self) { genre in
                             Button {
-                                let genreList = festivalVM.getGenreList(genre: genre, currList: currFest.artistList)
-                                navigationPath.append(DataSet.ArtistListStruct(titleText: genre, festival: currFest, list: genreList))
+                                let genreList = festivalVM.getGenreList(genre: genre, currList: currentFestival.artistList)
+                                navigationPath.append(DataSet.ArtistListStruct(titleText: genre, festival: currentFestival, list: genreList))
                             } label: {
                                 HStack {
                                     Text(genre)
@@ -805,7 +813,7 @@ struct ArtistPage: View {
 //                            }
 //                        }
 //                    }
-                }
+//                }
             }
         }
     }
@@ -885,7 +893,7 @@ struct ArtistImage: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: frame, height: frame)
-                    .clipShape(RoundedRectangle(cornerRadius: 3))
+//                    .clipShape(RoundedRectangle(cornerRadius: 3))
             } else {
                 Image(systemName: "person.crop.circle.fill")
                     .resizable()

@@ -38,6 +38,7 @@ class FestivalViewModel: ObservableObject {
     
     @Published var currentFestival: DataSet.Festival? {
         didSet {
+//            print("SAVING PART 2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             if let currFest = currentFestival {
                 if let favsData = UserDefaults.standard.data(forKey: (saveName + currFest.id.uuidString + "/favorites")),
                    let tryFavs = try? JSONDecoder().decode([String].self, from: favsData) {
@@ -183,6 +184,7 @@ class FestivalViewModel: ObservableObject {
                 let encoder = JSONEncoder()
                 let data = try encoder.encode(festivalDrafts)
                 UserDefaults.standard.set(data, forKey: (saveName + "festivalDrafts"))
+//                print("SAVED !!!!!!!!!!!!!!!!!!")
             } catch {
                 print("Failed to save festivalDrafts:", error)
             }
@@ -535,6 +537,9 @@ class FestivalViewModel: ObservableObject {
         var festivalToUpload = festival // Make a mutable copy
         festivalToUpload.published = true
         festivalToUpload.saveDate = Date()
+        
+        festivalToUpload.verified = (userId == "zrayyA8BieWLLpuqgJo5g1sBGYw1")
+//        if  { }
         
         if festivalToUpload.ownerName == "Unknown" {
             let userDocRef = db.collection("users").document(festivalToUpload.ownerID)
@@ -909,6 +914,10 @@ class FestivalViewModel: ObservableObject {
     func getArtistListFromID(artistIDs: Array<String>, festival: DataSet.Festival) -> Array<DataSet.Artist> {
         let idSet = Set(artistIDs)
         return festival.artistList.filter { idSet.contains($0.id) }
+    }
+    
+    func getArtistFromID(artistID: String, festival: DataSet.Festival) -> DataSet.Artist? {
+        return festival.artistList.first { $0.id == artistID }
     }
     
 //    func getArtistListForGroup(artistIDLists: [[String]]) -> Array<DataSet.Artist> {

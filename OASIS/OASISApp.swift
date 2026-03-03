@@ -20,6 +20,7 @@ struct OASISApp: App {
     @StateObject var firestore = FirestoreViewModel(name: "AZV31")
     @StateObject var festivalVM = FestivalViewModel(name: "Austin30")
     @StateObject var social = SocialViewModel()
+    @StateObject var explore = ExploreViewModel()
     
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
@@ -38,25 +39,39 @@ struct OASISApp: App {
     // Shared namespace for morphing the “O” and the title between screens
     @Namespace private var oasisNamespace
     
+    @State var explorePath = NavigationPath()
+    @State var socialPath = NavigationPath()
+    @State var myFestivalsPath = NavigationPath()
+    @State var createPath = NavigationPath()
+    @State var myProfilePath = NavigationPath()
+    
+    @State private var selectedTab = 0
+    
+    @State var URLLoading = false
+    
     var body: some Scene {
         WindowGroup {
             ZStack {
                 // Main app content (behind while loading)
                 Group {
+                    
                     if firestore.isLoggedIn {
                         if spotify.isLoggedIn {
-                            NavigationBottomBarView()
+                            NavigationBottomBarView(explorePath: $explorePath, socialPath: $socialPath, myFestivalsPath: $myFestivalsPath, createPath: $createPath, myProfilePath: $myProfilePath, selectedTab: $selectedTab)
                                 .environmentObject(data)
                                 .environmentObject(spotify)
                                 .environmentObject(firestore)
                                 .environmentObject(festivalVM)
                                 .environmentObject(social)
+                                .environmentObject(explore)
                         } else {
                             SpotifyConnectPage()
                                 .environmentObject(data)
                                 .environmentObject(spotify)
                                 .environmentObject(firestore)
                                 .environmentObject(festivalVM)
+                                .environmentObject(social)
+                                .environmentObject(explore)
                         }
                     } else {
                         LogInPage()
@@ -64,6 +79,11 @@ struct OASISApp: App {
                             .environmentObject(spotify)
                             .environmentObject(firestore)
                             .environmentObject(festivalVM)
+                            .environmentObject(social)
+                            .environmentObject(explore)
+                    }
+                    if URLLoading {
+                        ProgressView()
                     }
                 }
                 // Provide the shared namespace to all children so titles can match geometry
@@ -73,10 +93,16 @@ struct OASISApp: App {
                 
                 // Loading layer on top
                 if spotify.isLoading {
-                    OASISLoadingScreen(namespace: oasisNamespace)
-                        // No custom slide transition; matchedGeometryEffect will move from loading to destination.
-//                        .transition(.opacity) // optional fade for the overlay itself
-                        .animation(.easeInOut(duration: 1.35), value: spotify.isLoading) // 3× slower
+                    GeometryReader { geo in
+                        VStack {
+                            Spacer().frame(height: geo.size.height * 0.33)
+                            OASISLoadingScreen(namespace: oasisNamespace)
+                            // No custom slide transition; matchedGeometryEffect will move from loading to destination.
+                            //                        .transition(.opacity) // optional fade for the overlay itself
+                                .animation(.easeInOut(duration: 1.35), value: spotify.isLoading) // 3× slower
+                            Spacer().frame(height: geo.size.height * 0.67)
+                        }}
+                    
                 }
             }
             // Request sheet for invites/auth
@@ -107,24 +133,97 @@ struct OASISApp: App {
                     self.showRequestSheet = true
                 }
             }
-            .onOpenURL(perform: { url in
+            .onOpenURL { url in
                 print("Received URL: \(url.absoluteString)")
-                    
+                
                 guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
                     self.errorAlert = true
                     return
                 }
                 
+                let pathComponents = url.pathComponents
+                
                 if url.absoluteString.contains("spotify") {
                     handleSpotifyURL(components)
-                } else if url.absoluteString.contains("/share/") {
+                    return
+                }
+                
+                // Handle: /share/festival/{festivalID}
+                if pathComponents.count >= 4,
+                   pathComponents[1] == "share",
+                   pathComponents[2] == "festival" {
+                    
+                    let festivalID = pathComponents[3]
+
+                    
+                    URLLoading = true
+                    Task {
+                        defer { URLLoading = false }
+                        do {
+                            let festival = try await explore.fetchFestival(with: festivalID)
+                            festivalVM.currentFestival = festival
+                            explorePath = NavigationPath()
+                            selectedTab = 1
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                explorePath.append(festival)
+                            }
+                            
+                            if pathComponents.count >= 6,
+                               pathComponents[4] == "artist" {
+                                let artistID = pathComponents[5]
+                                if let artist = festivalVM.getArtistFromID(artistID: artistID, festival: festival) {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                        
+                                        explorePath.append(DataSet.ArtistPageStruct(artist: artist, festival: festival,
+                                                                                    shuffleTitle: "All Artists",
+                                                                                    shuffleList: festival.artistList))
+                                    }
+                                }
+                            }
+                            
+                            
+                        } catch {
+                            print("Failed to fetch festival:", error.localizedDescription)
+                        }
+                    }
+                    
+//                    if pathComponents.count >= 6,
+//                       pathComponents[4] == "artist" {
+//                        
+//                        let artistID = pathComponents[5]
+//                        Task {
+//                            do {
+//                                if let artist = festivalVM.getArtistFromID(artistID: <#T##String#>, festival: <#T##DataSet.Festival#>)
+////                                let festival = try await explore.fetchFestival(with: festivalID)
+////                                selectedTab = 1
+////                                festivalVM.currentFestival = festival
+//                                explorePath.append("FestivalView")
+//                            } catch {
+//                                print("Failed to fetch festival:", error.localizedDescription)
+//                            }
+//                        }
+//                        
+//                        
+//                        
+//                        print("Artist ID: \(artistID)")
+//                    }
+                    
+                    return
+                }
+                
+                if pathComponents.count >= 2,
+                   pathComponents[1] == "share" {
+                    
                     showRequestSheet = true
                     handleInviteLink(url)
-                    
-                } else {
-                    print("Unhandled URL")
+                    return
                 }
-            })
+                
+                print("Unhandled URL")
+            }
+
+
+
             .alert(isPresented: $logInSuccess) {
                 Alert(title: Text("Successfully Signed In to Spotify"),
                              dismissButton: .default(Text("OK")))
@@ -514,7 +613,13 @@ struct GroupRequestSheet:  View {
                 }
             }
             .onAppear() {
-//                isMembersLoading = true
+                isMembersLoading = true
+                Task {
+                    defer { isMembersLoading = false }
+                    if let memberIDs = request.groupMembers {
+                        members = await firestore.users(from: memberIDs)
+                    }
+                }
 //                if let memberIDs = request.groupMembers {
 //                    Task {
 //                        do {
@@ -557,6 +662,7 @@ extension View {
             .navigationDestination(for: DataSet.ArtistListStruct.self) { page in
                 ArtistList(navigationPath: navigationPath,
                            titleText: page.titleText,
+                           currentFestival: page.festival,
                            artistList: page.list,
                            groupFavs: page.groupFavs,
                            sortType: page.groupFavs == nil ? .alpha : .group
@@ -567,7 +673,8 @@ extension View {
                 ArtistPage(currentArtist: page.artist,
                            shuffleLable: page.shuffleTitle,
                            shuffleList: page.shuffleList,
-                           navigationPath: navigationPath)
+                           navigationPath: navigationPath,
+                           currentFestival: page.festival)
                     .environmentObject(festivalVM)
             }
             .navigationDestination(for: SocialGroup.self) { group in
@@ -586,12 +693,12 @@ extension View {
                     AboutPage()
                 case "Festival Settings":
                     FestivalSettingsPage(navigationPath: navigationPath)
-                case "Favorites":
-                    ArtistList(navigationPath: navigationPath, titleText: "Favorites", artistList: festivalVM.getFavorites())
-                        .environmentObject(festivalVM)
-                case "FestivalView":
-                    FestivalPage(navigationPath: navigationPath)
-                        .environmentObject(festivalVM)
+//                case "Favorites":
+//                    ArtistList(navigationPath: navigationPath, titleText: "Favorites", artistList: festivalVM.getFavorites())
+//                        .environmentObject(festivalVM)
+//                case "FestivalView":
+//                    FestivalPage(navigationPath: navigationPath)
+//                        .environmentObject(festivalVM)
                 case "New Event":
                     NewEventPage(festival: DataSet.Festival.newFestival(), navigationPath: navigationPath)
                         .environmentObject(festivalVM)

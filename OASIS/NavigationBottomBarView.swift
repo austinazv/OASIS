@@ -10,9 +10,13 @@ import SwiftUI
 struct NavigationBottomBarView: View {
     @EnvironmentObject var data: DataSet
     
-    @State private var navigationPath = NavigationPath()
+    @Binding var explorePath: NavigationPath
+    @Binding var socialPath: NavigationPath
+    @Binding var myFestivalsPath: NavigationPath
+    @Binding var createPath: NavigationPath
+    @Binding var myProfilePath: NavigationPath
     
-    @State private var selectedTab = 0
+    @Binding var selectedTab: Int
     
     var body: some View {
         
@@ -21,7 +25,7 @@ struct NavigationBottomBarView: View {
             TabView(selection: $selectedTab) {
 //            TabView {
                
-                ExploreFestivalsPage()
+                ExploreFestivalsPage(navigationPath: $explorePath)
                     .tabItem {
                         Image(systemName: "magnifyingglass").imageScale(.large)
                         Text("Explore")
@@ -29,26 +33,26 @@ struct NavigationBottomBarView: View {
                     .tag(1)
                 
 //                AuthPage()
-                SocialPage()
+                SocialPage(navigationPath: $socialPath)
                     .tabItem {
                         Image(systemName: "person.2.fill").imageScale(.large)
                         Text("Social")
                     }
                     .tag(2)
-                MyFestivalsPage(selectedTab: $selectedTab)
+                MyFestivalsPage(navigationPath: $myFestivalsPath, selectedTab: $selectedTab)
                     .tabItem {
                         Image(systemName: "star.fill").imageScale(.large)
                         Text("My Festivals")
                     }
                     .tag(0)
-                CreatePage()
+                CreatePage(navigationPath: $createPath)
                     .tabItem {
                         Image(systemName: "wrench.and.screwdriver.fill").imageScale(.large)
                         Text("Create")
                     }
                     .tag(3)
 //                SettingsPage()
-                MyProfile()
+                MyProfile(navigationPath: $myProfilePath)
                     .tabItem {
                         Image(systemName: "person.fill").imageScale(.large)
                         Text("Profile")
@@ -68,6 +72,6 @@ struct NavigationBottomBarView: View {
     
 }
 
-#Preview {
-    NavigationBottomBarView()
-}
+//#Preview {
+//    NavigationBottomBarView()
+//}

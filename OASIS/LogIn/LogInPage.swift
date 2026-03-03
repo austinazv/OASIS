@@ -87,7 +87,7 @@ struct LogInPage: View {
                         .padding(.horizontal, 30)
                         .padding(.vertical, 15)
                         .onTapGesture {
-                            if let url = URL(string: "https://www.austinzv.com/") {
+                            if let url = URL(string: "https://www.austinzv.com/oasis") {
                                 UIApplication.shared.open(url)
                             }
                         }
@@ -174,7 +174,7 @@ struct LogInPage: View {
                 
                 upsertUserDocument(user: user,
                                    extraEmail: appleEmail,
-                                   name: appleName,
+                                   name: appleName ?? "",
                                    photoURL: nil,
                                    isNewUser: isNewUser) { upsertError in
                     if let upsertError = upsertError {
@@ -182,6 +182,7 @@ struct LogInPage: View {
                     }
                     DispatchQueue.main.async {
                         firestore.isLoggedIn = true
+                        firestore.setUpAccount()
                     }
                 }
             }
@@ -258,6 +259,8 @@ struct LogInPage: View {
                     }
                     DispatchQueue.main.async {
                         firestore.isLoggedIn = true
+                        firestore.setUpAccount()
+//                        firestore.loadMyUserProfile()
                     }
                 }
             }

@@ -2874,6 +2874,7 @@ class DataSet: ObservableObject {
     
     struct ArtistPageStruct: Hashable {
         let artist: Artist
+        let festival: Festival
         let shuffleTitle: String
         let shuffleList: Array<Artist>
     }
