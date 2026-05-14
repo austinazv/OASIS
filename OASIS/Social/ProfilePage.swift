@@ -12,6 +12,7 @@ struct ProfilePage: View {
     @EnvironmentObject var firestore: FirestoreViewModel
     @EnvironmentObject var festivalVM: FestivalViewModel
     @EnvironmentObject var social: SocialViewModel
+//    @EnvironmentObject var tags: TagViewModel
     
     @Binding var navigationPath: NavigationPath
     
@@ -21,10 +22,10 @@ struct ProfilePage: View {
     @State var unfriendAlert = false
     @State var isLoading = false
     
-//    @State var likedFestivals = Array<DataSet.Festival>()
+//    @State var likedFestivals = Array<Festival>()
     
-    @State var upcomingFestivals = Array<DataSet.Festival>()
-    @State var attendedFestivals = Array<DataSet.Festival>()
+    @State var upcomingFestivals = Array<Festival>()
+    @State var attendedFestivals = Array<Festival>()
     
     @State var following = Array<UserProfile>()
     @State var followers = Array<UserProfile>()
@@ -86,11 +87,11 @@ struct ProfilePage: View {
 //                loadUser()
 //            }
 //            .onChange(of: firestore.profileDidChange) { bool in
-//                print("CALLED")
+//                //print("CALLED")
 //                if bool {
-//                    print("LOADING")
+//                    //print("LOADING")
 //                    loadUser()
-//                    print("NEW PROFILE: \(profile)")
+//                    //print("NEW PROFILE: \(profile)")
 //                    firestore.profileDidChange = false
 //                }
 //            }
@@ -201,10 +202,10 @@ struct ProfilePage: View {
                       primaryButton: .destructive(Text("Unfriend")) {
                     data.unfriendUser(currentUserID: data.userInfo!.id!, friendID: profile.id!) { error in
                         if let error = error {
-                            print("Error unfriending user: \(error.localizedDescription)")
+                            //print("Error unfriending user: \(error.localizedDescription)")
                         } else {
                             
-                            print("Successfully unfriended user.")
+                            //print("Successfully unfriended user.")
                             if !navigationPath.isEmpty {  // Ensure there is something to pop
                                 navigationPath.removeLast()
                             }
@@ -222,7 +223,8 @@ struct ProfilePage: View {
         Task {
             defer { isLoading = false }
             
-            let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: Array(profile.safeFestivalFavorites.keys))
+//            let likedFestivals = [Festival]() /*try await social.fetchFavoritedFestivals(festivalIDs: Array(profile.safeFestivalFavorites.keys))*/
+            let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: profile.safeStarredFestivalsList)
             let split = festivalVM.splitFestivals(likedFestivals)
             attendedFestivals = split.attended
             upcomingFestivals = split.upcoming
@@ -254,14 +256,14 @@ struct ProfilePage: View {
 //                if profile.safeFollowers.isEmpty  {
 //                    followers = []
 //                } else {
-//                    print("UPDATING USER'S FOLLOWERS")
+//                    //print("UPDATING USER'S FOLLOWERS")
 //                    followers = try await social.fetchUsers(from: profile.safeFollowers)
 //                }
 //                
 //                isLoading = false
 //                
 //            } catch {
-//                print("Error:", error)
+//                //print("Error:", error)
 //                isLoading = false
 //            }
 //        }
@@ -308,7 +310,7 @@ struct ProfilePage: View {
                 Button {
                     switchTab(.festivals)
                 } label: {
-                    UserNumber(number: profile.safeFestivalFavorites.keys.count,
+                    UserNumber(number: isLoading ? profile.safeStarredFestivalsList.count : (upcomingFestivals.count + attendedFestivals.count),
                                text: "Festivals",
                                isSelected: selectedSection == .festivals
                     )
@@ -317,7 +319,7 @@ struct ProfilePage: View {
                 Button {
                     switchTab(.following)
                 } label: {
-                    UserNumber(number: profile.safeFollowing.count,
+                    UserNumber(number: isLoading ? profile.safeFollowing.count : following.count,
                                text: "Following",
                                isSelected: selectedSection == .following)
                 }
@@ -325,7 +327,7 @@ struct ProfilePage: View {
                 Button {
                     switchTab(.followers)
                 } label: {
-                    UserNumber(number: profile.safeFollowers.count,
+                    UserNumber(number: isLoading ? profile.safeFollowers.count : followers.count,
                                text: "Followers",
                                isSelected: selectedSection == .followers)
                 }
@@ -417,13 +419,25 @@ struct ProfilePage: View {
                 .foregroundStyle(.black)
                 Spacer()
             } else {
-                Group {
-                    FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", collapsable: true)
-                    FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true)
+                let userArtistDict = getUserArtistDict(festivals: (upcomingFestivals + attendedFestivals))
+                ScrollView {
+                    FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", largeText: true, collapsable: true, friendInfoToPopup: userArtistDict, profile: profile)
+                    FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true, showList: upcomingFestivals.isEmpty, friendInfoToPopup: userArtistDict, profile: profile)
                 }
                 .padding(.top, LIST_PADDING)
             }
         }
+    }
+    
+    func getUserArtistDict(festivals: [Festival]) -> [UUID : [Artist]] {
+        var userArtistDict = [UUID : [Artist]]()
+        for festival in festivals {
+            let festivalFavoritesList = festival.artistList.filter({ profile.safeFavoriteArtistsList.contains($0.id) })
+            if !festivalFavoritesList.isEmpty {
+                userArtistDict[festival.id] = festivalFavoritesList
+            }
+        }
+        return userArtistDict
     }
     
     var FollowingView: some View {

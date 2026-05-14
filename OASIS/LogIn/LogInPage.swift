@@ -40,9 +40,9 @@ struct LogInPage: View {
                     // Apple requires the SHA256 hash of the raw nonce in the request
                     request.requestedScopes = [.fullName, .email]
                     request.nonce = sha256(nonce)
-                    print("Apple Sign-In: Prepared request with hashed nonce.")
+                    //print("Apple Sign-In: Prepared request with hashed nonce.")
                 } onCompletion: { result in
-                    print("Apple Sign-In: onCompletion called with result: \(result)")
+                    //print("Apple Sign-In: onCompletion called with result: \(result)")
                     handleAppleSignIn(result: result)
                 }
                 .signInWithAppleButtonStyle(.whiteOutline)
@@ -105,14 +105,14 @@ struct LogInPage: View {
     private func handleAppleSignIn(result: Result<ASAuthorization, Error>) {
         switch result {
         case .success(let auth):
-            print("Apple Sign-In: Authorization success received.")
+            //print("Apple Sign-In: Authorization success received.")
             guard let appleIDCredential = auth.credential as? ASAuthorizationAppleIDCredential else {
-                print("Apple Sign-In: Could not cast credential to ASAuthorizationAppleIDCredential.")
+                //print("Apple Sign-In: Could not cast credential to ASAuthorizationAppleIDCredential.")
                 return
             }
             
             guard let identityToken = appleIDCredential.identityToken else {
-                print("Apple Sign-In: identityToken is nil. This typically happens when request.nonce is not SHA256 hashed.")
+                //print("Apple Sign-In: identityToken is nil. This typically happens when request.nonce is not SHA256 hashed.")
                 DispatchQueue.main.async {
                     self.errorMessage = "Apple identity token missing. Please try again."
                     self.showError = true
@@ -121,7 +121,7 @@ struct LogInPage: View {
             }
             
             guard let tokenString = String(data: identityToken, encoding: .utf8) else {
-                print("Apple Sign-In: Unable to serialize identity token from data.")
+                //print("Apple Sign-In: Unable to serialize identity token from data.")
                 DispatchQueue.main.async {
                     self.errorMessage = "Unable to read Apple identity token."
                     self.showError = true
@@ -130,7 +130,7 @@ struct LogInPage: View {
             }
             
             guard let nonce = currentNonce else {
-                print("Invalid state: currentNonce is nil")
+                //print("Invalid state: currentNonce is nil")
                 DispatchQueue.main.async {
                     self.errorMessage = "Sign-in state invalid. Please try again."
                     self.showError = true
@@ -148,7 +148,7 @@ struct LogInPage: View {
             
             Auth.auth().signIn(with: credential) { authResult, error in
                 if let error = error {
-                    print("Firebase Sign-In (Apple) error: \(error.localizedDescription)")
+                    //print("Firebase Sign-In (Apple) error: \(error.localizedDescription)")
                     DispatchQueue.main.async {
                         self.errorMessage = error.localizedDescription
                         self.showError = true
@@ -157,7 +157,7 @@ struct LogInPage: View {
                 }
                 
                 guard let user = authResult?.user else {
-                    print("Apple Sign-In: Firebase user missing.")
+                    //print("Apple Sign-In: Firebase user missing.")
                     return
                 }
                 
@@ -178,7 +178,7 @@ struct LogInPage: View {
                                    photoURL: nil,
                                    isNewUser: isNewUser) { upsertError in
                     if let upsertError = upsertError {
-                        print("⚠️ Failed to upsert Apple user doc: \(upsertError.localizedDescription)")
+                        //print("⚠️ Failed to upsert Apple user doc: \(upsertError.localizedDescription)")
                     }
                     DispatchQueue.main.async {
                         firestore.isLoggedIn = true
@@ -187,7 +187,7 @@ struct LogInPage: View {
                 }
             }
         case .failure(let error):
-            print("Apple Sign-In: Authorization failure: \(error.localizedDescription)")
+            //print("Apple Sign-In: Authorization failure: \(error.localizedDescription)")
             DispatchQueue.main.async {
                 self.errorMessage = error.localizedDescription
                 self.showError = true
@@ -209,7 +209,7 @@ struct LogInPage: View {
                 .rootViewController else { return }
         GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { signInResult, error in
             if let error = error {
-                print("Google Sign-In error: \(error.localizedDescription)")
+                //print("Google Sign-In error: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.errorMessage = error.localizedDescription
                     self.showError = true
@@ -221,7 +221,7 @@ struct LogInPage: View {
                 let googleUser = signInResult?.user,
                 let idToken = googleUser.idToken?.tokenString
             else {
-                print("Google Sign-In: Missing user or idToken.")
+                //print("Google Sign-In: Missing user or idToken.")
                 return
             }
             
@@ -232,7 +232,7 @@ struct LogInPage: View {
             
             Auth.auth().signIn(with: credential) { authResult, error in
                 if let error = error {
-                    print("Firebase Sign-In (Google) error: \(error.localizedDescription)")
+                    //print("Firebase Sign-In (Google) error: \(error.localizedDescription)")
                     DispatchQueue.main.async {
                         self.errorMessage = error.localizedDescription
                         self.showError = true
@@ -241,7 +241,7 @@ struct LogInPage: View {
                 }
                 
                 guard let user = authResult?.user else {
-                    print("Google Sign-In: Firebase user missing.")
+                    //print("Google Sign-In: Firebase user missing.")
                     return
                 }
                 
@@ -255,7 +255,7 @@ struct LogInPage: View {
                                    photoURL: photoURL,
                                    isNewUser: isNewUser) { upsertError in
                     if let upsertError = upsertError {
-                        print("⚠️ Failed to upsert Google user doc: \(upsertError.localizedDescription)")
+                        //print("⚠️ Failed to upsert Google user doc: \(upsertError.localizedDescription)")
                     }
                     DispatchQueue.main.async {
                         firestore.isLoggedIn = true

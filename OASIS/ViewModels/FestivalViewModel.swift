@@ -24,21 +24,20 @@ class FestivalViewModel: ObservableObject {
     @Published var festivalDraftsID: Array<UUID> = []
     @Published var publishedFestivalsID: Array<UUID> = []
     
-    @Published var myFestivals = Array<DataSet.Festival>() {
+    @Published var myFestivals = Array<Festival>() {
         didSet {
             do {
                 let encoder = JSONEncoder()
                 let data = try encoder.encode(myFestivals)
                 UserDefaults.standard.set(data, forKey: (saveName + "/myFestivals"))
             } catch {
-                print("Failed to save myFestival: \(myFestivals): ", error)
+                //print("Failed to save myFestival: \(myFestivals): ", error)
             }
         }
     }
     
-    @Published var currentFestival: DataSet.Festival? {
+    @Published var currentFestival: Festival? {
         didSet {
-//            print("SAVING PART 2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             if let currFest = currentFestival {
                 if let favsData = UserDefaults.standard.data(forKey: (saveName + currFest.id.uuidString + "/favorites")),
                    let tryFavs = try? JSONDecoder().decode([String].self, from: favsData) {
@@ -81,7 +80,7 @@ class FestivalViewModel: ObservableObject {
                     UserDefaults.standard.set(data, forKey: (saveName + currFest.id.uuidString + "/favorites"))
                 }
             } catch {
-                print("Failed to save favorites for Current Festival \(currentFestival?.name ?? "NIL"): ", error)
+                //print("Failed to save favorites for Current Festival \(currentFestival?.name ?? "NIL"): ", error)
             }
         }
     }
@@ -95,7 +94,7 @@ class FestivalViewModel: ObservableObject {
                     UserDefaults.standard.set(data, forKey: (saveName + currFest.id.uuidString + "/dislikes"))
                 }
             } catch {
-                print("Failed to save dislikes for Current Festival \(currentFestival?.name ?? "NIL"): ", error)
+                //print("Failed to save dislikes for Current Festival \(currentFestival?.name ?? "NIL"): ", error)
             }
         }
     }
@@ -109,7 +108,7 @@ class FestivalViewModel: ObservableObject {
                     UserDefaults.standard.set(data, forKey: (saveName + currFest.id.uuidString + "/settings"))
                 }
             } catch {
-                print("Failed to save settings for Current Festival \(currentFestival?.name ?? "NIL"): ", error)
+                //print("Failed to save settings for Current Festival \(currentFestival?.name ?? "NIL"): ", error)
             }
         }
     }
@@ -173,32 +172,32 @@ class FestivalViewModel: ObservableObject {
 //                    UserDefaults.standard.set(data, forKey: (saveName + currFest.id.uuidString + "/favorites"))
 //                }
 //            } catch {
-//                print("Failed to save favorites for Current Festival \(currentFestival?.name ?? "NIL"): ", error)
+//                //print("Failed to save favorites for Current Festival \(currentFestival?.name ?? "NIL"): ", error)
 //            }
 //        }
 //    }
     
-    @Published var festivalDrafts: Array<DataSet.Festival> = [] {
+    @Published var festivalDrafts: Array<Festival> = [] {
         didSet {
             do {
                 let encoder = JSONEncoder()
                 let data = try encoder.encode(festivalDrafts)
                 UserDefaults.standard.set(data, forKey: (saveName + "festivalDrafts"))
-//                print("SAVED !!!!!!!!!!!!!!!!!!")
+//                //print("SAVED !!!!!!!!!!!!!!!!!!")
             } catch {
-                print("Failed to save festivalDrafts:", error)
+                //print("Failed to save festivalDrafts:", error)
             }
         }
     }
     
-    @Published var publishedFestivals: Array<DataSet.Festival> = [] {
+    @Published var publishedFestivals: Array<Festival> = [] {
         didSet {
             do {
                 let encoder = JSONEncoder()
                 let data = try encoder.encode(publishedFestivals)
                 UserDefaults.standard.set(data, forKey: (saveName + "publishedFestivals"))
             } catch {
-                print("Failed to save publishedFestivals:", error)
+                //print("Failed to save publishedFestivals:", error)
             }
         }
     }
@@ -211,12 +210,12 @@ class FestivalViewModel: ObservableObject {
         self.saveName = name
         
         if let draftsData = UserDefaults.standard.data(forKey: saveName + "festivalDrafts"),
-           let tryDrafts = try? JSONDecoder().decode([DataSet.Festival].self, from: draftsData) {
+           let tryDrafts = try? JSONDecoder().decode([Festival].self, from: draftsData) {
             festivalDrafts = tryDrafts
         }
         
         if let publishedData = UserDefaults.standard.data(forKey: saveName + "publishedFestivals"),
-           let tryPublished = try? JSONDecoder().decode([DataSet.Festival].self, from: publishedData) {
+           let tryPublished = try? JSONDecoder().decode([Festival].self, from: publishedData) {
             publishedFestivals = tryPublished
         }
         
@@ -235,7 +234,7 @@ class FestivalViewModel: ObservableObject {
         }
         
         if let myFestivalsData = UserDefaults.standard.data(forKey: saveName + "/myFestivals"),
-           let tryMyFestivals = try? JSONDecoder().decode([DataSet.Festival].self, from: myFestivalsData) {
+           let tryMyFestivals = try? JSONDecoder().decode([Festival].self, from: myFestivalsData) {
             myFestivals = tryMyFestivals
         }
         
@@ -271,16 +270,53 @@ class FestivalViewModel: ObservableObject {
     }
     
 //    func addFestivalToMyFestivals
-    func festivalStarPressed(festival: DataSet.Festival) {
+    func isStarNowPressed(festival: Festival) -> Bool{
+        if let index = myFestivals.firstIndex(where: { $0.id == festival.id }) {
+            myFestivals.remove(at: index)
+//            deleteFavoritesList(festivalID: festival.id.uuidString)
+            return false
+        } else {
+            myFestivals.append(festival)
+            cacheFestivalAssets(festival)
+            updateFavoritesList(festivalID: festival.id.uuidString)
+            return true
+        }
+    }
+    
+    func starPressed(festival: Festival) {
         if let index = myFestivals.firstIndex(where: { $0.id == festival.id }) {
             myFestivals.remove(at: index)
         } else {
             myFestivals.append(festival)
             cacheFestivalAssets(festival)
         }
+        updateStarredFestivalList()
+        
     }
     
-    func cacheFestivalAssets(_ festival: DataSet.Festival) {
+    func updateStarredFestivalList() {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            //print("No logged in user")
+            return
+        }
+
+        // Extract festival UUIDs as Strings
+        let festivalIDs = myFestivals.map { $0.id.uuidString }
+
+        let db = Firestore.firestore()
+
+        db.collection("users").document(uid).setData([
+            "starredFestivalsList": festivalIDs
+        ], merge: true) { error in
+            if let error = error {
+                //print("Error updating starredFestivalList: \(error)")
+            } else {
+                //print("Successfully updated starredFestivalList")
+            }
+        }
+    }
+    
+    func cacheFestivalAssets(_ festival: Festival) {
         Task {
             // Cache festival logo
             if let url = festival.logoPath {
@@ -321,7 +357,7 @@ class FestivalViewModel: ObservableObject {
                 var didChange = false
 
                 for doc in snapshot.documents {
-                    let firestoreFestival = try doc.data(as: DataSet.Festival.self)
+                    let firestoreFestival = try doc.data(as: Festival.self)
 
                     if let index = updated.firstIndex(where: { $0.id == firestoreFestival.id }) {
                         let localFestival = updated[index]
@@ -341,7 +377,7 @@ class FestivalViewModel: ObservableObject {
                 }
             } catch {
                 // totally fine — offline or transient failure
-                print("Silent festival sync failed:", error)
+                //print("Silent festival sync failed:", error)
             }
         }
     }
@@ -404,33 +440,59 @@ class FestivalViewModel: ObservableObject {
     
     
     
+//    func saveImageForFestival(_ image: UIImage, festivalID: UUID) -> String? {
+//        // Convert UUID to string
+//        let festivalIDString = festivalID.uuidString
+//        
+//        // Build relative path
+//        let relativePath = "\(festivalIDString)/logo.jpg"
+//        
+//        // Full file URL
+//        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+//            .appendingPathComponent(relativePath)
+//        
+//        // Ensure folder exists
+//        do {
+//            try FileManager.default.createDirectory(
+//                at: fileURL.deletingLastPathComponent(),
+//                withIntermediateDirectories: true
+//            )
+//            
+//            // Convert UIImage to JPEG data
+//            guard let data = image.jpegData(compressionQuality: 0.9) else { return nil }
+//            
+//            // Write to disk
+//            try data.write(to: fileURL)
+//            
+//            return relativePath // safe to store in UserDefaults
+//        } catch {
+//            //print("Error saving image: \(error)")
+//            return nil
+//        }
+//    }
+    
     func saveImageForFestival(_ image: UIImage, festivalID: UUID) -> String? {
-        // Convert UUID to string
         let festivalIDString = festivalID.uuidString
-        
-        // Build relative path
         let relativePath = "\(festivalIDString)/logo.jpg"
-        
-        // Full file URL
-        let fileURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(relativePath)
-        
-        // Ensure folder exists
+
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documentsURL.appendingPathComponent(relativePath)
+
         do {
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            
-            // Convert UIImage to JPEG data
+
             guard let data = image.jpegData(compressionQuality: 0.9) else { return nil }
-            
-            // Write to disk
+
             try data.write(to: fileURL)
-            
-            return relativePath // safe to store in UserDefaults
+
+            // ✅ RETURN RELATIVE PATH (CRITICAL)
+            return relativePath
+
         } catch {
-            print("Error saving image: \(error)")
+            //print("Error saving image: \(error)")
             return nil
         }
     }
@@ -456,7 +518,7 @@ class FestivalViewModel: ObservableObject {
                         completion(image)
                     }
                 } else {
-                    print("Failed to load remote image:", error ?? "Unknown error")
+                    //print("Failed to load remote image:", error ?? "Unknown error")
                     DispatchQueue.main.async {
                         completion(nil)
                     }
@@ -474,9 +536,10 @@ class FestivalViewModel: ObservableObject {
     }
     
     
-    func saveDraft(_ festival: DataSet.Festival) {
+    func saveDraft(_ festival: Festival) {
         var newFestival = festival
         newFestival.saveDate = Date()
+        if newFestival.name == "" { newFestival.name = "Unnamed Festival" }
         
         if let index = festivalDrafts.firstIndex(where: { $0.id == newFestival.id }) {
             festivalDrafts[index] = newFestival
@@ -496,7 +559,7 @@ class FestivalViewModel: ObservableObject {
         return festivalDrafts.contains(where: {$0.id == id })
     }
     
-    func moveToPublished(_ festival: DataSet.Festival) {
+    func moveToPublished(_ festival: Festival) {
         removeFromDrafts(id: festival.id)
         if let index = publishedFestivals.firstIndex(where: { $0.id == festival.id }) {
             publishedFestivals[index] = festival
@@ -506,8 +569,8 @@ class FestivalViewModel: ObservableObject {
         currentFestival = festival
     }
     
-    func isNewFestival(_ festival: DataSet.Festival) -> Bool {
-        let newFestival = DataSet.Festival.newFestival()
+    func isNewFestival(_ festival: Festival) -> Bool {
+        let newFestival = Festival.newFestival()
         return (festival.name == newFestival.name &&
                 festival.verified == newFestival.verified &&
                 festival.secondWeekend == newFestival.secondWeekend &&
@@ -530,7 +593,7 @@ class FestivalViewModel: ObservableObject {
     }
     
 
-    func uploadFestival(_ festival: DataSet.Festival, completion: @escaping (Result<Void, Error>) -> Void) {
+    func uploadFestival(_ festival: Festival, completion: @escaping (Result<Void, Error>) -> Void) {
         let db = Firestore.firestore()
         let storage = Storage.storage()
         
@@ -559,7 +622,7 @@ class FestivalViewModel: ObservableObject {
                 : festivalToUpload.endDate
         
         // Step 1: If there's a local logo image, upload it to Firebase Storage
-        if let logoPath = festivalToUpload.logoPath {
+        if let logoPath = festivalToUpload.logoPath, !logoPath.hasPrefix("http") {
             FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
                 if let logo = logo,
                    let imageData = logo.jpegData(compressionQuality: 0.8) {
@@ -628,7 +691,7 @@ class FestivalViewModel: ObservableObject {
         }
     }
     
-    func deleteFestival(_ festival: DataSet.Festival, completion: @escaping (Result<Void, Error>) -> Void) {
+    func deleteFestival(_ festival: Festival, completion: @escaping (Result<Void, Error>) -> Void) {
         let db = Firestore.firestore()
         let storage = Storage.storage()
 
@@ -637,7 +700,7 @@ class FestivalViewModel: ObservableObject {
             let storageRef = storage.reference(forURL: logoPath)
             storageRef.delete { error in
                 if let error = error {
-                    print("⚠️ Failed to delete logo: \(error.localizedDescription)")
+                    //print("⚠️ Failed to delete logo: \(error.localizedDescription)")
                     // Continue anyway — not fatal to block Firestore delete
                 }
 
@@ -666,7 +729,7 @@ class FestivalViewModel: ObservableObject {
         }
     }
     
-    func unpublishAndSave(_ festival: DataSet.Festival, completion: @escaping (Result<Void, Error>) -> Void) {
+    func unpublishAndSave(_ festival: Festival, completion: @escaping (Result<Void, Error>) -> Void) {
         deleteFestival(festival) { result in
             switch result {
             case .success:
@@ -676,13 +739,13 @@ class FestivalViewModel: ObservableObject {
                 self.saveDraft(festivalDraft)
                 completion(.success(()))
             case .failure(let error):
-                print("❌ Error deleting festival: \(error.localizedDescription)")
+                //print("❌ Error deleting festival: \(error.localizedDescription)")
                 completion(.failure(error))
             }
         }
     }
 
-    func unpublishAndDelete(_ festival: DataSet.Festival, completion: @escaping (Result<Void, Error>) -> Void) {
+    func unpublishAndDelete(_ festival: Festival, completion: @escaping (Result<Void, Error>) -> Void) {
         deleteFestival(festival) { result in
             switch result {
             case .success:
@@ -690,33 +753,26 @@ class FestivalViewModel: ObservableObject {
                 self.currentFestival = nil
                 completion(.success(()))
             case .failure(let error):
-                print("❌ Error deleting festival: \(error.localizedDescription)")
+                //print("❌ Error deleting festival: \(error.localizedDescription)")
                 completion(.failure(error))
             }
         }
     }
     
-    func favoriteButtonPressed(_ id: String) {
-        if let index = favoriteList.firstIndex(where: { $0 == id }) {
+    func favoriteButtonPressed(artistID: String, festivalID: String) {
+        if let index = favoriteList.firstIndex(where: { $0 == artistID }) {
             favoriteList.remove(at: index)
 //            unlikeArtist(id)
         } else {
-            favoriteList.append(id)
-            if let index = dislikeList.firstIndex(where: { $0 == id }) {
+            favoriteList.append(artistID)
+            if let index = dislikeList.firstIndex(where: { $0 == artistID }) {
                 dislikeList.remove(at: index)
             }
-            //TODO: Add festival to favorites
-//            likeArtist(id)
         }
-        updateFavoritesList()
+        updateFavoritesList(festivalID: festivalID)
     }
     
-    func updateFavoritesList() {
-        guard let festival = currentFestival else {
-            print("⚠️ No current festival selected")
-            return
-        }
-        
+    func updateFavoritesList(festivalID: String) {
         let db = Firestore.firestore()
         let userRef = db.collection("users").document(userId)
 
@@ -725,7 +781,7 @@ class FestivalViewModel: ObservableObject {
             var festivalFavorites = snapshot?.data()?["festivalFavorites"] as? [String: [String]] ?? [:]
 
             // Update or add the festival
-            festivalFavorites[festival.id.uuidString] = self.favoriteList
+            festivalFavorites[festivalID] = self.favoriteList
 
             // Write back the full dictionary
             userRef.setData(
@@ -737,10 +793,20 @@ class FestivalViewModel: ObservableObject {
         }
     }
 
+    func deleteFavoritesList(festivalID: String) {
+        let db = Firestore.firestore()
+        let userRef = db.collection("users").document(userId)
+
+        userRef.updateData([
+            "festivalFavorites.\(festivalID)": FieldValue.delete()
+        ]) { _ in
+            // Ignore errors — app works offline
+        }
+    }
     
 //    func updateFavoritesList() {
 //        guard let festival = currentFestival else {
-//            print("⚠️ No current festival selected")
+//            //print("⚠️ No current festival selected")
 //            return
 //        }
 //        
@@ -784,7 +850,7 @@ class FestivalViewModel: ObservableObject {
     
     func likeArtist(_ artistId: String) {
         guard let festival = currentFestival else {
-            print("⚠️ No current festival selected")
+            //print("⚠️ No current festival selected")
             return
         }
         
@@ -796,7 +862,7 @@ class FestivalViewModel: ObservableObject {
         
         festivalRef.getDocument { document, error in
             if let error = error {
-                print("❌ Error fetching festival: \(error.localizedDescription)")
+                //print("❌ Error fetching festival: \(error.localizedDescription)")
                 return
             }
             
@@ -806,9 +872,9 @@ class FestivalViewModel: ObservableObject {
                     "artists": FieldValue.arrayUnion([artistId])
                 ]) { error in
                     if let error = error {
-                        print("❌ Error adding artist: \(error.localizedDescription)")
+                        //print("❌ Error adding artist: \(error.localizedDescription)")
                     } else {
-                        print("✅ Added artist \(artistId) to existing festival \(festival.name)")
+                        //print("✅ Added artist \(artistId) to existing festival \(festival.name)")
                     }
                 }
             } else {
@@ -820,9 +886,9 @@ class FestivalViewModel: ObservableObject {
                 
                 festivalRef.setData(newFestivalData) { error in
                     if let error = error {
-                        print("❌ Error creating new festival: \(error.localizedDescription)")
+                        //print("❌ Error creating new festival: \(error.localizedDescription)")
                     } else {
-                        print("✅ Created new festival \(festival.name) with artist \(artistId)")
+                        //print("✅ Created new festival \(festival.name) with artist \(artistId)")
                     }
                 }
             }
@@ -831,7 +897,7 @@ class FestivalViewModel: ObservableObject {
     
     func unlikeArtist(_ artistId: String) {
         guard let festival = currentFestival else {
-            print("⚠️ No current festival selected")
+            //print("⚠️ No current festival selected")
             return
         }
         
@@ -844,12 +910,12 @@ class FestivalViewModel: ObservableObject {
         // First, fetch the festival document
         festivalRef.getDocument { document, error in
             if let error = error {
-                print("❌ Error fetching festival: \(error.localizedDescription)")
+                //print("❌ Error fetching festival: \(error.localizedDescription)")
                 return
             }
             
             guard let document = document, document.exists else {
-                print("⚠️ Festival document does not exist, nothing to remove")
+                //print("⚠️ Festival document does not exist, nothing to remove")
                 return
             }
             
@@ -858,9 +924,9 @@ class FestivalViewModel: ObservableObject {
                 "artists": FieldValue.arrayRemove([artistId])
             ]) { error in
                 if let error = error {
-                    print("❌ Error removing artist: \(error.localizedDescription)")
+                    //print("❌ Error removing artist: \(error.localizedDescription)")
                 } else {
-                    print("✅ Removed artist \(artistId) from festival \(festival.name)")
+                    //print("✅ Removed artist \(artistId) from festival \(festival.name)")
                 }
             }
         }
@@ -878,8 +944,24 @@ class FestivalViewModel: ObservableObject {
         }
     }
     
-    func getFavorites() -> Array<DataSet.Artist> {
-        var favorites = Array<DataSet.Artist>()
+    
+//    func doNotSuggestPressed(_ artist: Artist) {
+//        if artist.artistTags.contains(DONOTSUGGESTTAG) {
+////            artist.artistTags
+//        }
+////        if let index = dislikeList.firstIndex(where: { $0 == id }) {
+////            dislikeList.remove(at: index)
+////        } else {
+////            dislikeList.append(id)
+////            if let index = favoriteList.firstIndex(where: { $0 == id }) {
+////                favoriteList.remove(at: index)
+////                unlikeArtist(id)
+////            }
+////        }
+//    }
+    
+    func getFavorites() -> Array<Artist> {
+        var favorites = Array<Artist>()
         if let currFest = currentFestival {
             for artist in currFest.artistList {
                 if favoriteList.contains(artist.id) {
@@ -911,20 +993,20 @@ class FestivalViewModel: ObservableObject {
     
     //MARK: Festival Sort Section
     
-    func getArtistListFromID(artistIDs: Array<String>, festival: DataSet.Festival) -> Array<DataSet.Artist> {
+    func getArtistListFromID(artistIDs: Array<String>, festival: Festival) -> Array<Artist> {
         let idSet = Set(artistIDs)
         return festival.artistList.filter { idSet.contains($0.id) }
     }
     
-    func getArtistFromID(artistID: String, festival: DataSet.Festival) -> DataSet.Artist? {
+    func getArtistFromID(artistID: String, festival: Festival) -> Artist? {
         return festival.artistList.first { $0.id == artistID }
     }
     
-//    func getArtistListForGroup(artistIDLists: [[String]]) -> Array<DataSet.Artist> {
+//    func getArtistListForGroup(artistIDLists: [[String]]) -> Array<Artist> {
 //        
 //    }
     
-    func getArtistDict(currList: Array<DataSet.Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil) -> [String : Array<DataSet.Artist>] {
+    func getArtistDict(currList: Array<Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil) -> [String : Array<Artist>] {
         let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
         switch(sort) {
         case .alpha:
@@ -946,8 +1028,8 @@ class FestivalViewModel: ObservableObject {
         }
     }
     
-    func checkSettings(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> Array<DataSet.Artist> {
-        var newList = Array<DataSet.Artist>()
+    func checkSettings(currList: Array<Artist>, secondWeekend: Bool) -> Array<Artist> {
+        var newList = Array<Artist>()
         for artist in currList {
             if settings.festivalDays[artist.day] ?? true {
                 if secondWeekend {
@@ -963,7 +1045,7 @@ class FestivalViewModel: ObservableObject {
         return newList
     }
     
-    func sortAlpha(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> [String : Array<DataSet.Artist>] {
+    func sortAlpha(currList: Array<Artist>, secondWeekend: Bool) -> [String : Array<Artist>] {
         var listByAplha = checkSettings(currList: currList, secondWeekend: secondWeekend)
         listByAplha.sort {
             return removeArticles(str: $0.name) < removeArticles(str: $1.name)
@@ -971,8 +1053,8 @@ class FestivalViewModel: ObservableObject {
         return ["All Artists" : listByAplha]
     }
     
-    func sortTier(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> [String : Array<DataSet.Artist>] {
-        var dictionary = [String  : Array<DataSet.Artist>]()
+    func sortTier(currList: Array<Artist>, secondWeekend: Bool) -> [String : Array<Artist>] {
+        var dictionary = [String  : Array<Artist>]()
         let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
         for a in newList {
             if a.tier != NA_TITLE_BLOCK {
@@ -990,8 +1072,8 @@ class FestivalViewModel: ObservableObject {
         return dictionary
     }
     
-    func sortDay(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> [String: Array<DataSet.Artist>] {
-        var dictionary = [String: [DataSet.Artist]]()
+    func sortDay(currList: Array<Artist>, secondWeekend: Bool) -> [String: Array<Artist>] {
+        var dictionary = [String: [Artist]]()
         let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
         
         for artist in newList {
@@ -1024,9 +1106,11 @@ class FestivalViewModel: ObservableObject {
         for (day, artists) in dictionary {
             dictionary[day] = artists.sorted {
                 if $0.tier == $1.tier {
-                    removeArticles(str: $0.name) < removeArticles(str: $1.name)
+                    return removeArticles(str: $0.name) < removeArticles(str: $1.name)
                 } else {
-                    $0.tier < $1.tier
+                    let tierIndex1 = tierLables.firstIndex(of: $0.tier) ?? 999
+                    let tierIndex2 = tierLables.firstIndex(of: $1.tier) ?? 999
+                    return tierIndex1 < tierIndex2
                 }
             }
         }
@@ -1034,8 +1118,12 @@ class FestivalViewModel: ObservableObject {
         return dictionary
     }
     
-    func sortStage(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> [String : Array<DataSet.Artist>] {
-        var dictionary = [String  : Array<DataSet.Artist>]()
+    let tierLables = ["Headliner", "First Tier", "Second Tier", "Third+ Tier"]
+    
+    
+    
+    func sortStage(currList: Array<Artist>, secondWeekend: Bool) -> [String : Array<Artist>] {
+        var dictionary = [String  : Array<Artist>]()
         let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
         for a in newList {
             if a.stage != NA_TITLE_BLOCK {
@@ -1056,37 +1144,39 @@ class FestivalViewModel: ObservableObject {
         return dictionary
     }
     
-    func sortGenre(currList: [DataSet.Artist], secondWeekend: Bool) -> (allGenres: [String: [DataSet.Artist]], topGenres: [String: [DataSet.Artist]]) {
+    func sortGenre(currList: [Artist], secondWeekend: Bool) -> (allGenres: [String: [Artist]], topGenres: [String: [Artist]]) {
 
         // Build the unsorted dictionary
-        var dictionary = [String: [DataSet.Artist]]()
+        var dictionary = [String: [Artist]]()
         let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
         for artist in newList {
-            for genre in artist.genres {
-                dictionary[genre, default: []].append(artist)
+            for genre in Set(artist.genres) {
+                if !(dictionary[genre]?.contains(where: { $0.id == artist.id }) ?? false) {
+                    dictionary[genre, default: []].append(artist)
+                }
             }
         }
 
         // Filter and sort artist arrays by name (same behavior as before)
-        let sortedDictionary: [String: [DataSet.Artist]] = dictionary
+        let sortedDictionary: [String: [Artist]] = dictionary
             .filter { $0.value.count >= 3 }
             .mapValues { artists in
                 artists.sorted { removeArticles(str: $0.name) < removeArticles(str: $1.name) }
             }
 
         // Create an array of (key, value) tuples with explicit types, then sort by count desc
-        let sortedArray: [(String, [DataSet.Artist])] = sortedDictionary
+        let sortedArray: [(String, [Artist])] = sortedDictionary
             .map { (key: $0.key, value: $0.value) }        // make array of tuples
             .sorted { $0.1.count > $1.1.count }            // sort by counts descending
 
         // Take the first 5 and build the top-five dictionary
-        let topFiveArray: [(String, [DataSet.Artist])] = Array(sortedArray.prefix(5))
-        let topFive: [String: [DataSet.Artist]] = Dictionary(uniqueKeysWithValues: topFiveArray)
+        let topFiveArray: [(String, [Artist])] = Array(sortedArray.prefix(5))
+        let topFive: [String: [Artist]] = Dictionary(uniqueKeysWithValues: topFiveArray)
 
         return (allGenres: sortedDictionary, topGenres: topFive)
     }
     
-    func sortDateAdded(currList: Array<DataSet.Artist>) -> [String : Array<DataSet.Artist>] {
+    func sortDateAdded(currList: Array<Artist>) -> [String : Array<Artist>] {
         let returnList = currList.sorted(by: {
             $0.addDate > $1.addDate
         })
@@ -1094,7 +1184,7 @@ class FestivalViewModel: ObservableObject {
 //        return ["" : currList]
     }
     
-    func sortDateModified(currList: Array<DataSet.Artist>) -> [String : Array<DataSet.Artist>] {
+    func sortDateModified(currList: Array<Artist>) -> [String : Array<Artist>] {
         let returnList = currList.sorted(by: {
             $0.modifyDate > $1.modifyDate
         })
@@ -1103,7 +1193,7 @@ class FestivalViewModel: ObservableObject {
     }
     
 
-    func sortByGroup(currList: Array<DataSet.Artist>, groupFavs: Array<UserFestivalFavorites>)-> [String : Array<DataSet.Artist>] {
+    func sortByGroup(currList: Array<Artist>, groupFavs: Array<UserFestivalFavorites>)-> [String : Array<Artist>] {
         let favDict: [String: [String]] = Dictionary(
             uniqueKeysWithValues: groupFavs.map {
                 ($0.artistID, $0.userIDs)
@@ -1115,30 +1205,30 @@ class FestivalViewModel: ObservableObject {
         return ["" : returnList]
     }
     
-    func reverseArtistDict(currDict: [String : Array<DataSet.Artist>]) -> [String : Array<DataSet.Artist>] {
+    func reverseArtistDict(currDict: [String : Array<Artist>]) -> [String : Array<Artist>] {
         let newList = Array(currDict.values.first!.reversed())
         return ["" : newList]
     }
 
     
-    func listHasDays(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> Bool {
+    func listHasDays(currList: Array<Artist>, secondWeekend: Bool) -> Bool {
         return !sortDay(currList: currList, secondWeekend: secondWeekend).isEmpty
     }
     
-    func listHasGenres(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> Bool {
+    func listHasGenres(currList: Array<Artist>, secondWeekend: Bool) -> Bool {
         return !sortGenre(currList: currList, secondWeekend: secondWeekend).allGenres.isEmpty
     }
     
-    func listHasStages(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> Bool {
+    func listHasStages(currList: Array<Artist>, secondWeekend: Bool) -> Bool {
         return !sortStage(currList: currList, secondWeekend: secondWeekend).isEmpty
     }
     
-    func listHasTiers(currList: Array<DataSet.Artist>, secondWeekend: Bool) -> Bool {
+    func listHasTiers(currList: Array<Artist>, secondWeekend: Bool) -> Bool {
         return !sortTier(currList: currList, secondWeekend: secondWeekend).isEmpty
     }
     
-    func getDayList(currArtist: DataSet.Artist, currList: [DataSet.Artist], secondWeekend: Bool) -> [DataSet.Artist] {
-        var list = [DataSet.Artist]()
+    func getDayList(currArtist: Artist, currList: [Artist], secondWeekend: Bool) -> [Artist] {
+        var list = [Artist]()
         
         if !secondWeekend || currArtist.weekend == "Both" {
             for artist in currList {
@@ -1165,10 +1255,10 @@ class FestivalViewModel: ObservableObject {
         return list
     }
     
-    func getWeekendList(weekend: String, currList: [DataSet.Artist]) -> [DataSet.Artist] {
+    func getWeekendList(weekend: String, currList: [Artist]) -> [Artist] {
         if weekend == "Both" { return currList }
         
-        var list = [DataSet.Artist]()
+        var list = [Artist]()
         
         for artist in currList {
             if artist.weekend == weekend || artist.weekend == "Both" {
@@ -1188,8 +1278,8 @@ class FestivalViewModel: ObservableObject {
     }
     
     
-    func getStageList(stage: String, currList: [DataSet.Artist]) -> [DataSet.Artist] {
-        var list = [DataSet.Artist]()
+    func getStageList(stage: String, currList: [Artist]) -> [Artist] {
+        var list = [Artist]()
         
         for artist in currList {
             if artist.stage == stage {
@@ -1209,8 +1299,8 @@ class FestivalViewModel: ObservableObject {
     }
     
     
-    func getTierList(tier: String, currList: [DataSet.Artist]) -> [DataSet.Artist] {
-        var list = [DataSet.Artist]()
+    func getTierList(tier: String, currList: [Artist]) -> [Artist] {
+        var list = [Artist]()
         
         for artist in currList {
             if artist.tier == tier {
@@ -1226,8 +1316,8 @@ class FestivalViewModel: ObservableObject {
     }
     
     
-    func getGenreList(genre: String, currList: [DataSet.Artist]) -> [DataSet.Artist] {
-        var list = [DataSet.Artist]()
+    func getGenreList(genre: String, currList: [Artist]) -> [Artist] {
+        var list = [Artist]()
         
         for artist in currList {
             if artist.genres.contains(genre) {
@@ -1242,6 +1332,18 @@ class FestivalViewModel: ObservableObject {
         return list
     }
     
+//    func getTagList(tag: ArtistTag, currList: [Artist]) -> [Artist] {
+//        var list = [Artist]()
+//        
+//        for artist in currList {
+//            if artist.artistTags.contains(tag.id) {
+//                list.append(artist)
+//            }
+//        }
+//        
+//        return list
+//    }
+    
     
     func removeArticles(str: String) -> String {
         let articles = ["the ", "a ", "los ", "las ", "el ", "la "]
@@ -1253,12 +1355,13 @@ class FestivalViewModel: ObservableObject {
         return str.lowercased()
     }
     
-    func shuffleArtist(currentList: Array<DataSet.Artist>, currentArtist: DataSet.Artist? = nil, secondWeekend: Bool) -> DataSet.Artist? {
+    func shuffleArtist(currentList: Array<Artist>, currentArtist: Artist? = nil, secondWeekend: Bool, dislikedArtists: Set<String>) -> Artist? {
         var shuffleList = checkSettings(currList: currentList, secondWeekend: secondWeekend)
         if let artist = currentArtist {
             shuffleList = shuffleList.filter { $0 != artist }
         }
-        shuffleList = shuffleList.filter { !dislikeList.contains($0.id) }
+//        shuffleList = shuffleList.filter { !dislikeList.contains($0.id) }
+        shuffleList = shuffleList.filter { !dislikedArtists.contains($0.id) }
         if !shuffleList.isEmpty {
             return shuffleList.randomElement()!
         }
@@ -1266,11 +1369,11 @@ class FestivalViewModel: ObservableObject {
     }
     
     
-    func splitFestivals(_ festivals: [DataSet.Festival]) -> (attended: [DataSet.Festival], upcoming: [DataSet.Festival]) {
+    func splitFestivals(_ festivals: [Festival]) -> (attended: [Festival], upcoming: [Festival]) {
         let today = Date()
         
-        var attendedFestivals: [DataSet.Festival] = []
-        var upcomingFestivals: [DataSet.Festival] = []
+        var attendedFestivals: [Festival] = []
+        var upcomingFestivals: [Festival] = []
         
         for festival in festivals {
             // Adjust endDate if it's a second weekend
@@ -1297,7 +1400,7 @@ class FestivalViewModel: ObservableObject {
     
     
     struct FestivalNavTarget: Hashable {
-        let festival: DataSet.Festival
+        let festival: Festival
         let draftView: Bool
         var previewView: Bool = false
     }

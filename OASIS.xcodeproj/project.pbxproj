@@ -8,8 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		771F79C82ED0043A002421C4 /* Search in Frameworks */ = {isa = PBXBuildFile; productRef = 771F79C72ED0043A002421C4 /* Search */; };
+		775942132F60D83F000F7C23 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 775942122F60D83C000F7C23 /* Assets.xcassets */; };
+		7759D44F2F612E4E000F7C23 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7759D44E2F612E4E000F7C23 /* GoogleService-Info.plist */; };
+		7759D4512F612E5E000F7C23 /* OASIS-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7759D4502F612E5E000F7C23 /* OASIS-Info.plist */; };
 		778B9B472D6D892800973699 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 778B9B462D6D892800973699 /* FirebaseAppCheck */; };
-		77CD3E622E878B490024C454 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 77CD3E612E878B490024C454 /* GoogleService-Info.plist */; };
 		77CD3E672E87A0CE0024C454 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 77CD3E662E87A0CE0024C454 /* GoogleSignIn */; };
 		77CD3E692E87A0CE0024C454 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 77CD3E682E87A0CE0024C454 /* GoogleSignInSwift */; };
 		77F2B1DC2D60729B00BDF437 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 77F2B1DB2D60729B00BDF437 /* FirebaseAuth */; };
@@ -35,6 +37,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		775942122F60D83C000F7C23 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = OASIS/Assets.xcassets; sourceTree = "<group>"; };
+		7759D44E2F612E4E000F7C23 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		7759D4502F612E5E000F7C23 /* OASIS-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "OASIS-Info.plist"; sourceTree = "<group>"; };
 		77B8126F2D5175EF00268EAF /* OASIS-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "OASIS-Info.plist"; sourceTree = "<group>"; };
 		77CD3E612E878B490024C454 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		77F9FF632D37673300836B0A /* OASIS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OASIS.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -42,9 +47,30 @@
 		77F9FF7D2D37673700836B0A /* OASISUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OASISUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		775942112F60D814000F7C23 /* Exceptions for "OASIS" folder in "OASIS" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				.eslintrc.js,
+				.gitignore,
+				Assets.xcassets,
+				"package-lock.json",
+				package.json,
+				"Preview Assets.xcassets",
+				tsconfig.dev.json,
+				tsconfig.json,
+				"ViewModels/_BACKUP DATA",
+			);
+			target = 77F9FF622D37673300836B0A /* OASIS */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		77F9FF652D37673300836B0A /* OASIS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				775942112F60D814000F7C23 /* Exceptions for "OASIS" folder in "OASIS" target */,
+			);
 			path = OASIS;
 			sourceTree = "<group>";
 		};
@@ -95,6 +121,9 @@
 		77F9FF5A2D37673300836B0A = {
 			isa = PBXGroup;
 			children = (
+				7759D4502F612E5E000F7C23 /* OASIS-Info.plist */,
+				7759D44E2F612E4E000F7C23 /* GoogleService-Info.plist */,
+				775942122F60D83C000F7C23 /* Assets.xcassets */,
 				77B8126F2D5175EF00268EAF /* OASIS-Info.plist */,
 				77CD3E612E878B490024C454 /* GoogleService-Info.plist */,
 				77F9FF652D37673300836B0A /* OASIS */,
@@ -246,7 +275,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				77CD3E622E878B490024C454 /* GoogleService-Info.plist in Resources */,
+				775942132F60D83F000F7C23 /* Assets.xcassets in Resources */,
+				7759D44F2F612E4E000F7C23 /* GoogleService-Info.plist in Resources */,
+				7759D4512F612E5E000F7C23 /* OASIS-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -453,7 +484,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/OASIS/node_modules/@unrs/resolver-binding-darwin-x64",
 				);
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.AustinZambitoValente.OASIS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -492,7 +523,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/OASIS/node_modules/@unrs/resolver-binding-darwin-x64",
 				);
-				MARKETING_VERSION = 2.0.1;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.AustinZambitoValente.OASIS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

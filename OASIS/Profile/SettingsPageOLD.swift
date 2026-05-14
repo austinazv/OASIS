@@ -77,7 +77,7 @@ struct SettingsPageOLD: View {
                   primaryButton: .cancel(),
                   secondaryButton: .destructive(Text("Log Out")) {
                 firestore.signOutUser() { completion in
-                    print("Done")
+                    //print("Done")
                 }
             }
             )
@@ -115,11 +115,11 @@ struct SettingsPageOLD: View {
                   primaryButton: .cancel(),
                   secondaryButton: .destructive(Text("Disconnect")) {
                 spotify.revokeSpotifyAccessToken() { completion in
-                    print("Done")
+                    //print("Done")
                 }
-//                print("TO DISCONNECT")
+//                //print("TO DISCONNECT")
 //                firestore.signOutUser() { completion in
-//                    print("Done")
+//                    //print("Done")
 //                }
             }
             )

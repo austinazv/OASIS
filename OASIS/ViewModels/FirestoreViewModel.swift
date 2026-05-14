@@ -14,6 +14,7 @@ import Firebase
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
+//import FirebaseFunctions
 import CryptoKit
 
 class FirestoreViewModel: ObservableObject {
@@ -43,7 +44,7 @@ class FirestoreViewModel: ObservableObject {
 
     private let saveName: String
     
-    var publicFestivals: Array<DataSet.Festival>
+    var publicFestivals: Array<Festival>
     
     let db = Firestore.firestore()
     
@@ -69,7 +70,7 @@ class FirestoreViewModel: ObservableObject {
 
             await loadMyUserProfile()
             
-            print("IS LOGGED IN: \(isLoggedIn)")
+            //print("IS LOGGED IN: \(isLoggedIn)")
             
             guard isLoggedIn else { return }
 
@@ -79,7 +80,7 @@ class FirestoreViewModel: ObservableObject {
                 self.phoneConnected = hasPhone
             }
             
-            print("HAS PHONE HASH: \(phoneConnected)")
+            //print("HAS PHONE HASH: \(phoneConnected)")
             
             guard hasPhone else { return }
 
@@ -106,7 +107,7 @@ class FirestoreViewModel: ObservableObject {
                 }
 
             } catch {
-                print("❌ Social init failed: \(error)")
+                //print("❌ Social init failed: \(error)")
             }
         }
     }
@@ -134,7 +135,7 @@ class FirestoreViewModel: ObservableObject {
     //        let phoneData = Data(phoneNumber.utf8)
     //        let phoneHash = SHA256.hash(data: phoneData)
     //        let toPrint = phoneHash.compactMap { String(format: "%02x", $0) }.joined()
-    //        print("Eitan hash: \(toPrint)")
+    //        //print("Eitan hash: \(toPrint)")
 
     
 //    struct UserProfile: Identifiable, Codable, Hashable {
@@ -163,7 +164,7 @@ class FirestoreViewModel: ObservableObject {
         if let firebaseUID = Auth.auth().currentUser?.uid {
             do {
                 let profile = try await fetchUserProfile(userID: firebaseUID)
-                print("MY PROFILE: \(profile)")
+                //print("MY PROFILE: \(profile)")
                 
                 // Save to published var
                 await MainActor.run {
@@ -175,19 +176,19 @@ class FirestoreViewModel: ObservableObject {
                 
                 return
             } catch {
-                print("❌ Failed to fetch from Firestore: \(error)")
+                //print("❌ Failed to fetch from Firestore: \(error)")
             }
         }
 
         // 2. Try UserDefaults fallback
         if let saved = UserDefaults.standard.loadCodable(UserProfile.self, forKey: defaultsKey) {
-            print("📦 Loaded from UserDefaults")
+            //print("📦 Loaded from UserDefaults")
             self.myUserProfile = saved
             return
         }
 
         // 3. Final fallback: empty UserProfile
-        print("⚪ Using default empty UserProfile")
+        //print("⚪ Using default empty UserProfile")
         await MainActor.run {
             self.myUserProfile = UserProfile(
                 id: nil,
@@ -195,12 +196,13 @@ class FirestoreViewModel: ObservableObject {
                 profilePic: nil,
                 following: [],
                 followers: [],
-                festivalFavorites: [:],
+                favoriteArtistsList: [],
+//                festivalFavorites: [:],
                 groups: []
             )
         }
         
-        print("MY USER PROFILE: \(self.myUserProfile)")
+        //print("MY USER PROFILE: \(self.myUserProfile)")
     }
     
     func fetchUsersByID(_ ids: [String]) async throws -> [String: UserProfile] {
@@ -228,7 +230,7 @@ class FirestoreViewModel: ObservableObject {
                     guard let userID = user.id else {
                         return nil
                     }
-
+//                    //print("USER RETURNED: \(user)")
                     return user
                 }
             }
@@ -244,6 +246,11 @@ class FirestoreViewModel: ObservableObject {
             return usersByID
         }
     }
+    
+    func updateMyLikedArtists(_ newLikedList: [String]) {
+        
+    }
+    
     
     private var userFetchTasks: [String: Task<UserProfile?, Error>] = [:]
     
@@ -397,7 +404,7 @@ class FirestoreViewModel: ObservableObject {
     }
     
     func fetchGroups(from ids: [String]) async throws -> [SocialGroup] {
-        print("IDs: \(ids)")
+        //print("IDs: \(ids)")
         
         let db = Firestore.firestore()
         
@@ -431,13 +438,14 @@ class FirestoreViewModel: ObservableObject {
                 }
             }
             
-            print("Groups: \(socialGroups)")
+            //print("Groups: \(socialGroups)")
             
             return socialGroups
         }
     }
-
-    func fetchFriendsFestivalFavs(festivalID: String, friendIDs: [String]) async -> [UserProfile: [String]] {
+    
+    //MARK: TO UPDATE
+    func fetchFriendsFestivalFavs(/*festivalID: String, */friendIDs: [String], currList: [Artist]) async -> [UserProfile: [String]] {
         
         let db = Firestore.firestore()
         var result: [UserProfile : [String]] = [:]
@@ -452,13 +460,15 @@ class FirestoreViewModel: ObservableObject {
                             .getDocument()
 
                         if let profile = try? doc.data(as: UserProfile.self) {
-                            print("CURRENT PROFILE: \(profile)")
-                            let artists = profile.safeFestivalFavorites[festivalID] ?? []
+                            let currIDs = Set(currList.map(\.id))
+                            let artists = (profile.safeFavoriteArtistsList ?? []).filter {
+                                currIDs.contains($0)
+                            }
                             return (profile, artists.isEmpty ? nil : artists)
                         }
 
                     } catch {
-                        print("❌ Error fetching \(friendID): \(error)")
+                        //print("❌ Error fetching \(friendID): \(error)")
                     }
                     
                     return (nil, nil)
@@ -546,7 +556,7 @@ class FirestoreViewModel: ObservableObject {
 
         batch.commit { error in
             if let error = error {
-                print("joinGroup failed:", error)
+                //print("joinGroup failed:", error)
                 completion(false)
             } else {
                 self.myUserProfile.groups?.append(groupID)
@@ -568,7 +578,7 @@ class FirestoreViewModel: ObservableObject {
 
         groupRef.getDocument { snapshot, error in
             if let error = error {
-                print("Failed to fetch group:", error)
+                //print("Failed to fetch group:", error)
                 completion(false)
                 return
             }
@@ -616,7 +626,7 @@ class FirestoreViewModel: ObservableObject {
 
             batch.commit { error in
                 if let error = error {
-                    print("leaveGroup failed:", error)
+                    //print("leaveGroup failed:", error)
                     completion(false)
                 } else {
                     self.myUserProfile.groups?.removeAll(where: { $0 == groupID })
@@ -630,9 +640,27 @@ class FirestoreViewModel: ObservableObject {
         return Auth.auth().currentUser?.uid
     }
     
+//    func starFestival(festivalID: String)
+    
+//    func festivalStarPressed(festival: Festival) {
+//        if let index = myUserProfile.firstIndex(where: { $0.id == festival.id }) {
+//            myFestivals.remove(at: index)
+//        } else {
+//            myFestivals.append(festival)
+//            cacheFestivalAssets(festival)
+//        }
+//    }
+//        if currentStar {
+//            myUserProfile.festivalFavorites?[festivalID] = []
+//        } else {
+//            myUserProfile.festivalFavorites?.removeValue(forKey: festivalID)
+//        }
+//    }
+
+    
     func userHasName() async -> Bool {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ No logged-in user.")
+            //print("⚠️ No logged-in user.")
             return false
         }
         
@@ -649,7 +677,7 @@ class FirestoreViewModel: ObservableObject {
                 return false
             }
         } catch {
-            print("❌ Error fetching user document: \(error.localizedDescription)")
+            //print("❌ Error fetching user document: \(error.localizedDescription)")
             return false
         }
     }
@@ -659,7 +687,7 @@ class FirestoreViewModel: ObservableObject {
             return false
         }
         
-        print("CURRENT ID: \(uid)")
+        //print("CURRENT ID: \(uid)")
 
         let userRef = Firestore.firestore().collection("users").document(uid)
 
@@ -668,14 +696,14 @@ class FirestoreViewModel: ObservableObject {
             let data = snapshot.data()
             return data?["phoneHash"] != nil
         } catch {
-            print("❌ Error checking phoneHash: \(error.localizedDescription)")
+            //print("❌ Error checking phoneHash: \(error.localizedDescription)")
             return false
         }
     }
     
     func signOutUser(completion: @escaping (Result<Void, Error>) -> Void) {
         do {
-            print("Attempting to sign out user...")
+            //print("Attempting to sign out user...")
             try Auth.auth().signOut()
 //            DispatchQueue.main.async {
 //                self.userInfo = nil
@@ -691,7 +719,7 @@ class FirestoreViewModel: ObservableObject {
     
     func saveName(name: String, completion: @escaping (Bool) -> Void) {
         guard let user = Auth.auth().currentUser else {
-            print("false")
+            //print("false")
             completion(false)
             return
         }
@@ -702,10 +730,10 @@ class FirestoreViewModel: ObservableObject {
             if let document = document, document.exists {
                 userRef.updateData(["name": name]) { error in
                     if let error {
-                        print("❌ Error updating name: \(error.localizedDescription)")
+                        //print("❌ Error updating name: \(error.localizedDescription)")
                         completion(false)
                     } else {
-                        print("✅ Name updated successfully!")
+                        //print("✅ Name updated successfully!")
                         self.hasAcctName = true
                         completion(true)
                     }
@@ -716,10 +744,10 @@ class FirestoreViewModel: ObservableObject {
                     "createdAt": FieldValue.serverTimestamp()
                 ]) { error in
                     if let error {
-                        print("❌ Error setting name: \(error.localizedDescription)")
+                        //print("❌ Error setting name: \(error.localizedDescription)")
                         completion(false)
                     } else {
-                        print("✅ Name saved successfully!")
+                        //print("✅ Name saved successfully!")
                         completion(true)
                     }
                 }
@@ -743,10 +771,10 @@ class FirestoreViewModel: ObservableObject {
 //
 //                userRef.updateData(dataToUpdate) { error in
 //                    if let error = error {
-//                        print("❌ Error updating user: \(error.localizedDescription)")
+//                        //print("❌ Error updating user: \(error.localizedDescription)")
 //                        completion(false)
 //                    } else {
-//                        print("✅ User updated successfully!")
+//                        //print("✅ User updated successfully!")
 //                        self.hasAcctName = true
 //                        completion(true)
 //                    }
@@ -761,10 +789,10 @@ class FirestoreViewModel: ObservableObject {
 //
 //                userRef.setData(dataToSet) { error in
 //                    if let error = error {
-//                        print("❌ Error saving user: \(error.localizedDescription)")
+//                        //print("❌ Error saving user: \(error.localizedDescription)")
 //                        completion(false)
 //                    } else {
-//                        print("✅ User saved successfully!")
+//                        //print("✅ User saved successfully!")
 //                        self.hasAcctName = true
 //                        completion(true)
 //                    }
@@ -792,16 +820,16 @@ class FirestoreViewModel: ObservableObject {
                     "name": name
                 ]
 
-                if let phoneNumber = phoneNumber {
-                    dataToUpdate["phoneNumber"] = phoneNumber
-                }
+//                if let phoneNumber = phoneNumber {
+//                    dataToUpdate["phoneNumber"] = phoneNumber
+//                }
                 if let phoneHash = phoneHash {
                     dataToUpdate["phoneHash"] = phoneHash
                 }
 
                 userRef.updateData(dataToUpdate) { error in
                     if let error = error {
-                        print("❌ Error updating user: \(error.localizedDescription)")
+                        //print("❌ Error updating user: \(error.localizedDescription)")
                         completion(false)
                         return
                     }
@@ -812,10 +840,10 @@ class FirestoreViewModel: ObservableObject {
                         "followers": FieldValue.arrayUnion([])
                     ]) { error in
                         if let error = error {
-                            print("❌ Error ensuring follow arrays: \(error.localizedDescription)")
+                            //print("❌ Error ensuring follow arrays: \(error.localizedDescription)")
                             completion(false)
                         } else {
-                            print("✅ User updated & follow arrays ensured!")
+                            //print("✅ User updated & follow arrays ensured!")
                             self.phoneConnected = true
                             self.hasAcctName = true
                             completion(true)
@@ -841,7 +869,7 @@ class FirestoreViewModel: ObservableObject {
 
                 userRef.setData(dataToSet) { error in
                     if let error = error {
-                        print("❌ Error saving user: \(error.localizedDescription)")
+                        //print("❌ Error saving user: \(error.localizedDescription)")
                         completion(false)
                         return
                     }
@@ -852,10 +880,10 @@ class FirestoreViewModel: ObservableObject {
                         "followers": FieldValue.arrayUnion([])
                     ]) { error in
                         if let error = error {
-                            print("❌ Error ensuring follow arrays: \(error.localizedDescription)")
+                            //print("❌ Error ensuring follow arrays: \(error.localizedDescription)")
                             completion(false)
                         } else {
-                            print("✅ User saved & follow arrays ensured!")
+                            //print("✅ User saved & follow arrays ensured!")
                             self.hasAcctName = true
                             completion(true)
                         }
@@ -874,7 +902,7 @@ class FirestoreViewModel: ObservableObject {
         // Upload image to Firebase Storage and get the URL
         uploadImageToFirebase(image: image) { url in
             guard let imageURL = url else {
-                print("❌ Failed to get image URL.")
+                //print("❌ Failed to get image URL.")
                 completion(false)
                 return
             }
@@ -883,10 +911,10 @@ class FirestoreViewModel: ObservableObject {
             self.saveImageURLToFirestore(imageURL: imageURL) { success in
                 if success {
                     self.myUserProfile.profilePic = imageURL
-                    print("✅ Image URL successfully saved to Firestore.")
+                    //print("✅ Image URL successfully saved to Firestore.")
                     completion(true)
                 } else {
-                    print("❌ Failed to save image URL to Firestore.")
+                    //print("❌ Failed to save image URL to Firestore.")
                     completion(false)
                 }
             }
@@ -896,7 +924,7 @@ class FirestoreViewModel: ObservableObject {
     func cancelPreviousUpload() {
         // Check if there is an existing upload task and cancel it
         if let task = currentUploadTask, isUploading {
-            print("Canceling previous upload task...")
+            //print("Canceling previous upload task...")
             task.cancel()
             currentUploadTask = nil
             isUploading = false
@@ -921,7 +949,7 @@ class FirestoreViewModel: ObservableObject {
 
         currentUploadTask = imageRef.putData(imageData, metadata: nil) { _, error in
             if let error = error {
-                print("❌ Upload failed:", error)
+                //print("❌ Upload failed:", error)
                 self.isUploading = false
                 completion(nil)
                 return
@@ -974,10 +1002,10 @@ class FirestoreViewModel: ObservableObject {
         
         storageRef.delete { error in
             if let error = error {
-                print("❌ Error deleting image: \(error.localizedDescription)")
+                //print("❌ Error deleting image: \(error.localizedDescription)")
                 completion(false)
             } else {
-                print("🗑️ Old image deleted successfully")
+                //print("🗑️ Old image deleted successfully")
                 completion(true)
             }
         }
@@ -1057,7 +1085,7 @@ class FirestoreViewModel: ObservableObject {
             return false
             
         } catch {
-            print("❌ Error updating user: \(error.localizedDescription)")
+            //print("❌ Error updating user: \(error.localizedDescription)")
             return false
         }
     }
@@ -1079,10 +1107,10 @@ class FirestoreViewModel: ObservableObject {
             storageRef.delete { error in
                 Task { @MainActor in
                     if let error = error {
-                        print("❌ Error deleting image: \(error.localizedDescription)")
+                        //print("❌ Error deleting image: \(error.localizedDescription)")
                         continuation.resume(returning: false)
                     } else {
-                        print("🗑️ Old image deleted")
+                        //print("🗑️ Old image deleted")
                         continuation.resume(returning: true)
                     }
                 }
@@ -1096,7 +1124,7 @@ class FirestoreViewModel: ObservableObject {
     func uploadImageToFirebase(image: UIImage, completion: @escaping (String?) -> Void) {
         // Convert the UIImage to Data
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            print("Failed to convert image to data.")
+            //print("Failed to convert image to data.")
             completion(nil)
             return
         }
@@ -1115,7 +1143,7 @@ class FirestoreViewModel: ObservableObject {
         isUploading = true
         currentUploadTask = imageRef.putData(imageData, metadata: nil) { metadata, error in
             if let error = error {
-                print("Error uploading image: \(error.localizedDescription)")
+                //print("Error uploading image: \(error.localizedDescription)")
                 completion(nil)
                 self.isUploading = false // Mark as not uploading anymore
                 return
@@ -1124,7 +1152,7 @@ class FirestoreViewModel: ObservableObject {
             // Get the download URL once the upload is successful
             imageRef.downloadURL { url, error in
                 if let error = error {
-                    print("Error getting download URL: \(error.localizedDescription)")
+                    //print("Error getting download URL: \(error.localizedDescription)")
                     completion(nil)
                     self.isUploading = false // Mark as not uploading anymore
                     return
@@ -1147,10 +1175,10 @@ class FirestoreViewModel: ObservableObject {
         
         userRef.updateData(["profilePic": imageURL]) { error in
             if let error = error {
-                print("❌ Error saving image URL: \(error.localizedDescription)")
+                //print("❌ Error saving image URL: \(error.localizedDescription)")
                 completion(false)
             } else {
-                print("✅ Image URL saved successfully!")
+                //print("✅ Image URL saved successfully!")
                 completion(true)
             }
         }
@@ -1165,15 +1193,15 @@ class FirestoreViewModel: ObservableObject {
         addFollowerFirestore(userID: userID) { result in
             switch result {
             case .success:
-                self.myUserProfile.following?.append(userID)
+                self.myUserProfile.following = (self.myUserProfile.following ?? []) + [userID]
                 self.followUnfollowLoadingArray.removeAll { $0 == userID }
                 self.profileDidChange = true
-                print("Successfully followed new user.")
+                //print("Successfully followed new user.")
                 completion(true)
 
             case .failure(let error):
                 self.followUnfollowLoadingArray.removeAll { $0 == userID }
-                print("Failed to follow user: \(error.localizedDescription)")
+                //print("Failed to follow user: \(error.localizedDescription)")
                 completion(false)
             }
         }
@@ -1244,13 +1272,13 @@ class FirestoreViewModel: ObservableObject {
                 self.followUnfollowLoadingArray.removeAll { $0 == userID }
                 self.followUnfollowLoading = false
                 self.profileDidChange = true
-                print("Successfully unfollowed user.")
+                //print("Successfully unfollowed user.")
                 completion(true)
 
             case .failure(let error):
                 self.followUnfollowLoadingArray.removeAll { $0 == userID }
                 self.followUnfollowLoading = false
-                print("Failed to unfollow user: \(error.localizedDescription)")
+                //print("Failed to unfollow user: \(error.localizedDescription)")
                 completion(false)
             }
         }
@@ -1313,7 +1341,7 @@ class FirestoreViewModel: ObservableObject {
                         }
 
                     } catch {
-                        print("Failed to update group \(groupID): \(error.localizedDescription)")
+                        //print("Failed to update group \(groupID): \(error.localizedDescription)")
                         didFail = true
                     }
                 }
@@ -1341,7 +1369,7 @@ class FirestoreViewModel: ObservableObject {
             if let error = error as NSError? {
                 // Ignore "not found" errors
                 if error.code != FirestoreErrorCode.notFound.rawValue {
-                    print("Failed to update group \(groupID): \(error.localizedDescription)")
+                    //print("Failed to update group \(groupID): \(error.localizedDescription)")
                 }
             }
         }

@@ -14,7 +14,7 @@ struct FestivalSettingsPage: View {
     
     @Binding var navigationPath: NavigationPath
     
-    @State var currentFestival = DataSet.Festival.newFestival()
+    @State var currentFestival = Festival.newFestival()
     
     var body: some View {
         VStack {

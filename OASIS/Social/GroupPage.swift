@@ -23,8 +23,8 @@ struct GroupPage: View {
     
 //    @State var likedFestivals = Array<DataSet.Festival>()
     
-    @State var upcomingFestivals = Array<DataSet.Festival>()
-    @State var attendedFestivals = Array<DataSet.Festival>()
+    @State var upcomingFestivals = Array<Festival>()
+    @State var attendedFestivals = Array<Festival>()
     
     @State var members = Array<UserProfile>()
     
@@ -254,7 +254,7 @@ struct GroupPage: View {
                 isLoading = false
 //                
             } catch {
-                print("Error:", error)
+//                print("Error:", error)
                 isLoading = false
             }
         }
@@ -990,7 +990,7 @@ struct EditGroupSheet: View {
                 showEditGroupSheet = false
 
             } catch {
-                print("❌ Failed to edit group:", error)
+//                print("❌ Failed to edit group:", error)
                 errorAlert = true
             }
 

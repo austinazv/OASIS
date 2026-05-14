@@ -19,15 +19,15 @@ struct PlaylistCreationSheet: View {
     @State private var playlistName = ""
     @State private var isPublic: Bool = true
     
-    @State var artistList: Array<DataSet.Artist>
-    @State var artistDict = [String : Array<DataSet.Artist>]()
+    @State var artistList: Array<Artist>
+    @State var artistDict = [String : Array<Artist>]()
     @State var sortType: DataSet.sortType = .alpha
     
     @State var sectionBools = [String : Bool]()
     @State var artistBools = [String : Bool]()
     @State var showSections = [String : Bool]()
     
-    @State var currentFestival = DataSet.Festival.newFestival()
+    @State var currentFestival = Festival.newFestival()
     
     @Binding var playlistCreatedAlert: Bool
     
@@ -164,7 +164,7 @@ struct PlaylistCreationSheet: View {
     var PlaylistNameSection: some View {
         Section(header: Text("Playlist Name")) {
             HStack {
-                var promptText = titleText == nil ? "My \(currentFestival.name) Playlist" : "My \(currentFestival.name) \(titleText!) Playlist"
+                let promptText = titleText == nil ? "My \(currentFestival.name) Playlist" : "My \(currentFestival.name) \(titleText!) Playlist"
                 TextField(promptText, text: $playlistName)
                     .autocapitalization(.words)
                     .textFieldStyle(PlainTextFieldStyle())
@@ -226,10 +226,10 @@ struct PlaylistCreationSheet: View {
                         ForEach(Array(artistList.enumerated()), id: \.element) { j, artist in
                             HStack {
                                 Button(action: {
-                                    print(artist)
-                                    print(artistBools)
+//                                    print(artist)
+//                                    print(artistBools)
                                     artistBools[artist.id]!.toggle()
-                                    print(artistBools)
+//                                    print(artistBools)
                                     
                                     //                                artistBools[artist.id] = !artistBools[artist.id]
                                 }, label: {
@@ -364,7 +364,7 @@ struct PlaylistCreationSheet: View {
         if name == "" {
             name = "My Coachella 2025 Playlist"
         }
-        print(playlistList.count)
+//        print(playlistList.count)
 //        self.startProgress(arrayLen: playlistList.count)
         spotify.makeNewSpotifyPlaylist(artistList: playlistList, playlistName: name, isPublic: self.isPublic) { playlistID in
             self.arrayLength = playlistList.count
@@ -375,11 +375,11 @@ struct PlaylistCreationSheet: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         self.playlistCreatedAlert = true
                     }
-                    print("🎉 Playlist successfully created: https://open.spotify.com/playlist/\(playlistID)")
+//                    print("🎉 Playlist successfully created: https://open.spotify.com/playlist/\(playlistID)")
                 } else {
                     self.isLoading = false
 //                    self.errorAlert = true
-                    print("❌ Playlist creation failed")
+//                    print("❌ Playlist creation failed")
                 }
             }
         }
@@ -444,7 +444,7 @@ struct ProgressBarView: View {
 //            .padding()
 //            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white).shadow(radius: 5))
             .onTapGesture {
-                print(progress)
+//                print(progress)
             }
     }
 }

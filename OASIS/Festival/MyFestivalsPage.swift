@@ -14,10 +14,10 @@ struct MyFestivalsPage: View {
     
     @Binding var navigationPath: NavigationPath
     
-    @State var selectedFestival: DataSet.Festival?
+    @State var selectedFestival: Festival?
     
-    @State var festivalDrafts: Array<DataSet.Festival> = []
-    @State var likedFestival: Array<DataSet.Festival> = []
+    @State var festivalDrafts: Array<Festival> = []
+    @State var likedFestival: Array<Festival> = []
     
     @Binding var selectedTab: Int
     
@@ -40,24 +40,100 @@ struct MyFestivalsPage: View {
                             .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
                         Group {
                             if !festivalVM.myFestivals.isEmpty {
-                                ScrollView {
-                                    let split = festivalVM.splitFestivals(festivalVM.myFestivals)
-                                    FestivalsListed(navigationPath: $navigationPath, festivalList: split.upcoming, title: "My Festivals", largeText: true, collapsable: false)
-                                    Button(action: {
-                                        selectedTab = 1
-                                    }) {
-                                        HStack {
-                                            Text("Explore More Festivals")
-                                            Image(systemName: "chevron.right")
+                                let split = festivalVM.splitFestivals(festivalVM.myFestivals)
+                                
+                                let noUpcoming = split.upcoming.isEmpty
+                                let hasAttended = !split.attended.isEmpty
+                                let showHalfSplit = noUpcoming && hasAttended
+
+                                if showHalfSplit {
+                                    // Special layout: 50/50 split
+                                    VStack(spacing: 0) {
+                                        
+                                        // Top Half (Empty Upcoming)
+                                        VStack {
+                                            Text("No Upcoming Festivals!")
+                                                .foregroundStyle(.black)
+                                            
+                                            Button(action: {
+                                                selectedTab = 1
+                                            }) {
+                                                HStack {
+                                                    Text("Explore More Festivals")
+                                                    Image(systemName: "chevron.right")
+                                                }
+                                            }
+                                            .italic()
+                                            .padding(.top, 8)
+                                        }
+                                        .padding(.vertical, 40)
+//                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                                        Divider()
+                                            .padding(.bottom, 8)
+
+                                        // Bottom Half (Attended)
+                                        FestivalsListed(
+                                            navigationPath: $navigationPath,
+                                            festivalList: split.attended,
+                                            title: "Attended",
+                                            collapsable: true,
+                                            showList: true,
+                                            reversed: true
+                                        )
+//                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        Spacer()
+                                    }
+                                } else {
+                                    // Default scrolling layout
+                                    ScrollView {
+                                        VStack {
+                                            
+                                            // Upcoming Section
+                                            if noUpcoming {
+                                                Text("No Upcoming Festivals!")
+                                                    .foregroundStyle(.black)
+                                                    .padding(.top, 75)
+                                            } else {
+                                                FestivalsListed(
+                                                    navigationPath: $navigationPath,
+                                                    festivalList: split.upcoming,
+                                                    title: "My Festivals",
+                                                    largeText: true,
+                                                    collapsable: false
+                                                )
+                                            }
+
+                                            Button(action: {
+                                                selectedTab = 1
+                                            }) {
+                                                HStack {
+                                                    Text("Explore More Festivals")
+                                                    Image(systemName: "chevron.right")
+                                                }
+                                            }
+                                            .italic()
+                                            .padding(8)
+                                            .padding(.bottom, noUpcoming ? 75 : 0)
+
+                                            // Attended Section
+                                            if hasAttended {
+                                                FestivalsListed(
+                                                    navigationPath: $navigationPath,
+                                                    festivalList: split.attended,
+                                                    title: "Attended",
+                                                    collapsable: true,
+                                                    showList: false,
+                                                    reversed: true
+                                                )
+                                                .padding(.top, 5)
+                                            }
                                         }
                                     }
-                                    .italic()
-                                    .padding(8)
-                                    FestivalsListed(navigationPath: $navigationPath, festivalList: split.attended, title: "Attended", collapsable: true, showList: false)
-                                        .padding(.top, 5)
                                 }
                             } else {
                                 VStack {
+//                                    if split.a
                                     Text("No Saved Festivals Yet!")
                                         .foregroundStyle(.black)
                                     Button(action: {
@@ -91,7 +167,7 @@ struct MyFestivalsPage: View {
         
         
         
-        func sortedFestivals(festivalList: Array<DataSet.Festival>) -> Array<DataSet.Festival> {
+        func sortedFestivals(festivalList: Array<Festival>) -> Array<Festival> {
             let sortedFestivals = festivalList.sorted {
                 if $0.startDate == $1.startDate {
                     if $0.endDate == $1.endDate {
@@ -185,8 +261,9 @@ struct MyFestivalsPage: View {
         @EnvironmentObject var festivalVM: FestivalViewModel
         
         @Binding var navigationPath: NavigationPath
+        @State var newNavigationPath = NavigationPath()
         
-        var festivalList: Array<DataSet.Festival>
+        var festivalList: Array<Festival>
 
         var title: String
         var largeText: Bool = false
@@ -195,6 +272,14 @@ struct MyFestivalsPage: View {
         var draftView: Bool = false
         
         @State var showList = true
+        
+        @State var reversed = false
+        
+        var friendInfoToPopup: [UUID : [Artist]]?
+        var profile: UserProfile?
+        @State var showSheet = false
+        @State var selectedFestival: Festival?
+        
         
         var body: some View {
             Group {
@@ -219,7 +304,8 @@ struct MyFestivalsPage: View {
                         }
                         if showList {
                             VStack {
-                                ForEach(sortFestivals(festivalList)) { festival in
+                                let sortedList = sortFestivals(festivalList, reversed: reversed)
+                                ForEach(sortedList) { festival in
     //                                NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView)) {
     //                                NavigationLink(value: festival) {
                                         HStack {
@@ -255,7 +341,10 @@ struct MyFestivalsPage: View {
                                         .contentShape(Rectangle())
                                         .padding(.horizontal, 10)
                                         .onTapGesture() {
-                                            if draftView {
+                                            if friendInfoToPopup != nil {
+                                                selectedFestival = festival
+                                                
+                                            } else if draftView {
                                                 navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView))
                                             } else {
                                                 festivalVM.currentFestival = festival
@@ -274,6 +363,54 @@ struct MyFestivalsPage: View {
                             .padding([.leading, .trailing, .bottom], 10)
                             
                         }
+                    }
+                    .onChange(of: selectedFestival) { newFestival in
+                        if newFestival != nil {
+                            showSheet = true
+                        }
+                    }
+                    .onChange(of: showSheet) { bool in
+                        if !bool {
+                            selectedFestival = nil
+                        }
+                    }
+                    .onChange(of: navigationPath) { _ in
+                        showSheet = false
+                    }
+                    .sheet(isPresented: $showSheet) {
+                        NavigationStack(path: $newNavigationPath) {
+                            VStack {
+//                                Spacer().frame(height: 200)
+                                if let festival = selectedFestival, let artistDict = friendInfoToPopup, let listToShow = artistDict[festival.id] {
+//                                    ArtistList(navigationPath: $newNavigationPath, currentFestival: festival, artistList: listToShow)
+                                    ArtistList(navigationPath: $newNavigationPath,
+                                               titleText: profile == nil ?  "Favorites" : "\(profile!.name)'s Favorites",
+                                               currentFestival: festival,
+                                               artistList: listToShow,
+                                               secondaryNavigationPath: $navigationPath
+                                    )
+                                }
+                            }
+                            .toolbar {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Group {
+                                        Button (action: {
+                                            showSheet = false
+                                        }, label: {
+                                            Image(systemName: "xmark")
+                                        })
+                                    }
+                                    //                                    .foregroundStyle(.blue)
+                                }
+                            }
+                            .withAppNavigationDestinations(navigationPath: $newNavigationPath, festivalVM: festivalVM)
+                        }
+//                        ArtistList(navigationPath: $navigationPath, currentFestival: currentFestival, artistList: <#T##Array<Artist>#>)
+                        
+                        
+//                        ArtistListStruct(titleText: "\(profile.name)'s Favorites",
+//                                                                       festival: currentFestival,
+//                                                                       list: festivalVM.getArtistListFromID(artistIDs: friendsFavs[profile]!, festival: currentFestival))
                     }
                 }
     //            else {
@@ -301,8 +438,8 @@ struct MyFestivalsPage: View {
     //        let draftView: Bool
     //    }
         
-        func sortFestivals(_ festivalList: Array<DataSet.Festival>) -> Array<DataSet.Festival> {
-            let sortedFestivals = festivalList.sorted {
+        func sortFestivals(_ festivalList: Array<Festival>, reversed: Bool) -> Array<Festival> {
+            var sortedFestivals = festivalList.sorted {
                 if $0.startDate == $1.startDate {
                     if $0.endDate == $1.endDate {
                         return $0.name < $1.name
@@ -312,6 +449,7 @@ struct MyFestivalsPage: View {
                 return $0.startDate < $1.startDate
     //            ($0.dates.first ?? Date.distantFuture) < ($1.dates.first ?? Date.distantFuture)
             }
+            if reversed { sortedFestivals = sortedFestivals.reversed() }
             return sortedFestivals
         }
         
@@ -328,36 +466,70 @@ struct FestivalLogoView: View {
         if let image = image {
             Image(uiImage: image)
                 .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: frame)
+//                .aspectRatio(contentMode: .fit)
+                .scaledToFit()
+                .frame(maxHeight: frame, alignment: .center)
         } else {
             Text(title)
                 .font(.title)
                 .frame(height: frame)
+                .foregroundStyle(.black)
                 .onAppear {
-                    print(logoPath)
                     loadImage()
                 }
         }
     }
     
     private func loadImage() {
-        guard let urlStr = logoPath else { return }
+        guard let path = logoPath else { return }
 
-        // 1️⃣ Load from cache if already stored (allowed)
-        if let cached = ImageCache.shared.getCachedImage(for: urlStr) {
+        // 1️⃣ Check cache first
+        if let cached = ImageCache.shared.getCachedImage(for: path) {
             self.image = cached
             return
         }
 
-        // 2️⃣ Otherwise fetch from network
-        guard let url = URL(string: urlStr) else { return }
+        let url: URL
 
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            if let data = data, let img = UIImage(data: data) {
+        // 2️⃣ Determine if remote or local
+        if path.hasPrefix("http://") ||
+           path.hasPrefix("https://") ||
+           path.hasPrefix("gs://") {
+
+            // Remote (Firebase / web)
+            guard let remoteURL = URL(string: path) else { return }
+            url = remoteURL
+
+        } else {
+
+            // Local file (relative path stored)
+            let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            url = documentsURL.appendingPathComponent(path)
+        }
+
+        // 3️⃣ Load local file directly
+        if url.isFileURL {
+            if let data = try? Data(contentsOf: url),
+               let img = UIImage(data: data) {
+
+                ImageCache.shared.cacheImage(data, for: path)
+
                 DispatchQueue.main.async {
-                    self.image = img        // 👈 render only
+                    self.image = img
                 }
+            }
+            return
+        }
+
+        // 4️⃣ Load remote image
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            guard let data = data,
+                  let img = UIImage(data: data) else { return }
+
+            ImageCache.shared.cacheImage(data, for: path)
+
+            DispatchQueue.main.async {
+                self.image = img
             }
         }.resume()
     }

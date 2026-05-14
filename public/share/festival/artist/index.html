@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta property="og:title" content="Check out this artist on OASIS!" />
+        <meta property="og:description" content="Discover this artist on OASIS." />
+        <meta property="og:image" content="https://oasis-austinzv.web.app/images/oasis-icon.jpg" />
+        <meta property="og:url" content="https://oasis-austinzv.web.app/share/festival/" />
+        <title>OASIS Artist Share</title>
+</head>
+
+<body>
+    <p>Redirecting to the artist...</p>
+
+    <script>
+        
+            const pathParts = window.location.pathname.split("/");
+
+            // path: /share/festival/FESTIVAL_ID/artist/ARTIST_ID
+            const festivalId = pathParts[3];
+            const artistId = pathParts[5];
+
+            if (festivalId && artistId) {
+                window.location.href = `https://oasis-austinzv.web.app/invite/festival/${festivalId}/artist/${artistId}`;
+            } else {
+                document.body.innerHTML = "<p>Error: Missing festival or artist ID.</p>";
+            }
+    </script>
+</body>
+</html>

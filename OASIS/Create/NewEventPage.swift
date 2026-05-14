@@ -1,6 +1,6 @@
 //
 //  NewEventPage.swift
-//  OASIS
+//  OASISOASIS
 //
 //  Created by Austin Zambito-Valente on 6/5/25.
 //
@@ -30,14 +30,16 @@ struct NewEventPage: View {
     
     let FRAME_HEIGHT = 40.0
     
-    @State var oldVersion: DataSet.Festival
+    @State var oldVersion: Festival
+    
+    @State var lastEditedArtist: Artist?
     
 //    init(festivalCreator: FestivalViewModel) {
 //        self.festivalCreator = festivalCreator
 ////        _draft = StateObject(wrappedValue: NewEventPageViewModel(festivalCreator: festivalCreator))
 //    }
     
-    init(festival: DataSet.Festival, /*festivalCreator: FestivalViewModel,*/ navigationPath: Binding<NavigationPath>) {
+    init(festival: Festival, /*festivalCreator: FestivalViewModel,*/ navigationPath: Binding<NavigationPath>) {
         _navigationPath = navigationPath
         _draft = StateObject(wrappedValue: NewEventPageViewModel(festival: festival))
         oldVersion = festival
@@ -112,27 +114,22 @@ struct NewEventPage: View {
                         Image(systemName: "eyes")
                     })
                     if draft.newFestival.published {
-//                        Button (action: {
+                        Button (action: {
+                            Task {
+                                await saveLocally()
+                            }
 //                            festivalVM.saveDraft(draft.newFestival)
 //                            navigationPath.removeLast()
-//                        }, label: {
-//                            HStack {
-//                                Text("Save As Draft")
-//                                Image(systemName: "checkmark.seal")
-//                            }
-//                        })
+                        }, label: {
+                            HStack {
+                                Text("Save As Draft")
+                                Image(systemName: "rectangle.and.pencil.and.ellipsis")
+                            }
+                        })
                         Button (action: {
-                            uploadingFestival = true
-                            festivalVM.uploadFestival(draft.newFestival) { result in
-                                switch result {
-                                case .success():
-                                    print("Festival uploaded with merge successfully!")
-                                    uploadingFestival = false
-                                    navigationPath.removeLast()
-                                case .failure(let error):
-                                    print("Upload failed:", error)
-                                    uploadingFestival = false
-                                }
+                            Task {
+                                defer { uploadingFestival = false }
+                                await savePublically()
                             }
                         }, label: {
                             Text("Publish Updates")
@@ -146,8 +143,8 @@ struct NewEventPage: View {
                             
                         }, label: {
                             HStack {
-                                Text("Save")
-                                Image(systemName: "checkmark.seal.fill")
+                                Text("Save Privately")
+                                Image(systemName: "lock")
                             }
                         })
                         Button (action: {
@@ -155,11 +152,11 @@ struct NewEventPage: View {
                             festivalVM.uploadFestival(draft.newFestival) { result in
                                 switch result {
                                 case .success():
-                                    print("Festival uploaded with merge successfully!")
+                                    ////print("Festival uploaded with merge successfully!")
                                     uploadingFestival = false
                                     navigationPath.removeLast()
                                 case .failure(let error):
-                                    print("Upload failed:", error)
+                                    ////print("Upload failed:", error)
                                     uploadingFestival = false
                                 }
                             }
@@ -199,7 +196,7 @@ struct NewEventPage: View {
         }
         .sheet(isPresented: $showArtistSearchPage) {
             if let artist = selectedArtist {
-                AddArtistPage(newArtist: artist, artistImage: artistImages[artist.id], newFestival: $draft.newFestival, showArtistSearchPage: $showArtistSearchPage)
+                AddArtistPage(/*navigationPath: $navigationPath, */newArtist: artist, artistImage: artistImages[artist.id], newFestival: $draft.newFestival, showArtistSearchPage: $showArtistSearchPage, lastEditedArtist: lastEditedArtist)
             }
         }
         .alert(isPresented: $discardChangesAlert) {
@@ -224,20 +221,39 @@ struct NewEventPage: View {
         .onChange(of: draft.newFestival) { newVersion in
             festivalVM.saveDraft(newVersion)
         }
+        
     }
     
     func saveLocally() async {
-        if oldVersion.logoPath != nil, logoDeleted {
-            await firestore.deleteImageAsync(imageURL: oldVersion.logoPath!)
-            draft.newFestival.logoPath = nil
-        }
-
         if let imageToUpload = selectedImage,
-           let logoPath = festivalVM.saveImageForFestival(imageToUpload,
-                                                          festivalID: draft.newFestival.id) {
+           let logoPath = festivalVM.saveImageForFestival(imageToUpload, festivalID: draft.newFestival.id) {
             draft.newFestival.logoPath = logoPath
         }
         navigationPath.removeLast()
+    }
+    
+    func savePublically() async {
+        uploadingFestival = true
+        if let oldPath = oldVersion.logoPath,
+           logoDeleted,
+           oldPath.hasPrefix("http") {   // ✅ only delete remote images
+            _ = await firestore.deleteImageAsync(imageURL: oldPath)
+        }
+        if logoDeleted {
+            draft.newFestival.logoPath = nil
+        }
+        
+        festivalVM.uploadFestival(draft.newFestival) { result in
+            switch result {
+            case .success():
+//                //print("Festival uploaded with merge successfully!")
+//                                        uploadingFestival = false
+                navigationPath.removeLast()
+            case .failure(let error):
+                print("Upload failed:", error)
+//                                        uploadingFestival = false
+            }
+        }
     }
     
     
@@ -269,11 +285,15 @@ struct NewEventPage: View {
                                 .foregroundStyle(.gray)
                                 .onTapGesture {
                                     draft.newFestival.name = ""
+                                    nameFocused = true
                                 }
                         }
                     }
                 }
                 
+            }
+            .onAppear() {
+                if draft.newFestival.name == "Unnamed Festival" { draft.newFestival.name = "" }
             }
         }
     }
@@ -424,6 +444,7 @@ struct NewEventPage: View {
                                         .contentShape(Rectangle())
                                         .onTapGesture {
                                             urlText = ""
+                                            urlTextFocused = true
                                         }
                                 }
                             }
@@ -547,6 +568,7 @@ struct NewEventPage: View {
                                         .onTapGesture {
                                             query = ""
                                             searchService.results.removeAll()
+                                            locationFocused = true
                                         }
                                 }
                             }
@@ -661,6 +683,7 @@ struct NewEventPage: View {
                                         .contentShape(Rectangle())
                                         .onTapGesture {
                                             stageName = ""
+                                            stageNameFocused = true
                                         }
                                 }
                             }
@@ -707,9 +730,9 @@ struct NewEventPage: View {
     
     @State var showArtistSearchPage = false
     @State var artistSearchText = ""
-    @State private var artistSearchResults: [DataSet.Artist] = []
+    @State private var artistSearchResults: [Artist] = []
     @State var artistImages: [String : UIImage] = [:]
-    @State private var selectedArtist: DataSet.Artist? = nil
+    @State private var selectedArtist: Artist? = nil
     @FocusState var artistSearchFocused: Bool
     @State var artistSearchIsLoading = false
     @State private var debounceCancellable: DispatchWorkItem?
@@ -725,15 +748,20 @@ struct NewEventPage: View {
                                 Spacer()
                                 Image(systemName: "chevron.right")
                             }
+                            .foregroundStyle(Color("OASIS Dark Orange"))
+//                            .contentShape(Rectangle())
+//                            .onTapGesture() {
+//                                navigationPath.append(ArtistEditingList(navigationPath: $navigationPath, newFestival: $draft.newFestival))
+//                            }
                             NavigationLink {
-                                ArtistEditingList(newFestival: $draft.newFestival)
-                                //                            ArtistEditingList(artistDict: ["All Artists" : draft.newFestival.artistList])
+                                ArtistEditingList(navigationPath: $navigationPath, newFestival: $draft.newFestival)
+                                //                            ArtistEditingList(artistDict: ["Allu Artists" : draft.newFestival.artistList])
                             } label: {
                                 EmptyView()
                             }
                             .opacity(0)
                         }
-                        .foregroundStyle(Color("OASIS Dark Orange"))
+                        
                         Divider()
                     }
                     ZStack(alignment: .topLeading) {
@@ -761,6 +789,7 @@ struct NewEventPage: View {
                                             .onTapGesture {
                                                 artistSearchText = ""
                                                 artistSearchResults.removeAll()
+                                                artistSearchFocused = true
                                             }
                                     }
                                 }
@@ -794,7 +823,7 @@ struct NewEventPage: View {
 //                                                    Image(uiImage: image)
 //                                                        .resizable()
 //                                                        .aspectRatio(contentMode: .fill)
-//                                                    
+//
 //                                                    //                                                        .clipShape(Circle())
 //                                                } else {
 //                                                    ProgressView()
@@ -803,9 +832,17 @@ struct NewEventPage: View {
 //                                            .frame(width: 50, height: 50)
                                             Text(artist.name)
                                             Spacer()
-                                            Image(systemName: "plus.circle")
-                                                .imageScale(.large)
-                                                .foregroundStyle(Color.blue)
+                                            Group {
+                                                if draft.newFestival.artistList.contains(where: { $0.id == artist.id }) {
+                                                    Image(systemName: "pencil.circle")
+                                                        .foregroundStyle(Color(.oasisDarkOrange))
+                                                } else {
+                                                    Image(systemName: "plus.circle")
+                                                        .foregroundStyle(Color.blue)
+                                                }
+                                            }
+                                            .imageScale(.large)
+                                            .padding(.trailing, 6)
                                         }
                                         .padding(6)
                                         .contentShape(Rectangle())
@@ -815,12 +852,12 @@ struct NewEventPage: View {
                                             } else {
                                                 selectedArtist = artist
                                             }
-                                            //                                            print(artist.id)
+                                            //                                            ////print(artist.id)
                                             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                                             //
-                                            //                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                            //                                                showArtistSearchPage = true
-                                            //                                            }
+//                                                                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+//                                                                                            showArtistSearchPage = true
+//                                                                                        }
                                         }
                                     }
                                 }
@@ -889,9 +926,11 @@ struct NewEventPage: View {
             debounceCancellable = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
         }
-        .onChange(of: draft.newFestival.artistList) { _ in
+        .onChange(of: draft.newFestival.artistList) { newList in
             artistSearchText = ""
             artistSearchResults.removeAll()
+            let sorted = festivalVM.sortDateModified(currList: newList)[""]!
+            lastEditedArtist = sorted.first
         }
         
         
@@ -921,9 +960,9 @@ struct NewEventPage: View {
     private func fetchAccessTokenAndSearch() {
         artistSearchResults.removeAll()
         artistSearchIsLoading = true
-        spotify.getValidAccessToken { token in
+        spotify.getAppLevelSpotifyToken { token in
             guard let token = token else {
-                print("No valid token available")
+                ////print("No valid token available")
                 return
             }
             performSearch(with: token)
@@ -947,7 +986,7 @@ struct NewEventPage: View {
             }
             
             guard let data = data, error == nil else {
-                print("Error fetching artists: \(error?.localizedDescription ?? "Unknown error")")
+                //////print("Error fetching artists: \(error?.localizedDescription ?? "Unknown error")")
                 artistSearchIsLoading = false
                 return
             }
@@ -956,13 +995,13 @@ struct NewEventPage: View {
                 let decoded = try JSONDecoder().decode(SpotifyViewModel.SpotifySearchResponse.self, from: data)
                 let artistsRaw = decoded.artists.items
                 
-                var results: [DataSet.Artist] = []
+                var results: [Artist] = []
                 
                 for artist in artistsRaw {
                     let imageUrlString = artist.images.first?.url ?? ""
-                    print("ARTIST ID: \(artist.id)")
+                    ////print("ARTIST ID: \(artist.id)")
                     
-                    let newArtist = DataSet.Artist(
+                    let newArtist = Artist(
                         id: artist.id,
                         name: artist.name,
                         genres: artist.genres,
@@ -977,13 +1016,13 @@ struct NewEventPage: View {
                     artistSearchIsLoading = false
                 }
             } catch {
-                print("Failed to decode response: \(error)")
+                ////print("Failed to decode response: \(error)")
                 artistSearchIsLoading = false
             }
         }.resume()
     }
 
-//    func loadImage(for artist: DataSet.Artist, completion: @escaping (UIImage?) -> Void) {
+//    func loadImage(for artist: Artist, completion: @escaping (UIImage?) -> Void) {
 //        if let cached = ImageCache.shared.get(for: artist.imageURL) {
 //            completion(cached)
 //            return
@@ -1016,34 +1055,43 @@ struct NewEventPage: View {
     var EventLogo: some View {
         Group {
             Section(header: Text("Logo")) {
+                let showingLogo = (selectedImage != nil || (draft.newFestival.logoPath != nil && !logoDeleted))
                 VStack {
                     if let selectedImage {
-                        ZStack {
+//                        ZStack {
                             Image(uiImage: selectedImage)
                                 .resizable()
                                 .scaledToFit()
                                 .frame(maxHeight: 60, alignment: .center)
                                 .padding(5)
-                        }
-                        .frame(maxHeight: 60)
+//                        }
+//                        .frame(maxHeight: 60)
                         Divider()
                         //                        .clipShape(Circle())
-                    }
-                    else if let logoPath = draft.newFestival.logoPath {
-                        FestivalLogoView(logoPath: logoPath, title: draft.newFestival.name, frame: 60)
+                    } else if !logoDeleted {
+                        if let logoPath = draft.newFestival.logoPath {
+                            FestivalLogoView(logoPath: logoPath, title: draft.newFestival.name, frame: 60)
+                                .padding(5)
+                            Divider()
+                        }
                     }
                     HStack {
-                        Text(selectedImage == nil ? "Add Logo" : "Change Logo")
+                        if showingLogo {
+                            Spacer()
+                        }
+                        Text(showingLogo ? "Change Logo" : "Add Logo")
                             .foregroundStyle(Color.blue)
                             .frame(height: 20)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 showPhotoPicker = true
                             }
-                        if selectedImage != nil {
+                        if showingLogo {
+                            Spacer()
                             Divider()
                                 .frame(height: 25)
-                                .padding(.horizontal, 15)
+//                                .padding(.horizontal, 15)
+                            Spacer()
                             Text("Remove Logo")
                                 .foregroundStyle(Color.red)
                                 .contentShape(Rectangle())
@@ -1055,6 +1103,7 @@ struct NewEventPage: View {
 //                                .padding(.leading, 20)
                                 .padding(.vertical, 5)
                         }
+                        Spacer()
                     }
                 }
             }
@@ -1247,7 +1296,7 @@ struct NewEventPage: View {
 //            }
 //            
 //            guard let data = data, error == nil else {
-//                print("Error fetching artists: \(error?.localizedDescription ?? "Unknown error")")
+//                ////print("Error fetching artists: \(error?.localizedDescription ?? "Unknown error")")
 //                artistSearchIsLoading = false
 //                return
 //            }
@@ -1272,10 +1321,10 @@ struct NewEventPage: View {
 //                        guard let data = data, error == nil,
 //                              let image = UIImage(data: data) else {
 //                            artistSearchIsLoading = false
-//                            print("Failed to load image for artist \(artist.name)")
+//                            ////print("Failed to load image for artist \(artist.name)")
 //                            return
 //                        }
-//                        print("ARTIST ID: \(artist.id)")
+//                        ////print("ARTIST ID: \(artist.id)")
 //                        let newArtist = DataSet.artistNEW(
 //                            id: artist.id,
 //                            name: artist.name,
@@ -1298,7 +1347,7 @@ struct NewEventPage: View {
 //                }
 //            } catch {
 //                
-//                print("Failed to decode response: \(error)")
+//                ////print("Failed to decode response: \(error)")
 //                artistSearchIsLoading = false
 //            }
 //        }.resume()
@@ -1425,7 +1474,7 @@ class LocationSearchService: NSObject, ObservableObject, MKLocalSearchCompleterD
     }
     
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        print("Search failed: \(error.localizedDescription)")
+        ////print("Search failed: \(error.localizedDescription)")
     }
 }
 

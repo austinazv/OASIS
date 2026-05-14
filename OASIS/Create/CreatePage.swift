@@ -15,10 +15,10 @@ struct CreatePage: View {
     
     @Binding var navigationPath: NavigationPath
     
-    @State var selectedFestival: DataSet.Festival?
+    @State var selectedFestival: Festival?
     
-    @State var festivalDrafts: Array<DataSet.Festival> = []
-//    @State var festivalsPublished: Array<DataSet.Festival>
+    @State var festivalDrafts: Array<Festival> = []
+//    @State var festivalsPublished: Array<Festival>
     
     var body: some View {
         VStack {
@@ -135,7 +135,7 @@ struct CreatePage: View {
     
     
     
-    func sortedFestivals(festivalList: Array<DataSet.Festival>) -> Array<DataSet.Festival> {
+    func sortedFestivals(festivalList: Array<Festival>) -> Array<Festival> {
         let sortedFestivals = festivalList.sorted {
             if $0.startDate == $1.startDate {
                 if $0.endDate == $1.endDate {

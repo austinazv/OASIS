@@ -25,6 +25,7 @@ class SpotifyViewModel: ObservableObject {
         isUserLoggedIn { [weak self] loggedIn in
             DispatchQueue.main.async {
                 self?.isLoggedIn = loggedIn
+                print("IS SPOTIFY LOGGED IN: \(loggedIn)")
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 self?.isLoading = false
@@ -125,6 +126,75 @@ class SpotifyViewModel: ObservableObject {
         }.resume()
     }
     
+    private let appAccessTokenKey = "spotify_app_access_token"
+    private let appTokenExpiryKey = "spotify_app_token_expiry"
+    
+    
+    func getAppLevelSpotifyToken(completion: @escaping (String?) -> Void) {
+        
+        // 1️⃣ Check if existing token is still valid
+        if let token = UserDefaults.standard.string(forKey: appAccessTokenKey),
+           let expiry = UserDefaults.standard.object(forKey: appTokenExpiryKey) as? Date,
+           Date() < expiry {
+            completion(token)
+            return
+        }
+        
+        // 2️⃣ Request new token via Client Credentials flow
+        guard let url = URL(string: "https://accounts.spotify.com/api/token") else {
+            completion(nil)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        
+        // Base64 encode clientID:clientSecret
+        let credentials = "\(SpotifyAuth.clientID):\(SpotifyAuth.clientSecret)"
+        guard let credentialData = credentials.data(using: .utf8) else {
+            completion(nil)
+            return
+        }
+        
+        let base64Credentials = credentialData.base64EncodedString()
+        request.addValue("Basic \(base64Credentials)", forHTTPHeaderField: "Authorization")
+        
+        request.httpBody = "grant_type=client_credentials".data(using: .utf8)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            
+            guard let data = data, error == nil else {
+                print("❌ Token request failed: \(error?.localizedDescription ?? "Unknown error")")
+                completion(nil)
+                return
+            }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let accessToken = json["access_token"] as? String,
+                   let expiresIn = json["expires_in"] as? Double {
+                    
+                    let expiryDate = Date().addingTimeInterval(expiresIn - 60) // buffer
+                    
+                    UserDefaults.standard.set(accessToken, forKey: self.appAccessTokenKey)
+                    UserDefaults.standard.set(expiryDate, forKey: self.appTokenExpiryKey)
+                    
+                    print("✅ App-level Spotify token acquired")
+                    completion(accessToken)
+                    
+                } else {
+                    print("❌ Invalid token response")
+                    completion(nil)
+                }
+                
+            } catch {
+                print("❌ JSON parsing error: \(error)")
+                completion(nil)
+            }
+            
+        }.resume()
+    }
     
     
     func refreshAccessToken(completion: @escaping (String?) -> Void) {
@@ -221,7 +291,7 @@ class SpotifyViewModel: ObservableObject {
     
     func fetchArtistLatestAlbum(artistID: String, completion: @escaping (SpotifyAlbum?) -> Void) {
         // Step 1: Make sure we have a valid token
-        getValidSpotifyAccessToken { accessToken in
+        getAppLevelSpotifyToken { accessToken in
             guard let accessToken = accessToken else {
                 print("❌ Could not get valid Spotify access token")
                 completion(nil)
@@ -231,16 +301,16 @@ class SpotifyViewModel: ObservableObject {
             // Step 2: Use the token to fetch the artist’s most recent album
             self.fetchMostRecentAlbum(artistID: artistID, accessToken: accessToken) { album in
                 if let album = album {
-                    print("""
-                    ✅ Latest album fetched:
-                    Name: \(album.name)
-                    Release Date: \(album.release_date)
-                    Cover Art: \(album.images.first?.url ?? "No image")
-                    Link: \(album.external_urls.spotify)
-                    """)
+//                    print("""
+//                    ✅ Latest album fetched:
+//                    Name: \(album.name)
+//                    Release Date: \(album.release_date)
+//                    Cover Art: \(album.images.first?.url ?? "No image")
+//                    Link: \(album.external_urls.spotify)
+//                    """)
                     completion(album)
                 } else {
-                    print("❌ No album found for artist \(artistID)")
+//                    print("❌ No album found for artist \(artistID)")
                     completion(nil)
                 }
             }
@@ -257,7 +327,7 @@ class SpotifyViewModel: ObservableObject {
         // ✅ Step 1: Make sure we have a valid token
         getValidSpotifyAccessToken { accessToken in
             guard let accessToken = accessToken else {
-                print("❌ Could not retrieve valid Spotify access token")
+//                print("❌ Could not retrieve valid Spotify access token")
                 completion(nil)
                 return
             }
@@ -282,7 +352,7 @@ class SpotifyViewModel: ObservableObject {
                 // ✅ Step 3: Fetch user profile if not already cached
                 self.fetchSpotifyUserProfile(accessToken: accessToken) { userProfile in
                     guard let userProfile = userProfile else {
-                        print("❌ Failed to fetch user profile")
+//                        print("❌ Failed to fetch user profile")
                         completion(nil)
                         return
                     }
@@ -1053,7 +1123,7 @@ class SpotifyViewModel: ObservableObject {
     }
     
     func fetchArtistThisIsPlaylist(artistName: String, completion: @escaping (Playlist?) -> Void) {
-        getValidSpotifyAccessToken { accessToken in
+        getAppLevelSpotifyToken { accessToken in
             guard let accessToken = accessToken else {
                 print("❌ Could not get valid Spotify access token")
                 completion(nil)

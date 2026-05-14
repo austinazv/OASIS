@@ -21,6 +21,7 @@ struct OASISApp: App {
     @StateObject var festivalVM = FestivalViewModel(name: "Austin30")
     @StateObject var social = SocialViewModel()
     @StateObject var explore = ExploreViewModel()
+    @StateObject var tags = TagViewModel(name: "Austin30")
     
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
@@ -56,7 +57,7 @@ struct OASISApp: App {
                 Group {
                     
                     if firestore.isLoggedIn {
-                        if spotify.isLoggedIn {
+//                        if spotify.isLoggedIn {
                             NavigationBottomBarView(explorePath: $explorePath, socialPath: $socialPath, myFestivalsPath: $myFestivalsPath, createPath: $createPath, myProfilePath: $myProfilePath, selectedTab: $selectedTab)
                                 .environmentObject(data)
                                 .environmentObject(spotify)
@@ -64,15 +65,16 @@ struct OASISApp: App {
                                 .environmentObject(festivalVM)
                                 .environmentObject(social)
                                 .environmentObject(explore)
-                        } else {
-                            SpotifyConnectPage()
-                                .environmentObject(data)
-                                .environmentObject(spotify)
-                                .environmentObject(firestore)
-                                .environmentObject(festivalVM)
-                                .environmentObject(social)
-                                .environmentObject(explore)
-                        }
+                                .environmentObject(tags)
+//                        } else {
+//                            SpotifyConnectPage()
+//                                .environmentObject(data)
+//                                .environmentObject(spotify)
+//                                .environmentObject(firestore)
+//                                .environmentObject(festivalVM)
+//                                .environmentObject(social)
+//                                .environmentObject(explore)
+//                        }
                     } else {
                         LogInPage()
                             .environmentObject(data)
@@ -81,6 +83,7 @@ struct OASISApp: App {
                             .environmentObject(festivalVM)
                             .environmentObject(social)
                             .environmentObject(explore)
+                            .environmentObject(tags)
                     }
                     if URLLoading {
                         ProgressView()
@@ -95,13 +98,14 @@ struct OASISApp: App {
                 if spotify.isLoading {
                     GeometryReader { geo in
                         VStack {
-                            Spacer().frame(height: geo.size.height * 0.33)
+                            Spacer().frame(height: geo.size.height * 0.28)
                             OASISLoadingScreen(namespace: oasisNamespace)
                             // No custom slide transition; matchedGeometryEffect will move from loading to destination.
                             //                        .transition(.opacity) // optional fade for the overlay itself
                                 .animation(.easeInOut(duration: 1.35), value: spotify.isLoading) // 3× slower
-                            Spacer().frame(height: geo.size.height * 0.67)
-                        }}
+                            Spacer().frame(height: geo.size.height * 0.72)
+                        }
+                    }
                     
                 }
             }
@@ -174,7 +178,7 @@ struct OASISApp: App {
                                 if let artist = festivalVM.getArtistFromID(artistID: artistID, festival: festival) {
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                                         
-                                        explorePath.append(DataSet.ArtistPageStruct(artist: artist, festival: festival,
+                                        explorePath.append(ArtistPageStruct(artist: artist, festival: festival,
                                                                                     shuffleTitle: "All Artists",
                                                                                     shuffleList: festival.artistList))
                                     }
@@ -183,7 +187,7 @@ struct OASISApp: App {
                             
                             
                         } catch {
-                            print("Failed to fetch festival:", error.localizedDescription)
+//                            print("Failed to fetch festival:", error.localizedDescription)
                         }
                     }
                     
@@ -219,7 +223,7 @@ struct OASISApp: App {
                     return
                 }
                 
-                print("Unhandled URL")
+//                print("Unhandled URL")
             }
 
 
@@ -646,7 +650,7 @@ extension View {
             .navigationDestination(for: UserProfile.self) { profile in
                 ProfilePage(navigationPath: navigationPath, profile: profile)
             }
-            .navigationDestination(for: DataSet.Festival.self) { festival in
+            .navigationDestination(for: Festival.self) { festival in
                 FestivalPage(navigationPath: navigationPath, currentFestival: festival)
                     .environmentObject(festivalVM)
             }
@@ -659,7 +663,7 @@ extension View {
                         .environmentObject(festivalVM)
                 }
             }
-            .navigationDestination(for: DataSet.ArtistListStruct.self) { page in
+            .navigationDestination(for: ArtistListStruct.self) { page in
                 ArtistList(navigationPath: navigationPath,
                            titleText: page.titleText,
                            currentFestival: page.festival,
@@ -669,7 +673,7 @@ extension View {
                 )
                     .environmentObject(festivalVM)
             }
-            .navigationDestination(for: DataSet.ArtistPageStruct.self) { page in
+            .navigationDestination(for: ArtistPageStruct.self) { page in
                 ArtistPage(currentArtist: page.artist,
                            shuffleLable: page.shuffleTitle,
                            shuffleList: page.shuffleList,
@@ -700,7 +704,7 @@ extension View {
 //                    FestivalPage(navigationPath: navigationPath)
 //                        .environmentObject(festivalVM)
                 case "New Event":
-                    NewEventPage(festival: DataSet.Festival.newFestival(), navigationPath: navigationPath)
+                    NewEventPage(festival: Festival.newFestival(), navigationPath: navigationPath)
                         .environmentObject(festivalVM)
                 default:
                     SettingsPageOLD()

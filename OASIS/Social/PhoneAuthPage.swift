@@ -176,7 +176,7 @@ struct PhoneAuthPage: View {
 
                 userRef.getDocument { snapshot, error in
                     if let error = error {
-                        print("❌ Error fetching user: \(error.localizedDescription)")
+                        //print("❌ Error fetching user: \(error.localizedDescription)")
                         return
                     }
 
@@ -184,9 +184,9 @@ struct PhoneAuthPage: View {
 
                     if !hasName {
                         // You can handle onboarding flow here (e.g. ask for name)
-                        print("👤 No name found — user needs to create one.")
+                        //print("👤 No name found — user needs to create one.")
                     } else {
-                        print("🎉 User has a name already.")
+                        //print("🎉 User has a name already.")
                     }
 
                     // Save/update phone and createdAt regardless
@@ -195,9 +195,9 @@ struct PhoneAuthPage: View {
                         "createdAt": FieldValue.serverTimestamp()
                     ], merge: true) { error in
                         if let error = error {
-                            print("❌ Error saving user: \(error.localizedDescription)")
+                            //print("❌ Error saving user: \(error.localizedDescription)")
                         } else {
-                            print("✅ User saved to Firestore!")
+                            //print("✅ User saved to Firestore!")
                         }
 
                         // Now that everything is done

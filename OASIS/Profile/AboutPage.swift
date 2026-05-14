@@ -48,6 +48,7 @@ struct AboutPage: View {
             .multilineTextAlignment(.center)
             .padding()
             .font(.callout)
+            .foregroundStyle(.black)
     }
     
     let aboutMeText = "Hello & welcome to OASIS!\nMy name is Austin Zambito-Valente, and I am the sole developer of OASIS. I started creating OASIS as a personal way to discover new artists and new events around me, but it blossomed to become the best way to connect with friends and community before and during music festivals. Please feel free to reach out with any questions, comments, bugs, or collaboration requests.\nMost importantly, enjoy OASIS!"
@@ -124,7 +125,7 @@ struct AboutPage: View {
 //                        Spacer()
                     }
                     .padding(.horizontal, 20)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.bwColorSwitch)
                 }
                 .frame(height: SMALL_BUTTON_HEIGHT)
                 .contentShape(Rectangle())

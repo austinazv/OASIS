@@ -47,7 +47,7 @@ struct SpotifyAccount: View {
                   primaryButton: .cancel(),
                   secondaryButton: .destructive(Text("Disconnect")) {
                 spotify.revokeSpotifyAccessToken() { completion in
-                    print("Done")
+//                    print("Done")
                 }
             })
         }

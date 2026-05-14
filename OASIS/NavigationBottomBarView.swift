@@ -9,6 +9,7 @@ import SwiftUI
 
 struct NavigationBottomBarView: View {
     @EnvironmentObject var data: DataSet
+    @EnvironmentObject var festivalVM: FestivalViewModel
     
     @Binding var explorePath: NavigationPath
     @Binding var socialPath: NavigationPath
@@ -62,11 +63,12 @@ struct NavigationBottomBarView: View {
             .accentColor(Color("OASIS Dark Orange"))
 //            .shadow(radius: 10)
         }
-//        .onAppear() {
+        .onAppear() {
+            if festivalVM.myFestivals.isEmpty {
 //            if data.userInfoTemp.festivalList.isEmpty {
-//                selectedTab = 1
-//            }
-//        }
+                selectedTab = 1
+            }
+        }
     }
     
     

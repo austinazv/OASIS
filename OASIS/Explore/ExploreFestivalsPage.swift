@@ -58,7 +58,7 @@ struct ExploreFestivalsPage: View {
                             } else {
                                 //                            if !searching {
                                 ScrollView {
-                                    FestivalsListed(navigationPath: $navigationPath, festivalList: explore.festivals, title: "Upcoming", collapsable: true)
+                                    FestivalsListed(navigationPath: $navigationPath, festivalList: explore.festivals, title: "Verified", collapsable: false)
                                 }
                                 .padding(.top, 5)
                                 .refreshable {
@@ -76,10 +76,10 @@ struct ExploreFestivalsPage: View {
         }
         .onAppear() {
             if !explore.isLoading {
-                print("updating..")
+                //print("updating..")
                 explore.fetchVerifiedFestivals()
             }
-            //            print(firestore.isLoggedIn())
+            //            //print(firestore.isLoggedIn())
         }
     }
     
@@ -120,6 +120,8 @@ struct ExploreFestivalsPage: View {
                                         .foregroundStyle(.gray)
                                         .onTapGesture {
                                             searchText = ""
+                                            explore.isLoading = false
+                                            searchFocused = true
                                         }
                                 }
                             }
@@ -138,7 +140,7 @@ struct ExploreFestivalsPage: View {
                                                                       date1: date,
                                                                       date2: afterDate,
                                                                       verified: verifiedOnly)
-                                        print("Found \(results.count) festivals")
+                                        //print("Found \(results.count) festivals")
                                     }
                                 }
                             }
@@ -328,7 +330,7 @@ struct ExploreFestivalsPage: View {
         .padding(.vertical, 12)
         .contentShape(Rectangle())
         .onTapGesture {
-            print("TODO: search")
+            //print("TODO: search")
         }
     }
     

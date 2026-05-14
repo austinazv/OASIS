@@ -14,7 +14,7 @@ import FirebaseStorage
 import Search
 
 class ExploreViewModel: ObservableObject {
-    @Published var festivals: [DataSet.Festival] = []
+    @Published var festivals: [Festival] = []
     @Published var isLoading = false
     @Published var searchIsLoading = false
     @Published var errorMessage: String?
@@ -29,7 +29,7 @@ class ExploreViewModel: ObservableObject {
                 appID: "OJ3ASBA9K5",
                 apiKey: "8c2bcea1fd5707e2e7227ba6ae5ae967"
             )
-            print("Client created successfully")
+            //print("Client created successfully")
         } catch {
             fatalError("Failed to create Algolia client: \(error)")
         }
@@ -54,7 +54,7 @@ class ExploreViewModel: ObservableObject {
         }
     }
     
-    func downloadVerifiedFestivals(completion: @escaping (Result<[DataSet.Festival], Error>) -> Void) {
+    func downloadVerifiedFestivals(completion: @escaping (Result<[Festival], Error>) -> Void) {
         let db = Firestore.firestore()
         let storage = Storage.storage()
         
@@ -78,12 +78,12 @@ class ExploreViewModel: ObservableObject {
                     return
                 }
                 
-                var festivals: [DataSet.Festival] = []
+                var festivals: [Festival] = []
                 let group = DispatchGroup()
                 
                 for doc in documents {
                     do {
-                        var festival = try doc.data(as: DataSet.Festival.self)
+                        var festival = try doc.data(as: Festival.self)
                         
                         // Handle logo image if URL exists
                         if let logoURLString = festival.logoPath, let logoURL = URL(string: logoURLString) {
@@ -103,7 +103,7 @@ class ExploreViewModel: ObservableObject {
                         festivals.append(festival)
                         
                     } catch {
-                        print("Failed to decode festival:", error)
+                        //print("Failed to decode festival:", error)
                     }
                 }
                 
@@ -140,7 +140,7 @@ class ExploreViewModel: ObservableObject {
             
             return relativePath // safe to store in UserDefaults
         } catch {
-            print("Error saving image: \(error)")
+            //print("Error saving image: \(error)")
             return nil
         }
     }
@@ -149,11 +149,11 @@ class ExploreViewModel: ObservableObject {
     func fetchFestivalsByIDs(
         ids: [String]
         //        client: SearchClient
-    ) async -> [DataSet.Festival] {
+    ) async -> [Festival] {
         
         guard !ids.isEmpty else { return [] }
         
-        var festivals: [DataSet.Festival] = []
+        var festivals: [Festival] = []
         
         let filters = ids.map { "objectID:\($0)" }.joined(separator: " OR ")
         
@@ -166,18 +166,18 @@ class ExploreViewModel: ObservableObject {
         let searchParams = SearchMethodParams(requests: [.searchForHits(request)])
         
         do {
-            let hits: [DataSet.Festival] = try await client.searchForHits(
+            let hits: [Festival] = try await client.searchForHits(
                 searchMethodParams: searchParams
             )
             festivals = hits
         } catch {
-            print("Algolia fetch by IDs failed:", error)
+            //print("Algolia fetch by IDs failed:", error)
         }
         
         return festivals
     }
     
-    @Published var searchResults: [DataSet.Festival] = []
+    @Published var searchResults: [Festival] = []
     @Published var isSearchLoading = false
     
     private var searchTask: Task<Void, Never>?
@@ -186,25 +186,27 @@ class ExploreViewModel: ObservableObject {
     func search(_ text: String) {
         searchTask?.cancel()
         
+        isSearchLoading = true
+        
         searchTask = Task {
             // ⏳ debounce delay
             try? await Task.sleep(nanoseconds: 400_000_000)
             
             guard !Task.isCancelled else { return }
             
-            isSearchLoading = true
+//            isSearchLoading = true
             defer { isSearchLoading = false }
             
             do {
                 searchResults = try await searchFestivals(searchText: text)
             } catch {
                 searchResults = []
-                print("Search error:", error)
+                //print("Search error:", error)
             }
         }
     }
     
-    func searchFestivals(searchText: String) async throws -> [DataSet.Festival] {
+    func searchFestivals(searchText: String) async throws -> [Festival] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
         
@@ -226,10 +228,10 @@ class ExploreViewModel: ObservableObject {
         
         let (startsSnap, containsSnap) = try await (startsWithQuery, containsWordQuery)
         
-        var unique: [UUID: DataSet.Festival] = [:]
+        var unique: [UUID: Festival] = [:]
         
         for doc in startsSnap.documents + containsSnap.documents {
-            if let festival = try? doc.data(as: DataSet.Festival.self) {
+            if let festival = try? doc.data(as: Festival.self) {
                 unique[festival.id] = festival
             }
         }
@@ -237,7 +239,7 @@ class ExploreViewModel: ObservableObject {
         return Array(unique.values)
     }
     
-    func fetchFestival(with festivalID: String) async throws -> DataSet.Festival {
+    func fetchFestival(with festivalID: String) async throws -> Festival {
         let db = Firestore.firestore()
         let docRef = db.collection("festivals").document(festivalID)
 
@@ -249,7 +251,7 @@ class ExploreViewModel: ObservableObject {
                           userInfo: [NSLocalizedDescriptionKey: "Festival not found"])
         }
 
-        var festival = try snapshot.data(as: DataSet.Festival.self)
+        var festival = try snapshot.data(as: Festival.self)
 
         // If your Firestore document ID is the UUID string:
         if let uuid = UUID(uuidString: festivalID) {
@@ -269,7 +271,7 @@ class ExploreViewModel: ObservableObject {
         date1: Date,
         date2: Date,
         verified: Bool
-    ) async -> [DataSet.Festival] {
+    ) async -> [Festival] {
         
         searchIsLoading = true
         
@@ -333,7 +335,7 @@ class ExploreViewModel: ObservableObject {
             searchIsLoading = false
             return festivals
         } catch {
-            print("Algolia search failed:", error)
+            //print("Algolia search failed:", error)
             searchIsLoading = false
             return []
         }
@@ -354,10 +356,10 @@ class ExploreViewModel: ObservableObject {
     }
     
     
-    func convertAlgoliaArtistsToArtists(_ algoliaArtists: [AlgoliaArtist]?) -> [DataSet.Artist] {
+    func convertAlgoliaArtistsToArtists(_ algoliaArtists: [AlgoliaArtist]?) -> [Artist] {
         guard let algoliaArtists = algoliaArtists else { return [] }
         return algoliaArtists.map { aa in
-            DataSet.Artist(
+            Artist(
                 id: aa.id,
                 name: aa.name,
                 genres: aa.genres,
@@ -373,9 +375,9 @@ class ExploreViewModel: ObservableObject {
         }
     }
     
-    func convertAlgoliaFestivalsToFestivals(_ algoliaFestivals: [AlgoliaFestival]) -> [DataSet.Festival] {
+    func convertAlgoliaFestivalsToFestivals(_ algoliaFestivals: [AlgoliaFestival]) -> [Festival] {
         return algoliaFestivals.map { af in
-            DataSet.Festival(
+            Festival(
                 id: UUID(), // or use af.id / af.objectID
                 ownerID: af.ownerID,
                 ownerName: af.ownerName,

@@ -107,7 +107,7 @@ struct GroupSetUpPage: View {
             if newValue == false {
                 navigationPath.removeLast()
             }
-//                print("🔄 pendingFriendRequest updated: \(String(describing: newValue))")
+//                //print("🔄 pendingFriendRequest updated: \(String(describing: newValue))")
         }
     }
     
@@ -115,13 +115,13 @@ struct GroupSetUpPage: View {
         isLoading = true
         data.createGroup(groupName: groupName, groupPhoto: selectedImage) { newGroup in
             if let group = newGroup {
-                print("🎉 Group created successfully!")
+                //print("🎉 Group created successfully!")
                 isLoading = false
                 self.createdGroup = group
                 setupDone = true
             } else {
                 isLoading = false
-                print("❌ Failed to create group.")
+                //print("❌ Failed to create group.")
                 errorAlert = true
             }
         }

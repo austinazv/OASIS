@@ -170,7 +170,7 @@ struct AccountSetUpPage: View {
     
     var NameField: some View {
         HStack {
-            Spacer().frame(width: 26)
+//            Spacer().frame(width: 26)
             TextField("", text: $name)
                 .padding()
                 .autocorrectionDisabled(true)
@@ -195,9 +195,9 @@ struct AccountSetUpPage: View {
                         sendCode()
                     }
                 }
-            Spacer().frame(width: 26)
+//            Spacer().frame(width: 26)
         }
-        
+        .padding(.horizontal, 10)
     }
     
     @State private var rawPhoneNumber = ""
@@ -206,7 +206,7 @@ struct AccountSetUpPage: View {
     
     var PhoneNumberField: some View {
         HStack {
-            Text("+1")
+//            Text("+1")
             TextField("", text: $phoneNumber)
                 .keyboardType(.numbersAndPunctuation)
                 .padding()
@@ -233,8 +233,9 @@ struct AccountSetUpPage: View {
                         sendCode()
                     }
                 }
-            Spacer().frame(width: 26)
+//            Spacer().frame(width: 26)
         }
+        .padding(.horizontal, 10)
     }
     
     private func updatePhoneNumber(_ newValue: String) {
@@ -317,7 +318,7 @@ struct AccountSetUpPage: View {
     
     var CodeTextField: some View {
         HStack {
-            Spacer().frame(width: 26)
+//            Spacer().frame(width: 26)
             TextField("", text: $codeText)
                 .padding()
                 .background(.oasisDarkBlue.opacity(0.2))
@@ -341,8 +342,9 @@ struct AccountSetUpPage: View {
                         verifyCodeAndSaveUserInfo()
                     }
                 }
-            Spacer().frame(width: 26)
+//            Spacer().frame(width: 26)
         }
+        .padding(.horizontal, 10)
     }
     
     var VerifyButton: some View {
@@ -516,7 +518,7 @@ struct AccountSetUpPage: View {
             }
 
             // ✅ Phone linked successfully, `authResult.user.uid` is same as currentUser.uid
-            print("Phone number linked successfully!")
+//            print("Phone number linked successfully!")
 
             // Step 2: Save user info to Firestore
             saveUserInfo(for: currentUser)

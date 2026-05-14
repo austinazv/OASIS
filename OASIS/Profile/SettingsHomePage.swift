@@ -40,31 +40,32 @@ struct SettingsHomePage: View {
                     }
                 }
                 .frame(height: OPTION_HEIGHT)
+                .foregroundStyle(.bwColorSwitch)
             }
             Divider()
                 .frame(height: 1)
                 .background(Color.gray)
 
-            Button(action: { navigationPath.append("Spotify Account") }) {
-                ZStack {
-                    HStack {
-                        Text("Spotify Account")
-                        Image(.spotifyImageBlack)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(height: 20, alignment: .center)
-                    }
-                    HStack {
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .padding(.trailing, 20)
-                    }
-                }
-                .frame(height: OPTION_HEIGHT)
-            }
-            Divider()
-                .frame(height: 1)
-                .background(Color.gray)
+//            Button(action: { navigationPath.append("Spotify Account") }) {
+//                ZStack {
+//                    HStack {
+//                        Text("Spotify Account")
+//                        Image(.spotifyImageBlack)
+//                            .resizable()
+//                            .scaledToFit()
+//                            .frame(height: 20, alignment: .center)
+//                    }
+//                    HStack {
+//                        Spacer()
+//                        Image(systemName: "chevron.right")
+//                            .padding(.trailing, 20)
+//                    }
+//                }
+//                .frame(height: OPTION_HEIGHT)
+//            }
+//            Divider()
+//                .frame(height: 1)
+//                .background(Color.gray)
 
             Button(action: { navigationPath.append("About Page") }) {
                 ZStack {
@@ -80,6 +81,7 @@ struct SettingsHomePage: View {
                     }
                 }
                 .frame(height: OPTION_HEIGHT)
+                .foregroundStyle(.bwColorSwitch)
             }
             
             Divider()
@@ -122,7 +124,7 @@ struct SettingsHomePage: View {
                   primaryButton: .cancel(),
                   secondaryButton: .destructive(Text("Log Out")) {
                 firestore.signOutUser() { completion in
-                    print("Done")
+                    //print("Done")
                 }
             }
             )
@@ -149,17 +151,17 @@ struct SettingsHomePage: View {
 //                  message: Text("This cannot be undone."),
                   primaryButton: .destructive(Text("Log Out")) {
                 firestore.signOutUser() { completion in
-                    print("Logged Out")
+                    //print("Logged Out")
                 }
 //                data.signOutUser { result in
 //                    switch result {
 //                    case .success:
-//                        print("User signed out successfully")
+//                        //print("User signed out successfully")
 ////                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
 ////                            }
 //                        navigationPath = NavigationPath()
 //                    case .failure(let error):
-//                        print("Error signing out: \(error.localizedDescription)")
+//                        //print("Error signing out: \(error.localizedDescription)")
 //                    }
 //                }
             }, secondaryButton: .cancel()

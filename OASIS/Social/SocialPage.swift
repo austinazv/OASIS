@@ -199,7 +199,7 @@ struct SocialPage: View {
 //                isLoadingFriends = false
 //                
 //            } catch {
-//                print("Error:", error)
+//                //print("Error:", error)
 //                isLoadingFriends = false
 //            }
 //        }
@@ -213,7 +213,7 @@ struct SocialPage: View {
 //                isLoadingGroups = false
 //                
 //            } catch {
-//                print("Error:", error)
+//                //print("Error:", error)
 //                isLoadingGroups = false
 //            }
 //        }
@@ -232,10 +232,13 @@ struct SocialPage: View {
             NavigationStack(path: $navigationPath) {
                 ScrollView {
                     VStack(spacing: 20) {
-                        Text("Connect on OASIS")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .padding(5)
+                        HStack {
+                            Text("Connect on")
+                                .font(.title)
+                                .fontWeight(.bold)
+                                OASISTitle(fontSize: 28, kerning: 4)
+                        }
+                        .padding(5)
                         ShareLink(item: social.getInviteLink()) {
                             HStack {
                                 Image(systemName: "square.and.arrow.up")
@@ -289,7 +292,7 @@ struct SocialPage: View {
                 .onAppear {
                     Task {
                         await contactsManager.loadFriendsFromContacts()
-//                        print(contactsManager.matchedFriends)
+//                        //print(contactsManager.matchedFriends)
                     }
                 }
             }
@@ -390,7 +393,7 @@ struct SocialPage: View {
 //            followersNotFollowing = try await social.fetchUsers(from: firestore.myUserProfile.safeFollowers.filter { !firestore.myUserProfile.safeFollowing.contains($0)
 //            })
 //        } catch {
-//            print("Error:", error)
+//            //print("Error:", error)
 //        }
     }
     
@@ -594,7 +597,7 @@ struct SocialPage: View {
             if newValue == false {
                 navigationPath.removeLast()
             }
-            //                print("🔄 pendingFriendRequest updated: \(String(describing: newValue))")
+            //                //print("🔄 pendingFriendRequest updated: \(String(describing: newValue))")
         }
         .onAppear() {
             groupName = ""
@@ -629,14 +632,14 @@ struct SocialPage: View {
                     photo: photoURL
                 )
 
-                firestore.myUserProfile.groups?.append(newGroup.id!)
+                firestore.myUserProfile.groups = (firestore.myUserProfile.groups ?? []) + [newGroup.id!]
                 firestore.mySocialGroups.append(newGroup)
 
                 navigationPath.append(newGroup)
                 showGroupSheet = false
 
             } catch {
-                print("❌ Failed to create group:", error)
+                //print("❌ Failed to create group:", error)
                 errorAlert = true
             }
 
@@ -655,9 +658,9 @@ struct SocialPage: View {
 //                firestore.myUserProfile.groups?.append(newGroup.id!)
 //                firestore.mySocialGroups.append(newGroup)
 //                navigationPath.append(newGroup)
-//                print("Created group:", newGroup.id!)
+//                //print("Created group:", newGroup.id!)
 //            } catch {
-//                print("Failed to create group:", error)
+//                //print("Failed to create group:", error)
 //            }
 //        }
         
@@ -679,7 +682,7 @@ struct SocialPage: View {
 //    }
     
     func placeholder() {
-        print("TODO")
+        //print("TODO")
     }
     
     
@@ -806,42 +809,39 @@ struct SocialImage: View {
     let imageURL: String?
     let name: String
     let frame: CGFloat
-    
+
+    @StateObject private var loader: ImageLoader
+
+    init(imageURL: String?, name: String, frame: CGFloat) {
+        self.imageURL = imageURL
+        self.name = name
+        self.frame = frame
+        _loader = StateObject(wrappedValue: ImageLoader(urlString: imageURL))
+    }
+
     var fallback: some View {
         BlankProfileImage(name: name, frame: frame)
     }
-    
+
     var body: some View {
-        let safeURL = imageURL
-        
-        return Group {
-            if let safeURL, let url = URL(string: safeURL) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: frame, height: frame)
-                            .clipShape(Circle())
-                    default:
-                        fallback
-                    }
-                }
+        Group {
+            if let image = loader.image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
             } else {
                 fallback
             }
         }
+        .frame(width: frame, height: frame)
+        .clipShape(Circle())
         .overlay(
-            Circle()
-                .stroke(.black, lineWidth: 1)
-                .frame(width: frame, height: frame)
+            Circle().stroke(.black, lineWidth: 1)
         )
         .onAppear {
-            print("\(name)'s imageURL: \(imageURL ?? "nil")")
+            loader.load()
         }
     }
-
 }
 
 
@@ -881,6 +881,43 @@ struct BlankProfileImage: View {
         return Color(hue: hue, saturation: saturation, brightness: brightness)
     }
 }
+
+class ImageLoader: ObservableObject {
+    @Published var image: UIImage?
+
+    private let urlString: String?
+
+    init(urlString: String?) {
+        self.urlString = urlString
+    }
+
+    func load() {
+        guard let urlString,
+              let url = URL(string: urlString) else { return }
+
+        // ✅ 1. Check cache FIRST
+        if let cached = ImageCache.shared.getCachedImage(for: urlString) {
+            self.image = cached
+            return
+        }
+
+        // ✅ 2. Download if needed
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            guard let data else { return }
+
+            DispatchQueue.main.async {
+                ImageCache.shared.cacheImage(data, for: urlString)
+                self.image = UIImage(data: data)
+            }
+        }.resume()
+    }
+}
+
+//final class ImageCache {
+//    static let shared = NSCache<NSString, UIImage>()
+//}
+
+
 
 
 struct ProfilesListed: View {
@@ -950,10 +987,10 @@ struct ProfilesListed: View {
         .border(Color.gray, width: 2)
         .padding(.horizontal, 10)
 //        .onAppear() {
-//            print("On Appear: \(profiles)")
+//            //print("On Appear: \(profiles)")
 //        }
 //        .onChange(of: profiles) { newList in
-//            print("NOW SHOWING: \(newList)")
+//            //print("NOW SHOWING: \(newList)")
 //        }
     }
     
@@ -961,7 +998,7 @@ struct ProfilesListed: View {
         profiles.sorted { a, b in
             if a.id == topUser { return true }
             if b.id == topUser { return false }
-            return a.name < b.name
+            return a.name.lowercased() < b.name.lowercased()
         }
     }
     
@@ -981,7 +1018,7 @@ struct FollowButtonShort: View {
                     Button {
                         firestore.followUser(profileID) { success in
                             
-                            print("Follow is a \(success)")
+                            //print("Follow is a \(success)")
                         }
                     } label: {
                         Group {
@@ -1020,14 +1057,61 @@ struct ProfileButton: View {
     @Binding var profile: UserProfile
     
     var body: some View {
-        if let profileID = profile.id, profileID != firestore.getUserID() {
+        if let profileID = profile.id/*, profileID != firestore.getUserID() */{
             button(for: profileID)
         }
     }
     
     @ViewBuilder
     private func button(for profileID: String) -> some View {
-        if firestore.myUserProfile.safeFollowing.contains(profileID) {
+        if profileID == firestore.getUserID() {
+            ShareLink(item: social.getInviteLink()) {
+                HStack {
+                    Image(systemName: "square.and.arrow.up")
+                    Text("Share Profile")
+                }
+                .padding(0)
+                .frame(width: 155, height: 35)
+                .background(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(.blue)
+                )
+                .shadow(radius: 5)
+                .foregroundStyle(.white)
+//                .background(.blue)
+//                .foregroundStyle(.white)
+//                .cornerRadius(10)
+//                .shadow(radius: 5)
+                //                    .padding(10)
+                
+//                Button(action: action) {
+//                    Group {
+//                        if isLoading {
+//                            ProgressView()
+//                                .tint(.white)
+//                        } else {
+//                            HStack(spacing: 6) {
+//                                Text(text)
+//                                    .foregroundStyle(color == .gray ? .black : .white)
+//                                if let symbol {
+//                                    Image(systemName: symbol)
+//                                }
+//                            }
+//                        }
+//                    }
+//                    .foregroundStyle(.white)
+//                    .frame(width: 135, height: 35)
+//                    .background(
+//                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+//                            .fill(color)
+//                    )
+//                    .shadow(radius: shadow)
+//                }
+//                .buttonStyle(.plain)
+//                
+//                .disabled(isLoading || color == .gray)
+            }
+        } else if firestore.myUserProfile.safeFollowing.contains(profileID) {
             FollowButtonLong(
                 profileID: profileID,
                 text: "Following",
@@ -1258,6 +1342,7 @@ struct GroupMemberPhotos: View {
                     Text("+\(members.count - 2)")
                         .font(.subheadline)
                 }
+               
             } else {
                 ForEach(Array(membersSorted.enumerated()), id: \.element.id) { index, profile in
 //                    let offset = CGFloat((members.count - (index + 1)) * 15.0)
@@ -1288,7 +1373,116 @@ struct GroupMemberPhotos: View {
 //                    isLoading = false
 //    //
 //                } catch {
-//                    print("Error:", error)
+//                    //print("Error:", error)
+//                    isLoading = false
+//                }
+//            }
+//        }
+    }
+}
+
+//RoundedRectangle(cornerRadius: 30, style: .continuous)
+//    .fill(Color.white)
+//    .overlay(
+//        RoundedRectangle(cornerRadius: 30, style: .continuous)
+//            .stroke(Color.black, lineWidth: 1)
+//    )
+//ScrollView(.horizontal) {
+//    LazyHStack {
+//        HStack {
+//            
+//        }
+//    }
+//}
+
+struct FullGroupMemberPhotos: View {
+    @EnvironmentObject var firestore: FirestoreViewModel
+    
+    @State var isLoading = false
+    
+    var memberIDs: Array<String>
+    @State var members: Array<UserProfile> = []
+    
+    var photoWidth: CGFloat = 42
+    let OFFSET_WIDTH = -20
+    
+    var body: some View {
+        ZStack {
+            let membersSorted = members.sorted(by: { $0.name < $1.name })
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(Color.white)
+                .shadow(radius: 3)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .stroke(Color.black, lineWidth: 1)
+                    )
+            
+            ScrollView(.horizontal) {
+                LazyHStack {
+                    HStack {
+                        ForEach(Array(membersSorted.enumerated()), id: \.element.id) { index, profile in
+                            NavigationLink(value: profile) {
+                                SocialImage(imageURL: profile.profilePic, name: profile.name, frame: photoWidth)
+                            }
+                        }
+                        
+                    }
+//                    .padding(.horizontal, 10)
+                }
+            }
+            .padding(.horizontal, 5)
+            .clipShape(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .inset(by: 5)
+            )
+            
+            
+//            if members.count > 3 {
+//                Group {
+//                    SocialImage(imageURL: membersSorted[0].profilePic, name: membersSorted[0].name, frame: photoWidth)
+//                        .offset(x: CGFloat(OFFSET_WIDTH*2))
+//                    SocialImage(imageURL: membersSorted[1].profilePic, name: membersSorted[1].name, frame: photoWidth)
+//                        .offset(x: CGFloat(OFFSET_WIDTH))
+//                    Circle()
+//                        .fill(Color.white)
+//                        .frame(width: photoWidth, height: photoWidth)
+//                        .overlay(
+//                            Circle().stroke(Color.black, lineWidth: 1)
+//                        )
+//                    Text("+\(members.count - 2)")
+//                        .font(.subheadline)
+//                }
+//            } else {
+//                ForEach(Array(membersSorted.enumerated()), id: \.element.id) { index, profile in
+////                    let offset = CGFloat((members.count - (index + 1)) * 15.0)
+//                    SocialImage(imageURL: profile.profilePic, name: profile.name, frame: photoWidth)
+////                        .offset(x: CGFloat(index * 15))
+//                        .offset(x: CGFloat((members.count - (index + 1)) * OFFSET_WIDTH))
+//                        .zIndex(Double(index))
+////
+//                }
+//            }
+//            .offset(x: -5)
+        }
+        .task {
+            isLoading = true
+            defer { isLoading = false }
+
+            members = await firestore.users(from: memberIDs)
+        }
+//        .onAppear() {
+            
+//            isLoading = true
+//
+//            Task {
+//                do {
+//                    if !memberIDs.isEmpty {
+//                        members = try await social.fetchUsers(from: memberIDs)
+//                    }
+//                    isLoading = false
+//    //
+//                } catch {
+//                    //print("Error:", error)
 //                    isLoading = false
 //                }
 //            }
@@ -1365,7 +1559,7 @@ struct GroupMemberPhotos: View {
 //            .onAppear {
 //                Task {
 //                    await contactsManager.loadFriendsFromContacts()
-//                    print(contactsManager.matchedFriends)
+//                    //print(contactsManager.matchedFriends)
 //                }
 //            }
 //        }
@@ -1439,7 +1633,7 @@ class ContactsManager: ObservableObject {
         // 4️⃣ Cached matched friend IDs (do NOT fetch yet)
             if let cachedIDs = UserDefaults.standard.stringArray(forKey: cachedMatchedIDsKey),
                !cachedIDs.isEmpty {
-//                print("📦 Found \(cachedIDs.count) cached matched friend IDs")
+//                //print("📦 Found \(cachedIDs.count) cached matched friend IDs")
             }
     }
 
@@ -1474,7 +1668,7 @@ class ContactsManager: ObservableObject {
         // Hash and cache
         hashedContacts = Array(Set(numbers.map(hashPhoneNumber)))
         UserDefaults.standard.set(hashedContacts, forKey: hashCacheKey)
-        print("📥 Contacts loaded: \(contacts.count), hashed: \(hashedContacts.count)")
+        //print("📥 Contacts loaded: \(contacts.count), hashed: \(hashedContacts.count)")
     }
 
     // MARK: - Upload Once
@@ -1514,7 +1708,7 @@ class ContactsManager: ObservableObject {
                         }
                     }
                 } catch {
-                    print("❌ Contact fetch failed:", error)
+                    //print("❌ Contact fetch failed:", error)
                 }
 
                 continuation.resume(returning: results)
@@ -1558,9 +1752,9 @@ class ContactsManager: ObservableObject {
 
         do {
             try await doc.setData(["contacts": hashes], merge: true)
-            print("✅ Uploaded \(hashes.count) contacts")
+            //print("✅ Uploaded \(hashes.count) contacts")
         } catch {
-            print("❌ Upload failed:", error)
+            //print("❌ Upload failed:", error)
         }
     }
     
@@ -1585,7 +1779,7 @@ class ContactsManager: ObservableObject {
                     }
                 }
             } catch {
-                print("❌ Error fetching friends:", error)
+                //print("❌ Error fetching friends:", error)
             }
         }
 
@@ -1594,7 +1788,7 @@ class ContactsManager: ObservableObject {
 
     func loadFriendsFromContacts(forceRefresh: Bool = false) async {
         guard permissionGranted else {
-            print("⚠️ Contacts permission not granted")
+            //print("⚠️ Contacts permission not granted")
             return
         }
 
@@ -1602,7 +1796,7 @@ class ContactsManager: ObservableObject {
 
         // 1️⃣ Restore from cache if allowed
         if !forceRefresh, !cachedIDs.isEmpty {
-            print("📦 Using cached matched friend IDs")
+            //print("📦 Using cached matched friend IDs")
             await restoreCachedFriends(from: cachedIDs)
             return
         }
@@ -1611,7 +1805,7 @@ class ContactsManager: ObservableObject {
 
         // 2️⃣ Ensure hashes exist
         if hashedContacts.isEmpty {
-            print("📥 No hashes — fetching contacts")
+            //print("📥 No hashes — fetching contacts")
 
             let numbers = await fetchContacts()
             contacts = numbers
@@ -1636,7 +1830,7 @@ class ContactsManager: ObservableObject {
         saveMatchedFriendIDs(filtered.compactMap(\.id))
 
         isLoadingContacts = false
-        print("🎉 Found \(filtered.count) friends")
+        //print("🎉 Found \(filtered.count) friends")
     }
 
 
@@ -1653,7 +1847,7 @@ class ContactsManager: ObservableObject {
         guard !ids.isEmpty else { return }
 
         isLoadingContacts = true
-        print("📦 Restoring \(ids.count) cached friends")
+        //print("📦 Restoring \(ids.count) cached friends")
 
         var users: [UserProfile] = []
 

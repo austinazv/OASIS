@@ -156,7 +156,7 @@ struct MyProfilePage: View {
                     data.signOutUser { result in
                         switch result {
                         case .success:
-                            print("User signed out successfully")
+                            //print("User signed out successfully")
 //                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
 //                            }
                             navigationPath = NavigationPath()

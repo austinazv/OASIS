@@ -9,14 +9,14 @@ import Foundation
 import Combine
 
 class NewEventPageViewModel: ObservableObject {
-    @Published var newFestival: DataSet.Festival
+    @Published var newFestival: Festival
     
     
 
     private var cancellables = Set<AnyCancellable>()
     private var saveWorkItem: DispatchWorkItem?
 
-    init(festival: DataSet.Festival) {
+    init(festival: Festival) {
         self.newFestival = festival
 //        $newFestival
 //            .sink { [weak self] _ in

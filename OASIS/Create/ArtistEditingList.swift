@@ -11,17 +11,18 @@ struct ArtistEditingList: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var festivalVM: FestivalViewModel
     
-    @Binding var newFestival: DataSet.Festival
+    @Binding var navigationPath: NavigationPath
     
+    @Binding var newFestival: Festival
     
-    @State var artistDict: [String : Array<DataSet.Artist>] = [:]
+    @State var artistDict: [String : Array<Artist>] = [:]
     @State var viewSubsection = Array<Bool>()
     @State var reverse = false
     
     @State var sortType: DataSet.sortType = .addDate
     
     @State var showArtistSearchPage = false
-    @State private var selectedArtist: DataSet.Artist? = nil
+    @State private var selectedArtist: Artist? = nil
 //    @State private var
     
     @State private var searchText = ""
@@ -30,42 +31,50 @@ struct ArtistEditingList: View {
     var body: some View {
         List {
 //            ScrollView {
-            if searchText.isEmpty {
-                ForEach(Array(data.getDictKeysSorted(currDict: artistDict, sort: sortType).enumerated()), id: \.element) { i, section in
-                    if let artistArray = artistDict[section] {
-                        if !artistArray.isEmpty /*&& (sortType != .genre || artistArray.count > 1)*/  {
-                            if sortType != .alpha {
-                                Group {
-                                    if sortType == .addDate || sortType == .modifyDate {
-                                        HStack {
-                                            Text(reverse ? "Most Recent Last" : "Most Recent First")
-                                            Image(systemName: "arrow.up.arrow.down")
-                                            Spacer()
+            if newFestival.artistList.isEmpty {
+                HStack {
+                    Spacer()
+                    Text("Artist List is empty.")
+                    Spacer()
+                }
+            } else {
+                if searchText.isEmpty {
+                    ForEach(Array(data.getDictKeysSorted(currDict: artistDict, sort: sortType).enumerated()), id: \.element) { i, section in
+                        if let artistArray = artistDict[section] {
+                            if !artistArray.isEmpty /*&& (sortType != .genre || artistArray.count > 1)*/  {
+                                if sortType != .alpha {
+                                    Group {
+                                        if sortType == .addDate || sortType == .modifyDate {
+                                            HStack {
+                                                if sortType == .addDate { Text(reverse ? "Recently Added Last" : "Recently Added First") }
+                                                else { Text(reverse ? "Recently Edited Last" : "Recently Edited First") }
+                                                Image(systemName: "arrow.up.arrow.down")
+                                                Spacer()
+                                            }
+                                            .onTapGesture(perform: {
+                                                reverse.toggle()
+                                                artistDict = festivalVM.reverseArtistDict(currDict: artistDict)
+                                            })
+                                        } else {
+                                            HStack {
+                                                Text(section)
+                                                Image(systemName: viewSubsection[i] ? "chevron.up" : "chevron.down")
+                                                Spacer()
+                                            }
+                                            .onTapGesture(perform: {
+                                                viewSubsection[i] = !viewSubsection[i]
+                                            })
                                         }
-                                        .onTapGesture(perform: {
-                                            reverse.toggle()
-                                            artistDict = festivalVM.reverseArtistDict(currDict: artistDict)
-                                        })
-                                    } else {
-                                        HStack {
-                                            Text(section)
-                                            Image(systemName: viewSubsection[i] ? "chevron.up" : "chevron.down")
-                                            Spacer()
-                                        }
-                                        .onTapGesture(perform: {
-                                            viewSubsection[i] = !viewSubsection[i]
-                                        })
                                     }
+                                    //                                .padding(.horizontal, 20)
+                                    .padding(.bottom, 3)
+                                    .padding(.top, 0)
+                                    .font(.headline)
+                                    .listRowBackground(Color("Same As Background"))
+                                    
+                                    //                                .listRowBackground(Color)
                                 }
-//                                .padding(.horizontal, 20)
-                                .padding(.bottom, 3)
-                                .padding(.top, 0)
-                                .font(.headline)
-                                .listRowBackground(Color("Same As Background"))
-                                
-//                                .listRowBackground(Color)
-                            }
-                            if viewSubsection[i] {
+                                if viewSubsection[i] {
                                     ForEach(artistArray, id: \.self) { artist in
                                         HStack {
                                             ArtistImage(imageURL: artist.imageURL, frame: 40)
@@ -80,19 +89,24 @@ struct ArtistEditingList: View {
                                             selectedArtist = artist
                                         }
                                     }
-                                    .onDelete(perform: delete)
-//                                }
+                                    .onDelete { offsets in
+                                        delete(at: offsets, in: section)
+                                    }
+                                    //                                }
+                                }
                             }
                         }
                     }
+                } else {
+                    SearchResults
                 }
-            } else {
-                SearchResults
             }
         }
         .onAppear() {
+
             artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+//            print(navigationPath)
         }
         .sheet(isPresented: $showArtistSearchPage) {
             if let artist = selectedArtist {
@@ -115,19 +129,51 @@ struct ArtistEditingList: View {
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
             reverse = false
         }
-        .navigationBarItems(trailing: HStack {
-            SortMenu(sortType: $sortType, currList: newFestival.artistList, secondWeekend: newFestival.secondWeekend, editing: true)
-        })
+        .toolbar {
+            if !newFestival.artistList.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    SortMenu(sortType: $sortType, currList: newFestival.artistList, secondWeekend: newFestival.secondWeekend, editing: true)
+                }
+            }
+        }
+//        .toolba
+//        .onChange(of: newFestival.artistList) { newList in
+//            print("CHANGING")
+//            if newList.isEmpty { navigationPath.removeLast() }
+//        }
+//        .navigationBarItems(trailing:
+//                                HStack {
+//            SortMenu(sortType: $sortType, currList: newFestival.artistList, secondWeekend: newFestival.secondWeekend, editing: true)
+//        })
         .navigationTitle("\(newFestival.name) Artist List")
-        .searchable(text: $searchText)
+//        .searchable(text: $searchText)
+        .if(!newFestival.artistList.isEmpty) {
+            $0.searchable(text: $searchText)
+        }
     }
     
-    func delete(at offsets: IndexSet) {
+    func deleteSearch(at offsets: IndexSet) {
         for index in offsets {
-            let artistID = artistDict["All Artists"]![index].id
+            let searchList = searchArtists()
+            let artistID = searchList[index].id
             newFestival.artistList.removeAll { $0.id == artistID }
         }
         artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend)
+    }
+    
+    func delete(at offsets: IndexSet, in section: String) {
+        guard let artists = artistDict[section] else { return }
+
+        for index in offsets {
+            let artistID = artists[index].id
+            newFestival.artistList.removeAll { $0.id == artistID }
+        }
+
+        artistDict = festivalVM.getArtistDict(
+            currList: newFestival.artistList,
+            sort: sortType,
+            secondWeekend: newFestival.secondWeekend
+        )
     }
     
     var SearchResults: some View {
@@ -151,7 +197,10 @@ struct ArtistEditingList: View {
                                 selectedArtist = artist
                             }
                         }
-                        .onDelete(perform: delete)
+                        .onDelete(perform: deleteSearch)
+//                        .onDelete { offsets in
+//                            delete(at: offsets)
+//                        }
 //                    }
                 } else {
                     Text("No Results")
@@ -162,8 +211,8 @@ struct ArtistEditingList: View {
     }
     
     
-    func searchArtists() -> Array<DataSet.Artist> {
-        var artistSearchList = Array<DataSet.Artist>()
+    func searchArtists() -> Array<Artist> {
+        var artistSearchList = Array<Artist>()
         for a in newFestival.artistList {
             if a.name.lowercased().starts(with: searchText.lowercased()) || a.name.lowercased().contains(String(" " + searchText.lowercased())) {
                 artistSearchList.append(a)

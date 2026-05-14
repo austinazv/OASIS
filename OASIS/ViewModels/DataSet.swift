@@ -33,6 +33,8 @@ class DataSet: ObservableObject {
     
     let NA_TITLE_BLOCK = "-- N/A --"
     
+
+    
 //    var favoritesList: Array<Array<artist>> = Array(repeating: Array<artist>(), count: 2) {
 //        didSet {
 //            UserDefaults.standard.set(dislikeData, forKey: String(self.saveName + "dislikes"))
@@ -87,9 +89,9 @@ class DataSet: ObservableObject {
             "favorites": favorites
         ]) { error in
             if let error = error {
-                print("Error updating likes: \(error.localizedDescription)")
+                //print("Error updating likes: \(error.localizedDescription)")
             } else {
-                print("Likes updated successfully")
+                //print("Likes updated successfully")
             }
         }
     }
@@ -312,6 +314,10 @@ class DataSet: ObservableObject {
             if d1.weekendIndex != d2.weekendIndex {
                 return d1.weekendIndex < d2.weekendIndex
             }
+//            if d1.dayIndex == d2.dayIndex {
+//                return
+//            }
+            
             return d1.dayIndex < d2.dayIndex
         }
     }
@@ -1003,7 +1009,7 @@ class DataSet: ObservableObject {
             
             return UIImage(data: data)
         } catch {
-            print("Error loading image for \(artistID): \(error)")
+            //print("Error loading image for \(artistID): \(error)")
             return nil
         }
     }
@@ -1031,7 +1037,7 @@ class DataSet: ObservableObject {
         return fileURL
     }
     
-    func saveFestival(_ festival: DataSet.Festival) {
+    func saveFestival(_ festival: Festival) {
         do {
             let encoder = JSONEncoder()
             let data = try encoder.encode(festival)
@@ -1039,32 +1045,32 @@ class DataSet: ObservableObject {
 
             UserDefaults.standard.set(data, forKey: key)
             
-            print("Festival saved with key:", key)
+            //print("Festival saved with key:", key)
         } catch {
-            print("Failed to save festival:", error)
+            //print("Failed to save festival:", error)
         }
     }
     
-    func loadFestival(id: UUID) -> DataSet.Festival? {
+    func loadFestival(id: UUID) -> Festival? {
         let key = String(saveName + id.uuidString)
         
         guard let data = UserDefaults.standard.data(forKey: key) else {
-            print("No festival found for key:", key)
+            //print("No festival found for key:", key)
             return nil
         }
         
         do {
             let decoder = JSONDecoder()
-            let festival = try decoder.decode(DataSet.Festival.self, from: data)
+            let festival = try decoder.decode(Festival.self, from: data)
             return festival
         } catch {
-            print("Failed to decode festival:", error)
+            //print("Failed to decode festival:", error)
             return nil
         }
     }
     
-    func getFestivals(ids: Array<UUID>) -> Array<DataSet.Festival> {
-        var festivalList = Array<DataSet.Festival>()
+    func getFestivals(ids: Array<UUID>) -> Array<Festival> {
+        var festivalList = Array<Festival>()
         for id in ids {
             if let festival = loadFestival(id: id) {
                 festivalList.append(festival)
@@ -1122,7 +1128,7 @@ class DataSet: ObservableObject {
                     }
                 }
             } else {
-                print("❌ Error fetching user profile: \(error?.localizedDescription ?? "Unknown error")")
+                //print("❌ Error fetching user profile: \(error?.localizedDescription ?? "Unknown error")")
                 DispatchQueue.main.async { completion(false) } // ❌ Failure
             }
         }
@@ -1131,7 +1137,7 @@ class DataSet: ObservableObject {
 
     func checkIfUserHasName(completion: @escaping (Bool) -> Void) {
         guard let userID = Auth.auth().currentUser?.uid else {
-            print("No authenticated user.")
+            //print("No authenticated user.")
             completion(false)
             return
         }
@@ -1141,7 +1147,7 @@ class DataSet: ObservableObject {
 
         docRef.getDocument { document, error in
             if let error = error {
-                print("Error fetching document: \(error)")
+                //print("Error fetching document: \(error)")
                 completion(false)
                 return
             }
@@ -1154,7 +1160,7 @@ class DataSet: ObservableObject {
                     completion(false)
                 }
             } else {
-                print("Document does not exist.")
+                //print("Document does not exist.")
                 completion(false)
             }
         }
@@ -1165,23 +1171,23 @@ class DataSet: ObservableObject {
     func downloadAndSaveImage(url: URL, completion: @escaping (String?) -> Void) {
         URLSession.shared.dataTask(with: url) { data, _, error in
             if let error = error {
-                print("❌ Failed to download image: \(error.localizedDescription)")
+                //print("❌ Failed to download image: \(error.localizedDescription)")
                 completion(nil) // Ensure completion is always called
                 return
             }
             
             guard let data = data else {
-                print("❌ Downloaded data is nil")
+                //print("❌ Downloaded data is nil")
                 completion(nil)
                 return
             }
             
             // Get a local file path to save the image
             if let localPath = self.saveImageToDisk(data: data, filename: url.lastPathComponent) {
-                print("✅ Image successfully saved at: \(localPath)")
+                //print("✅ Image successfully saved at: \(localPath)")
                 completion(localPath)
             } else {
-                print("❌ Failed to save image to disk")
+                //print("❌ Failed to save image to disk")
                 completion(nil)
                 return
             }
@@ -1199,10 +1205,10 @@ class DataSet: ObservableObject {
         
         do {
             try data.write(to: fileURL)
-            print("✅ Image saved at: \(fileURL.path)")
+            //print("✅ Image saved at: \(fileURL.path)")
             return fileURL.path
         } catch {
-            print("❌ Failed to save image: \(error.localizedDescription)")
+            //print("❌ Failed to save image: \(error.localizedDescription)")
             return nil
         }
     }
@@ -1234,7 +1240,7 @@ class DataSet: ObservableObject {
         group.enter()
         myRef.updateData(["friends": FieldValue.arrayUnion([friendID])]) { error in
             if let error = error {
-                print("Error updating current user's friends: \(error)")
+                //print("Error updating current user's friends: \(error)")
                 success = false
             }
             group.leave()
@@ -1243,7 +1249,7 @@ class DataSet: ObservableObject {
         group.enter()
         senderRef.updateData(["friends": FieldValue.arrayUnion([currentUserID])]) { error in
             if let error = error {
-                print("Error updating sender's friends: \(error)")
+                //print("Error updating sender's friends: \(error)")
                 success = false
             }
             group.leave()
@@ -1261,13 +1267,13 @@ class DataSet: ObservableObject {
     //
     //        userRef.getDocument { document, error in
     //            if let error = error {
-    //                print("Error fetching user profile: \(error.localizedDescription)")
+    //                //print("Error fetching user profile: \(error.localizedDescription)")
     //                completion(nil)
     //                return
     //            }
     //
     //            guard let document = document, document.exists, let data = document.data() else {
-    //                print("User not found")
+    //                //print("User not found")
     //                completion(nil)
     //                return
     //            }
@@ -1292,7 +1298,7 @@ class DataSet: ObservableObject {
                let friendUIDs = document.data()?["friends"] as? [String], !friendUIDs.isEmpty {
                 self.fetchFriendDetails(friendUIDs, completion: completion)
             } else {
-                print("Error fetching friends list: \(error?.localizedDescription ?? "Unknown error")")
+                //print("Error fetching friends list: \(error?.localizedDescription ?? "Unknown error")")
                 completion([]) // Return an empty array if no friends found
             }
         }
@@ -1307,7 +1313,7 @@ class DataSet: ObservableObject {
             group.enter()
             db.collection("users").document(uid).getDocument { document, error in
                 guard let document = document, document.exists else {
-                    print("❌ Error fetching details for \(uid): \(error?.localizedDescription ?? "Unknown error")")
+                    //print("❌ Error fetching details for \(uid): \(error?.localizedDescription ?? "Unknown error")")
                     DispatchQueue.main.async { group.leave() } // ✅ Ensure `group.leave()` is always called
                     return
                 }
@@ -1322,7 +1328,7 @@ class DataSet: ObservableObject {
                     DispatchQueue.main.async {
                         // ✅ Use the local file if it exists
                         loadedFriends.append(FriendProfileOLD(id: uid, name: name, profilePic: localPath, favorites: favorites))
-                        print("✅ Using local file for \(uid): \(localPath)")
+                        //print("✅ Using local file for \(uid): \(localPath)")
                         group.leave()
                     }
                 } else {
@@ -1332,13 +1338,13 @@ class DataSet: ObservableObject {
                             DispatchQueue.main.async {
                                 let finalPath = savedPath ?? profilePicURL // Fallback to Firebase URL if saving fails
                                 loadedFriends.append(FriendProfileOLD(id: uid, name: name, profilePic: finalPath, favorites: favorites))
-                                print("✅ Downloaded and saved image for \(uid): \(finalPath)")
+                                //print("✅ Downloaded and saved image for \(uid): \(finalPath)")
                                 group.leave()
                             }
                         }
                     } else {
                         DispatchQueue.main.async {
-                            print("❌ Invalid URL for \(uid), using nil")
+                            //print("❌ Invalid URL for \(uid), using nil")
                             loadedFriends.append(FriendProfileOLD(id: uid, name: name, profilePic: nil, favorites: favorites))
                             group.leave()
                         }
@@ -1348,7 +1354,7 @@ class DataSet: ObservableObject {
         }
         
         group.notify(queue: .main) {
-            print("✅ All friend details fetched, returning data.")
+            //print("✅ All friend details fetched, returning data.")
             completion(loadedFriends) // Return the array of friends
         }
     }
@@ -1362,7 +1368,7 @@ class DataSet: ObservableObject {
                let groupIDs = document.data()?["groups"] as? [String], !groupIDs.isEmpty {
                 self.fetchGroupDetails(groupIDs, friendsList: friendsList, completion: completion)
             } else {
-                print("⚠️ No groups found for user \(userID) or error: \(error?.localizedDescription ?? "Unknown error")")
+                //print("⚠️ No groups found for user \(userID) or error: \(error?.localizedDescription ?? "Unknown error")")
                 completion([]) // Return an empty array if no groups are found
             }
         }
@@ -1377,7 +1383,7 @@ class DataSet: ObservableObject {
             group.enter()
             db.collection("groups").document(groupID).getDocument { document, error in
                 guard let document = document, document.exists else {
-                    print("❌ Error fetching details for group \(groupID): \(error?.localizedDescription ?? "Unknown error")")
+                    //print("❌ Error fetching details for group \(groupID): \(error?.localizedDescription ?? "Unknown error")")
                     group.leave()
                     return
                 }
@@ -1407,7 +1413,7 @@ class DataSet: ObservableObject {
                         DispatchQueue.main.async {
                             // ✅ Use the local file if it exists
                             loadedGroups.append(SocialGroup(id: groupID, name: groupName, photo: localPath, members: membersList, favoritesDict: groupFavorites, inviteLink: inviteLink))
-                            print("✅ Using local file for \(groupID): \(localPath)")
+                            //print("✅ Using local file for \(groupID): \(localPath)")
                             group.leave()
                         }
                     } else {
@@ -1417,13 +1423,13 @@ class DataSet: ObservableObject {
                                 DispatchQueue.main.async {
                                     let finalPath = savedPath ?? groupPhotoURL // Fallback to Firebase URL if saving fails
                                     loadedGroups.append(SocialGroup(id: groupID, name: groupName, photo: finalPath, members: membersList, favoritesDict: groupFavorites, inviteLink: inviteLink))
-                                    print("✅ Downloaded and saved image for \(groupID): \(finalPath)")
+                                    //print("✅ Downloaded and saved image for \(groupID): \(finalPath)")
                                     group.leave()
                                 }
                             }
                         } else {
                             DispatchQueue.main.async {
-                                print("❌ Invalid URL for \(groupID), using nil")
+                                //print("❌ Invalid URL for \(groupID), using nil")
                                 loadedGroups.append(SocialGroup(id: groupID, name: groupName, photo: nil, members: membersList, favoritesDict: groupFavorites, inviteLink: inviteLink))
                                 group.leave()
                             }
@@ -1434,7 +1440,7 @@ class DataSet: ObservableObject {
         }
 
         group.notify(queue: .main) {
-            print("✅ All group details fetched, returning data.")
+            //print("✅ All group details fetched, returning data.")
             completion(loadedGroups)
         }
     }
@@ -1504,7 +1510,7 @@ class DataSet: ObservableObject {
         // Upload image to Firebase Storage and get the URL
         uploadImageToFirebase(image: image) { url in
             guard let imageURL = url else {
-                print("❌ Failed to get image URL.")
+                //print("❌ Failed to get image URL.")
                 completion(false)
                 return
             }
@@ -1512,10 +1518,10 @@ class DataSet: ObservableObject {
             // Save the URL to Firestore
             self.saveImageURLToFirestore(imageURL: imageURL) { success in
                 if success {
-                    print("✅ Image URL successfully saved to Firestore.")
+                    //print("✅ Image URL successfully saved to Firestore.")
                     completion(true)
                 } else {
-                    print("❌ Failed to save image URL to Firestore.")
+                    //print("❌ Failed to save image URL to Firestore.")
                     completion(false)
                 }
             }
@@ -1526,7 +1532,7 @@ class DataSet: ObservableObject {
     func cancelPreviousUpload() {
         // Check if there is an existing upload task and cancel it
         if let task = currentUploadTask, isUploading {
-            print("Canceling previous upload task...")
+            //print("Canceling previous upload task...")
             task.cancel()
             currentUploadTask = nil
             isUploading = false
@@ -1536,7 +1542,7 @@ class DataSet: ObservableObject {
     func uploadImageToFirebase(image: UIImage, completion: @escaping (String?) -> Void) {
         // Convert the UIImage to Data
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            print("Failed to convert image to data.")
+            //print("Failed to convert image to data.")
             completion(nil)
             return
         }
@@ -1555,7 +1561,7 @@ class DataSet: ObservableObject {
         isUploading = true
         currentUploadTask = imageRef.putData(imageData, metadata: nil) { metadata, error in
             if let error = error {
-                print("Error uploading image: \(error.localizedDescription)")
+                //print("Error uploading image: \(error.localizedDescription)")
                 completion(nil)
                 self.isUploading = false // Mark as not uploading anymore
                 return
@@ -1564,7 +1570,7 @@ class DataSet: ObservableObject {
             // Get the download URL once the upload is successful
             imageRef.downloadURL { url, error in
                 if let error = error {
-                    print("Error getting download URL: \(error.localizedDescription)")
+                    //print("Error getting download URL: \(error.localizedDescription)")
                     completion(nil)
                     self.isUploading = false // Mark as not uploading anymore
                     return
@@ -1588,10 +1594,10 @@ class DataSet: ObservableObject {
         
         userRef.updateData(["profileImageURL": imageURL]) { error in
             if let error = error {
-                print("❌ Error saving image URL: \(error.localizedDescription)")
+                //print("❌ Error saving image URL: \(error.localizedDescription)")
                 completion(false)
             } else {
-                print("✅ Image URL saved successfully!")
+                //print("✅ Image URL saved successfully!")
                 completion(true)
             }
         }
@@ -1599,7 +1605,7 @@ class DataSet: ObservableObject {
     
     func createGroup(groupName: String, groupPhoto: UIImage?, completion: @escaping (SocialGroup?) -> Void) {
         guard let user = Auth.auth().currentUser else {
-            print("❌ No authenticated user.")
+            //print("❌ No authenticated user.")
             completion(nil)
             return
         }
@@ -1625,12 +1631,12 @@ class DataSet: ObservableObject {
 
             groupRef.setData(groupData) { error in
                 if let error = error {
-                    print("❌ Error creating group: \(error.localizedDescription)")
+                    //print("❌ Error creating group: \(error.localizedDescription)")
                     completion(nil)
                     return
                 }
 
-                print("✅ Group created successfully!")
+                //print("✅ Group created successfully!")
 
                 // Add the group to the current user's data
                 let userRef = db.collection("users").document(creatorID)
@@ -1638,10 +1644,10 @@ class DataSet: ObservableObject {
                     "groups": FieldValue.arrayUnion([groupID])
                 ]) { error in
                     if let error = error {
-                        print("❌ Error adding group to user: \(error.localizedDescription)")
+                        //print("❌ Error adding group to user: \(error.localizedDescription)")
                         completion(nil)
                     } else {
-                        print("✅ Group successfully added to user’s document!")
+                        //print("✅ Group successfully added to user’s document!")
                         let info = self.userInfo!
                         let createdGroup = SocialGroup(id: groupID, name: groupName, photo: photoURL ?? nil, members: [FriendProfileOLD(id: info.id!, name: info.name, profilePic: info.profilePic, /*favorites: info.favorites*/)], inviteLink: inviteLink)
                         completion(createdGroup)
@@ -1653,7 +1659,7 @@ class DataSet: ObservableObject {
         if let groupPhoto = groupPhoto {
             uploadImageToFirebase(image: groupPhoto) { url in
                 guard let imageURL = url else {
-                    print("❌ Failed to upload group photo.")
+                    //print("❌ Failed to upload group photo.")
                     completion(nil)
                     return
                 }
@@ -1666,7 +1672,7 @@ class DataSet: ObservableObject {
     
     func leaveGroup(groupID: String, completion: @escaping (Bool) -> Void) {
         guard let userID = Auth.auth().currentUser?.uid else {
-            print("❌ No authenticated user.")
+            //print("❌ No authenticated user.")
             completion(false)
             return
         }
@@ -1682,11 +1688,11 @@ class DataSet: ObservableObject {
             "members": FieldValue.arrayRemove([userID])
         ]) { error in
             if let error = error {
-                print("❌ Error removing user from group: \(error.localizedDescription)")
+                //print("❌ Error removing user from group: \(error.localizedDescription)")
                 completion(false)
                 return
             }
-            print("✅ User removed from group.")
+            //print("✅ User removed from group.")
             dispatchGroup.leave()
         }
 
@@ -1696,11 +1702,11 @@ class DataSet: ObservableObject {
             "groups": FieldValue.arrayRemove([groupID])
         ]) { error in
             if let error = error {
-                print("❌ Error removing group from user: \(error.localizedDescription)")
+                //print("❌ Error removing group from user: \(error.localizedDescription)")
                 completion(false)
                 return
             }
-            print("✅ Group removed from user.")
+            //print("✅ Group removed from user.")
             dispatchGroup.leave()
         }
 
@@ -1866,7 +1872,7 @@ class DataSet: ObservableObject {
                     let favorites = document.data()?["favorites"] as? [String] ?? []
                     favoritesDict[memberID] = favorites
                 } else {
-                    print("⚠️ Could not fetch favorites for \(memberID): \(error?.localizedDescription ?? "Unknown error")")
+                    //print("⚠️ Could not fetch favorites for \(memberID): \(error?.localizedDescription ?? "Unknown error")")
                     favoritesDict[memberID] = [] // Default to an empty array if the user doesn't have favorites
                 }
                 group.leave()
@@ -1874,7 +1880,7 @@ class DataSet: ObservableObject {
         }
         
         group.notify(queue: .main) {
-            print("✅ All favorites fetched: \(favoritesDict)")
+            //print("✅ All favorites fetched: \(favoritesDict)")
             completion(favoritesDict)
         }
     }
@@ -1882,7 +1888,7 @@ class DataSet: ObservableObject {
     
     func saveName(name: String, completion: @escaping (Bool) -> Void) {
         guard let user = Auth.auth().currentUser else {
-            print("false")
+            //print("false")
             completion(false)
             return
         }
@@ -1894,10 +1900,10 @@ class DataSet: ObservableObject {
             if let document = document, document.exists {
                 userRef.updateData(["name": name]) { error in
                     if let error {
-                        print("❌ Error updating name: \(error.localizedDescription)")
+                        //print("❌ Error updating name: \(error.localizedDescription)")
                         completion(false)
                     } else {
-                        print("✅ Name updated successfully!")
+                        //print("✅ Name updated successfully!")
                         completion(true)
                     }
                 }
@@ -1907,10 +1913,10 @@ class DataSet: ObservableObject {
                     "createdAt": FieldValue.serverTimestamp()
                 ]) { error in
                     if let error {
-                        print("❌ Error setting name: \(error.localizedDescription)")
+                        //print("❌ Error setting name: \(error.localizedDescription)")
                         completion(false)
                     } else {
-                        print("✅ Name saved successfully!")
+                        //print("✅ Name saved successfully!")
                         completion(true)
                     }
                 }
@@ -1924,7 +1930,7 @@ class DataSet: ObservableObject {
     //        let db = Firestore.firestore()
     //        db.collection("users").document(userID).getDocument { document, error in
     //            if let error = error {
-    //                print("❌ Error fetching user data: \(error.localizedDescription)")
+    //                //print("❌ Error fetching user data: \(error.localizedDescription)")
     //                return
     //            }
     //
@@ -1936,7 +1942,7 @@ class DataSet: ObservableObject {
     //                        profilePic: document.data()?["profileImageURL"] as? String,
     //                        favorites: document.data()?["favorites"] as? [String] ?? []
     //                    )
-    //                    print("✅ User data refreshed!")
+    //                    //print("✅ User data refreshed!")
     //                }
     //            }
     //        }
@@ -1946,7 +1952,7 @@ class DataSet: ObservableObject {
     
     func signOutUser(completion: @escaping (Result<Void, Error>) -> Void) {
         do {
-            print("Attempting to sign out user...")
+            //print("Attempting to sign out user...")
             try Auth.auth().signOut()
             DispatchQueue.main.async {
                 self.userInfo = nil
@@ -1994,7 +2000,7 @@ class DataSet: ObservableObject {
             
             db.collection("users").document(currentUserID).getDocument { document, error in
                 if let document = document, document.exists {
-//                    print("Updated friends list: \(document.data()?["friends"] as? [String] ?? [])")
+//                    //print("Updated friends list: \(document.data()?["friends"] as? [String] ?? [])")
                 }
             }
             
@@ -2021,16 +2027,16 @@ class DataSet: ObservableObject {
 //            
 //            let currentTime = Date().timeIntervalSince1970
 //            if currentTime < expiry {
-//                print("✅ Token is still valid")
+//                //print("✅ Token is still valid")
 //                completion(true)
 //            } else {
-//                print("⏳ Token expired, refreshing...")
+//                //print("⏳ Token expired, refreshing...")
 //                refreshAccessToken { newToken in
 //                    completion(newToken != nil)
 //                }
 //            }
 //        } else {
-//            print("❌ No access token found")
+//            //print("❌ No access token found")
 //            completion(false)
 //        }
 //    }
@@ -2050,7 +2056,7 @@ class DataSet: ObservableObject {
 //        
 //        URLSession.shared.dataTask(with: request) { data, response, error in
 //            guard let data = data, error == nil else {
-//                print("Error exchanging code for token: \(error?.localizedDescription ?? "Unknown error")")
+//                //print("Error exchanging code for token: \(error?.localizedDescription ?? "Unknown error")")
 //                return
 //            }
 //            
@@ -2104,7 +2110,7 @@ class DataSet: ObservableObject {
 //                }
 //                
 //            } catch {
-//                //                print("Failed to decode JSON: \(error.localizedDescription)")
+//                //                //print("Failed to decode JSON: \(error.localizedDescription)")
 //            }
 //        }.resume()
 //    }
@@ -2113,7 +2119,7 @@ class DataSet: ObservableObject {
 //    
 //    func refreshAccessToken(completion: @escaping (String?) -> Void) {
 //        guard let refreshToken = UserDefaults.standard.string(forKey: String(self.saveName + "spotify_refresh_token")) else {
-//            print("No refresh token found")
+//            //print("No refresh token found")
 //            completion(nil)
 //            return
 //        }
@@ -2132,7 +2138,7 @@ class DataSet: ObservableObject {
 //        
 //        URLSession.shared.dataTask(with: request) { data, response, error in
 //            guard let data = data, error == nil else {
-//                print("Error refreshing token: \(error?.localizedDescription ?? "Unknown error")")
+//                //print("Error refreshing token: \(error?.localizedDescription ?? "Unknown error")")
 //                completion(nil)
 //                return
 //            }
@@ -2143,10 +2149,10 @@ class DataSet: ObservableObject {
 //                UserDefaults.standard.set(newAccessToken, forKey: String(self.saveName + "spotify_access_token"))
 //                UserDefaults.standard.set(Date().timeIntervalSince1970 + 3600, forKey: String(self.saveName + "spotify_token_expiry")) // New expiry time
 //                
-//                print("🔄 Refreshed Access Token: \(newAccessToken)")
+//                //print("🔄 Refreshed Access Token: \(newAccessToken)")
 //                completion(newAccessToken)
 //            } else {
-//                print("Failed to refresh access token")
+//                //print("Failed to refresh access token")
 //                completion(nil)
 //            }
 //        }.resume()
@@ -2176,7 +2182,7 @@ class DataSet: ObservableObject {
 //
 //    func revokeSpotifyAccessToken(completion: @escaping (Bool) -> Void) {
 //        guard let _ = UserDefaults.standard.string(forKey: String(self.saveName + "spotify_refresh_token")) else {
-//            print("⚠️ No refresh token found, already logged out")
+//            //print("⚠️ No refresh token found, already logged out")
 //            completion(true)
 //            return
 //        }
@@ -2190,14 +2196,14 @@ class DataSet: ObservableObject {
 //    func makeNewSpotifyPlaylist(artistList: Array<String>, playlistName: String, isPublic: Bool, completion: @escaping (String?) -> Void) {
 //        isUserLoggedIn { isLoggedIn in
 //            guard isLoggedIn else {
-//                print("❌ User is not logged in")
+//                //print("❌ User is not logged in")
 //                completion(nil)
 //                return
 //            }
 //            
 //            // ✅ Retrieve access token *after* confirming login status
 //            guard let accessToken = UserDefaults.standard.string(forKey: String(self.saveName + "spotify_access_token")) else {
-//                print("❌ No valid access token found")
+//                //print("❌ No valid access token found")
 //                completion(nil)
 //                return
 //            }
@@ -2208,19 +2214,19 @@ class DataSet: ObservableObject {
 //                // 🎯 User profile found → proceed with playlist creation
 //                self.createPlaylistAndAddSongs(userProfile: userProfile, artistList: artistList, playlistName: playlistName, isPublic: isPublic, accessToken: accessToken, completion: completion)
 //            } else {
-//                print("⚠️ No user profile found, fetching now...")
+//                //print("⚠️ No user profile found, fetching now...")
 //                
 //                // 🎯 Fetch the user profile first, then retry the process
 //                self.fetchSpotifyUserProfile(accessToken: accessToken) { userProfile in
 //                    guard let userProfile = userProfile else {
-//                        print("❌ Failed to fetch user profile")
+//                        //print("❌ Failed to fetch user profile")
 //                        completion(nil)
 //                        return
 //                    }
 //                    
 //                    // ✅ Re-fetch the access token to ensure it's available before proceeding
 //                    guard let refreshedAccessToken = UserDefaults.standard.string(forKey: String(self.saveName + "spotify_access_token")) else {
-//                        print("❌ No valid access token after profile fetch")
+//                        //print("❌ No valid access token after profile fetch")
 //                        completion(nil)
 //                        return
 //                    }
@@ -2235,14 +2241,14 @@ class DataSet: ObservableObject {
 //    func makeNewSpotifyPlaylistOLD(artistList: Array<artist>, playlistName: String, isPublic: Bool, completion: @escaping (String?) -> Void) {
 //        isUserLoggedIn { isLoggedIn in
 //            guard isLoggedIn else {
-//                print("❌ User is not logged in")
+//                //print("❌ User is not logged in")
 //                completion(nil)
 //                return
 //            }
 //            
 //            // ✅ Retrieve access token *after* confirming login status
 //            guard let accessToken = UserDefaults.standard.string(forKey: String(self.saveName + "spotify_access_token")) else {
-//                print("❌ No valid access token found")
+//                //print("❌ No valid access token found")
 //                completion(nil)
 //                return
 //            }
@@ -2253,19 +2259,19 @@ class DataSet: ObservableObject {
 //                // 🎯 User profile found → proceed with playlist creation
 //                self.createPlaylistAndAddSongsOLD(userProfile: userProfile, artistList: artistList, playlistName: playlistName, isPublic: isPublic, accessToken: accessToken, completion: completion)
 //            } else {
-//                print("⚠️ No user profile found, fetching now...")
+//                //print("⚠️ No user profile found, fetching now...")
 //                
 //                // 🎯 Fetch the user profile first, then retry the process
 //                self.fetchSpotifyUserProfile(accessToken: accessToken) { userProfile in
 //                    guard let userProfile = userProfile else {
-//                        print("❌ Failed to fetch user profile")
+//                        //print("❌ Failed to fetch user profile")
 //                        completion(nil)
 //                        return
 //                    }
 //                    
 //                    // ✅ Re-fetch the access token to ensure it's available before proceeding
 //                    guard let refreshedAccessToken = UserDefaults.standard.string(forKey: String(self.saveName + "spotify_access_token")) else {
-//                        print("❌ No valid access token after profile fetch")
+//                        //print("❌ No valid access token after profile fetch")
 //                        completion(nil)
 //                        return
 //                    }
@@ -2295,38 +2301,38 @@ class DataSet: ObservableObject {
 ////            
 ////            if let playlistID = playlistID {
 ////                let totalArtists = artistList.count
-////                print ("TOTAL: \(totalArtists)")
+////                //print ("TOTAL: \(totalArtists)")
 ////                var processedArtists = 0
 ////                let lock = NSLock() // Prevent race conditions when incrementing `processedArtists`
 ////                let checkCompletion = {
 ////                    lock.lock()
 ////                    processedArtists += 1
-////                    print("Processed Artists: \(processedArtists) / Total Artists: \(totalArtists)")
+////                    //print("Processed Artists: \(processedArtists) / Total Artists: \(totalArtists)")
 ////                    if processedArtists == totalArtists {
-////                        print("✅ All \(processedArtists) artists processed. Calling final completion.")
+////                        //print("✅ All \(processedArtists) artists processed. Calling final completion.")
 ////                        completion(playlistID)
 ////                    }
 ////                    lock.unlock()
 ////                }
 ////
 ////                for (index, artist) in artistList.enumerated() {
-////                    print("Processing Artist \(index + 1): \(artist.name)")
+////                    //print("Processing Artist \(index + 1): \(artist.name)")
 ////                    
 ////                    DispatchQueue.global().asyncAfter(deadline: .now() + (Double(index) / 2)) {
-////                        print("Attempting to fetch top tracks for Artist #\(index + 1): \(artist.name)")
+////                        //print("Attempting to fetch top tracks for Artist #\(index + 1): \(artist.name)")
 ////                        if let artistID = self.extractArtistID(url: artist.artistPage) {
 ////                            
 ////                            self.getArtistTopTracks(artistID: artistID, accessToken: accessToken, playlistID: playlistID) {
 ////                                checkCompletion() // ✅ Ensures each artist is counted
 ////                            }
 ////                        } else {
-////                            print("❌ Failed to extract artist ID from \(artist.artistPage)")
+////                            //print("❌ Failed to extract artist ID from \(artist.artistPage)")
 ////                            checkCompletion() // ✅ Even if artist is skipped, still counts
 ////                        }
 ////                    }
 ////                }
 ////            } else {
-////                print("❌ Failed to create playlist")
+////                //print("❌ Failed to create playlist")
 ////                completion(nil)
 ////            }
 ////        }
@@ -2344,7 +2350,7 @@ class DataSet: ObservableObject {
 //                let dispatchGroup = DispatchGroup()
 //
 //                for (index, artistID) in artistList.enumerated() {
-////                    print("Processing Artist \(index + 1): \(artist.name)")
+////                    //print("Processing Artist \(index + 1): \(artist.name)")
 //                    
 //                    // Enter the DispatchGroup before starting each asynchronous task
 //                    dispatchGroup.enter()
@@ -2355,7 +2361,7 @@ class DataSet: ObservableObject {
 //                    
 //                    DispatchQueue.global().asyncAfter(deadline: .now() + (Double(index) / asyncModifyer)) {
 //                        self.getArtistTopTracks(artistID: artistID, accessToken: accessToken, playlistID: playlistID) {
-//                            print(self.progress)
+//                            //print(self.progress)
 //                            dispatchGroup.leave()
 //                        }
 //                        
@@ -2366,15 +2372,15 @@ class DataSet: ObservableObject {
 //////                                DispatchQueue.main.async {
 //////                                    self.progress = max(Float(index) / Float(artistList.count), self.progress)
 //////                                }
-////                                print(self.progress)
+////                                //print(self.progress)
 ////                                dispatchGroup.leave()
 ////                            }
 ////                        } else {
-////                            print("❌ Failed to extract artist ID from \(artist.artistPage)")
+////                            //print("❌ Failed to extract artist ID from \(artist.artistPage)")
 //////                            DispatchQueue.main.async {
 //////                                self.progress = max(Float(index) / Float(artistList.count), self.progress)
 //////                            }
-////                            print(self.progress)
+////                            //print(self.progress)
 ////                            // Leave the DispatchGroup even if the artist is skipped
 ////                            dispatchGroup.leave()
 ////                        }
@@ -2383,11 +2389,11 @@ class DataSet: ObservableObject {
 //
 //                // Notify when all tasks are complete
 //                dispatchGroup.notify(queue: .main) {
-//                    print("✅ All artists processed. Calling final completion.")
+//                    //print("✅ All artists processed. Calling final completion.")
 //                    completion(playlistID)
 //                }
 //            } else {
-//                print("❌ Failed to create playlist")
+//                //print("❌ Failed to create playlist")
 //                completion(nil)
 //            }
 //        }
@@ -2401,13 +2407,13 @@ class DataSet: ObservableObject {
 //            if let playlistID = playlistID {
 //                self.playlistArtistCount = artistList.count
 //                let totalArtists = artistList.count
-//                print("TOTAL: \(totalArtists)")
+//                //print("TOTAL: \(totalArtists)")
 //
 //                // Create a DispatchGroup to track the completion of all tasks
 //                let dispatchGroup = DispatchGroup()
 //
 //                for (index, artist) in artistList.enumerated() {
-//                    print("Processing Artist \(index + 1): \(artist.name)")
+//                    //print("Processing Artist \(index + 1): \(artist.name)")
 //                    
 //                    // Enter the DispatchGroup before starting each asynchronous task
 //                    dispatchGroup.enter()
@@ -2417,7 +2423,7 @@ class DataSet: ObservableObject {
 //                    }
 //                    
 //                    DispatchQueue.global().asyncAfter(deadline: .now() + (Double(index) / asyncModifyer)) {
-//                        print("Attempting to fetch top tracks for Artist #\(index + 1): \(artist.name)")
+//                        //print("Attempting to fetch top tracks for Artist #\(index + 1): \(artist.name)")
 //
 //                        if let artistID = self.extractArtistID(url: artist.artistPage) {
 //                            self.getArtistTopTracks(artistID: artistID, accessToken: accessToken, playlistID: playlistID) {
@@ -2425,15 +2431,15 @@ class DataSet: ObservableObject {
 ////                                DispatchQueue.main.async {
 ////                                    self.progress = max(Float(index) / Float(artistList.count), self.progress)
 ////                                }
-//                                print(self.progress)
+//                                //print(self.progress)
 //                                dispatchGroup.leave()
 //                            }
 //                        } else {
-//                            print("❌ Failed to extract artist ID from \(artist.artistPage)")
+//                            //print("❌ Failed to extract artist ID from \(artist.artistPage)")
 ////                            DispatchQueue.main.async {
 ////                                self.progress = max(Float(index) / Float(artistList.count), self.progress)
 ////                            }
-//                            print(self.progress)
+//                            //print(self.progress)
 //                            // Leave the DispatchGroup even if the artist is skipped
 //                            dispatchGroup.leave()
 //                        }
@@ -2442,11 +2448,11 @@ class DataSet: ObservableObject {
 //
 //                // Notify when all tasks are complete
 //                dispatchGroup.notify(queue: .main) {
-//                    print("✅ All artists processed. Calling final completion.")
+//                    //print("✅ All artists processed. Calling final completion.")
 //                    completion(playlistID)
 //                }
 //            } else {
-//                print("❌ Failed to create playlist")
+//                //print("❌ Failed to create playlist")
 //                completion(nil)
 //            }
 //        }
@@ -2464,24 +2470,24 @@ class DataSet: ObservableObject {
 //        
 //        URLSession.shared.dataTask(with: request) { data, response, error in
 //            guard let data = data, error == nil else {
-//                print("❌ Error fetching user profile: \(error?.localizedDescription ?? "Unknown error")")
+//                //print("❌ Error fetching user profile: \(error?.localizedDescription ?? "Unknown error")")
 //                completion(nil)
 //                return
 //            }
 //            
 //            if let jsonString = String(data: data, encoding: .utf8) {
-//                print("📦 Raw JSON response from Spotify API: \(jsonString)")
+//                //print("📦 Raw JSON response from Spotify API: \(jsonString)")
 //            } else {
-//                print("❌ Failed to convert API response to string")
+//                //print("❌ Failed to convert API response to string")
 //            }
 //            do {
 //                let userProfile = try JSONDecoder().decode(SpotifyUserProfile.self, from: data)
 //                let encodedData = try JSONEncoder().encode(userProfile)
 //                UserDefaults.standard.set(encodedData, forKey: String(self.saveName + "spotify_user_profile")) // ✅ Save to UserDefaults
-//                print("✅ User profile saved: \(userProfile.id)")
+//                //print("✅ User profile saved: \(userProfile.id)")
 //                completion(userProfile)
 //            } catch {
-//                print("❌ Failed to decode user profile: \(error.localizedDescription)")
+//                //print("❌ Failed to decode user profile: \(error.localizedDescription)")
 //                completion(nil)
 //            }
 //        }.resume()
@@ -2505,29 +2511,29 @@ class DataSet: ObservableObject {
 //        // Convert to JSON
 //        request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
 //        
-//        print("📡 Sending request to: \(url)")
-//        print("📜 Request body: \(body)")
+//        //print("📡 Sending request to: \(url)")
+//        //print("📜 Request body: \(body)")
 //        
 //        URLSession.shared.dataTask(with: request) { data, response, error in
 //            guard let data = data, error == nil else {
-//                print("Error creating playlist: \(error?.localizedDescription ?? "Unknown error")")
+//                //print("Error creating playlist: \(error?.localizedDescription ?? "Unknown error")")
 //                return
 //            }
 //            
 //            if let jsonString = String(data: data, encoding: .utf8) {
-//                print("📦 Raw API response: \(jsonString)")
+//                //print("📦 Raw API response: \(jsonString)")
 //            } else {
-//                print("❌ Failed to convert API response to string")
+//                //print("❌ Failed to convert API response to string")
 //            }
 //            
 //            // Try to decode the response
 //            do {
 //                let playlistResponse = try JSONDecoder().decode(SpotifyPlaylist.self, from: data)
-//                print("Created Playlist: \(playlistResponse.name) (ID: \(playlistResponse.id))")
+//                //print("Created Playlist: \(playlistResponse.name) (ID: \(playlistResponse.id))")
 //                UserDefaults.standard.set(playlistResponse.id, forKey: String(self.saveName + "spotify_playlist_id"))
 //                completion(playlistResponse.id)
 //            } catch {
-//                print("Failed to decode playlist response: \(error.localizedDescription)")
+//                //print("Failed to decode playlist response: \(error.localizedDescription)")
 //                completion(nil)
 //            }
 //        }.resume()
@@ -2541,7 +2547,7 @@ class DataSet: ObservableObject {
 //
 //        URLSession.shared.dataTask(with: topTracksRequest) { topTracksData, _, topTracksError in
 //            guard let topTracksData = topTracksData, topTracksError == nil else {
-//                print("❌ Error fetching top tracks: \(topTracksError?.localizedDescription ?? "Unknown error")")
+//                //print("❌ Error fetching top tracks: \(topTracksError?.localizedDescription ?? "Unknown error")")
 //                completion() // ✅ Completion is always called
 //                return
 //            }
@@ -2554,12 +2560,12 @@ class DataSet: ObservableObject {
 //                    if !trackURIs.isEmpty {
 //                        self.addTracksToPlaylist(playlistID: playlistID, accessToken: accessToken, trackURIs: trackURIs, completion: completion)
 //                    } else {
-//                        print("⚠️ No tracks found for artist \(artistID)")
+//                        //print("⚠️ No tracks found for artist \(artistID)")
 //                        completion()
 //                    }
 //                }
 //            } catch {
-//                print("❌ Failed to parse top tracks JSON: \(error.localizedDescription)")
+//                //print("❌ Failed to parse top tracks JSON: \(error.localizedDescription)")
 //                completion()
 //            }
 //        }.resume()
@@ -2569,7 +2575,7 @@ class DataSet: ObservableObject {
 //    
 //    
 //    func addTracksToPlaylist(playlistID: String, accessToken: String, trackURIs: [String], retryCount: Int = 0, maxRetries: Int = 3, completion: @escaping () -> Void) {
-//        print("Adding Tracks to Playlist: \(playlistID), Tracks: \(trackURIs)")
+//        //print("Adding Tracks to Playlist: \(playlistID), Tracks: \(trackURIs)")
 //        let url = URL(string: "https://api.spotify.com/v1/playlists/\(playlistID)/tracks")!
 //        var request = URLRequest(url: url)
 //        request.httpMethod = "POST"
@@ -2581,23 +2587,23 @@ class DataSet: ObservableObject {
 //
 //        URLSession.shared.dataTask(with: request) { data, response, error in
 //            guard let data = data, error == nil, let httpResponse = response as? HTTPURLResponse else {
-//                print("❌ Network error: \(error?.localizedDescription ?? "Unknown error")")
+//                //print("❌ Network error: \(error?.localizedDescription ?? "Unknown error")")
 //                completion()
 //                return
 //            }
 //
 //            if httpResponse.statusCode == 429 {
 //                self.ERRORCOUNT += 1
-//                print("ERROR: \(self.ERRORCOUNT)")
+//                //print("ERROR: \(self.ERRORCOUNT)")
 //                let retryAfter = min(2.0 * pow(2.0, Double(retryCount)), 60.0)
-//                print("⚠️ Rate limit exceeded (429). Retrying in \(retryAfter) seconds...")
+//                //print("⚠️ Rate limit exceeded (429). Retrying in \(retryAfter) seconds...")
 //
 //                if retryCount < maxRetries {
 //                    DispatchQueue.global().asyncAfter(deadline: .now() + retryAfter) {
 //                        self.addTracksToPlaylist(playlistID: playlistID, accessToken: accessToken, trackURIs: trackURIs, retryCount: retryCount + 1, maxRetries: maxRetries, completion: completion)
 //                    }
 //                } else {
-//                    print("❌ Max retries reached for rate limit. Skipping.")
+//                    //print("❌ Max retries reached for rate limit. Skipping.")
 //                    completion() // ✅ Completion is called
 //                }
 //                return
@@ -2605,16 +2611,16 @@ class DataSet: ObservableObject {
 //
 //            if httpResponse.statusCode == 502 {
 //                self.ERRORCOUNT += 1
-//                print("ERROR: \(self.ERRORCOUNT)")
+//                //print("ERROR: \(self.ERRORCOUNT)")
 //                let retryAfter = min(2.0 * pow(2.0, Double(retryCount)), 60.0)
-//                print("⚠️ Server error (502). Retrying in \(retryAfter) seconds...")
+//                //print("⚠️ Server error (502). Retrying in \(retryAfter) seconds...")
 //
 //                if retryCount < maxRetries {
 //                    DispatchQueue.global().asyncAfter(deadline: .now() + retryAfter) {
 //                        self.addTracksToPlaylist(playlistID: playlistID, accessToken: accessToken, trackURIs: trackURIs, retryCount: retryCount + 1, maxRetries: maxRetries, completion: completion)
 //                    }
 //                } else {
-//                    print("❌ Max retries reached for server errors. Skipping.")
+//                    //print("❌ Max retries reached for server errors. Skipping.")
 //                    completion() // ✅ Completion is called
 //                }
 //                return
@@ -2623,29 +2629,29 @@ class DataSet: ObservableObject {
 //            do {
 //                let responseJSON = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
 //                if let snapshotID = responseJSON?["snapshot_id"] as? String, !snapshotID.isEmpty {
-//                    print("✅ Tracks added successfully: \(snapshotID)")
+//                    //print("✅ Tracks added successfully: \(snapshotID)")
 //                    DispatchQueue.main.async {
-//                        print("Add \(Float(1.0)/Float(self.playlistArtistCount))")
+//                        //print("Add \(Float(1.0)/Float(self.playlistArtistCount))")
 //                        self.progress += Float(1.0)/Float(self.playlistArtistCount)
-//                        print("PROGRESS: \(self.progress)")
+//                        //print("PROGRESS: \(self.progress)")
 ////                        self.progress = max(Float(index) / Float(artistList.count), self.progress)
 //                    }
 //                    completion()
 //                } else {
 //                    self.ERRORCOUNT += 1
-//                    print("ERROR: \(self.ERRORCOUNT)")
+//                    //print("ERROR: \(self.ERRORCOUNT)")
 //                    if retryCount < maxRetries {
-//                        print("⚠️ Warning: snapshot_id is null. Retrying in 2 seconds...")
+//                        //print("⚠️ Warning: snapshot_id is null. Retrying in 2 seconds...")
 //                        DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
 //                            self.addTracksToPlaylist(playlistID: playlistID, accessToken: accessToken, trackURIs: trackURIs, retryCount: retryCount + 1, maxRetries: maxRetries, completion: completion)
 //                        }
 //                    } else {
-//                        print("❌ Max retries reached, snapshot_id still null. Skipping this batch.")
+//                        //print("❌ Max retries reached, snapshot_id still null. Skipping this batch.")
 //                        completion() // ✅ Completion is called
 //                    }
 //                }
 //            } catch {
-//                print("❌ Failed to parse response JSON: \(error.localizedDescription)")
+//                //print("❌ Failed to parse response JSON: \(error.localizedDescription)")
 //                completion()
 //            }
 //        }.resume()
@@ -2811,19 +2817,7 @@ class DataSet: ObservableObject {
 //        }
 //    }
     
-    struct Artist: Identifiable, Hashable, Codable {
-        var id: String
-        var name: String
-        var genres: [String]
-        var imageURL: String
-        var imageLocalPath: String?
-        var day: String = "-- N/A --"
-        var weekend: String = "Both"
-        var tier: String = "-- N/A --"
-        var stage: String = "-- N/A --"
-        var addDate/*: Date?*/ = Date()
-        var modifyDate/*: Date?*/ = Date()
-    }
+    
     
 //    struct artistWithPhoto: ``
     
@@ -2836,48 +2830,9 @@ class DataSet: ObservableObject {
         var URLs: Array<URL>
     }
     
-    struct Festival: Identifiable, Hashable, Codable {
-        var id: UUID
-        var ownerID: String
-        var ownerName: String
-        var saveDate = Date()
-        var verified: Bool = true
-        var name: String = ""
-        var startDate = Date()
-        var endDate = Date()
-        var secondWeekend: Bool = false
-        var location: String?
-        var logoPath: String? = nil
-        var artistList = Array<Artist>()
-        var stageList = Array<String>()
-        var website: String? = nil
-        var published: Bool = false
-        
-        static func newFestival() -> Festival {
-            let user = Auth.auth().currentUser
-            return Festival(
-                id: UUID(),
-                ownerID: user?.uid ?? "Unknown",
-                ownerName: user?.displayName ?? "Unknown" // displayName is the user's name
-            )
-        }
-    }
     
-    struct ArtistListStruct: Hashable {
-//        let title: String
-        var titleText: String? = nil
-        let festival: Festival
-        let list: Array<Artist>
-        var groupFavs: Array<UserFestivalFavorites>? = nil
-//        let list: [String : Array<artistNEW>]
-    }
     
-    struct ArtistPageStruct: Hashable {
-        let artist: Artist
-        let festival: Festival
-        let shuffleTitle: String
-        let shuffleList: Array<Artist>
-    }
+    
     
     struct settingsStruct: Encodable, Decodable {
         var festivalWeekend: Int
@@ -2960,7 +2915,7 @@ class DataSet: ObservableObject {
         
         var likeArray = Array<String>()
         let likeData: Data? = UserDefaults.standard.data(forKey: String(self.saveName + "likes"))
-        //        print(likeData)
+        //        //print(likeData)
         if likeData != nil, let tryLikes: Array<String> = try? JSONDecoder().decode([String].self, from: likeData!) {
             likeArray = tryLikes
         }
@@ -3019,7 +2974,9 @@ struct UserProfile: Hashable, Identifiable, Codable {
 
     var following: [String]?
     var followers: [String]?
-    var festivalFavorites: [String : [String]]?
+//    var festivalFavorites: [String : [String]]?
+    var favoriteArtistsList: [String]?
+    var starredFestivalsList: [String]?
     
     var groups: [String]?
 
@@ -3028,7 +2985,9 @@ struct UserProfile: Hashable, Identifiable, Codable {
 extension UserProfile {
     var safeFollowing: [String] { following ?? [] }
     var safeFollowers: [String] { followers ?? [] }
-    var safeFestivalFavorites: [String: [String]] { festivalFavorites ?? [:] }
+//    var safeFestivalFavorites: [String: [String]] { festivalFavorites ?? [:] }
+    var safeFavoriteArtistsList: [String] { favoriteArtistsList ?? [] }
+    var safeStarredFestivalsList: [String] { starredFestivalsList ?? [] }
     var safeGroups: [String] { groups ?? [] }
     
     init() {
@@ -3037,7 +2996,9 @@ extension UserProfile {
         self.profilePic = nil
         self.following = []
         self.followers = []
-        self.festivalFavorites = [:]
+//        self.festivalFavorites = [:]
+        self.favoriteArtistsList = []
+        self.starredFestivalsList = []
         self.groups = []
     }
 }
@@ -3049,6 +3010,124 @@ struct SocialGroup: Hashable, Identifiable, Codable {
     var photo: String?
     var members: [String] = []
     var festivals: [String] = []
+}
+
+struct Artist: Identifiable, Hashable, Codable {
+    var id: String
+    var name: String
+    var genres: [String]
+    var imageURL: String
+    var imageLocalPath: String?
+    var day: String = "-- N/A --"
+    var weekend: String = "Both"
+    var tier: String = "-- N/A --"
+    var stage: String = "-- N/A --"
+    var addDate = Date()
+    var modifyDate = Date()
+//    var artistTags: [UUID] // ✅ now non-optional
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, genres, imageURL, imageLocalPath
+        case day, weekend, tier, stage
+        case addDate, modifyDate
+//        case artistTags
+    }
+
+    init(
+        id: String,
+        name: String,
+        genres: [String],
+        imageURL: String,
+        imageLocalPath: String? = nil,
+        day: String = "-- N/A --",
+        weekend: String = "Both",
+        tier: String = "-- N/A --",
+        stage: String = "-- N/A --",
+        addDate: Date = Date(),
+        modifyDate: Date = Date(),
+//        artistTags: [UUID] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.genres = genres
+        self.imageURL = imageURL
+        self.imageLocalPath = imageLocalPath
+        self.day = day
+        self.weekend = weekend
+        self.tier = tier
+        self.stage = stage
+        self.addDate = addDate
+        self.modifyDate = modifyDate
+//        self.artistTags = artistTags
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        genres = try container.decode([String].self, forKey: .genres)
+        imageURL = try container.decode(String.self, forKey: .imageURL)
+        imageLocalPath = try container.decodeIfPresent(String.self, forKey: .imageLocalPath)
+        day = try container.decodeIfPresent(String.self, forKey: .day) ?? "-- N/A --"
+        weekend = try container.decodeIfPresent(String.self, forKey: .weekend) ?? "Both"
+        tier = try container.decodeIfPresent(String.self, forKey: .tier) ?? "-- N/A --"
+        stage = try container.decodeIfPresent(String.self, forKey: .stage) ?? "-- N/A --"
+        addDate = try container.decodeIfPresent(Date.self, forKey: .addDate) ?? Date()
+        modifyDate = try container.decodeIfPresent(Date.self, forKey: .modifyDate) ?? Date()
+
+        // 👇 THE IMPORTANT LINE
+//        artistTags = try container.decodeIfPresent([UUID].self, forKey: .artistTags) ?? []
+    }
+}
+
+
+
+struct Festival: Identifiable, Hashable, Codable {
+    var id: UUID
+    var ownerID: String
+    var ownerName: String
+    var saveDate = Date()
+    var verified: Bool = true
+    var name: String = ""
+    var startDate = Date()
+    var endDate = Date()
+    var secondWeekend: Bool = false
+    var location: String?
+    var logoPath: String? = nil
+    var artistList = Array<Artist>()
+    var stageList = Array<String>()
+    var website: String? = nil
+    var published: Bool = false
+    
+    static func newFestival() -> Festival {
+        let user = Auth.auth().currentUser
+        return Festival(
+            id: UUID(),
+            ownerID: user?.uid ?? "Unknown",
+            ownerName: user?.displayName ?? "Unknown" // displayName is the user's name
+        )
+    }
+}
+
+
+
+
+
+struct ArtistPageStruct: Hashable {
+    let artist: Artist
+    let festival: Festival
+    let shuffleTitle: String
+    let shuffleList: Array<Artist>
+}
+
+struct ArtistListStruct: Hashable {
+//        let title: String
+    var titleText: String? = nil
+    let festival: Festival
+    let list: Array<Artist>
+    var groupFavs: Array<UserFestivalFavorites>? = nil
+//        let list: [String : Array<artistNEW>]
 }
 
 //struct SocialGroup: Hashable, Identifiable, Codable {

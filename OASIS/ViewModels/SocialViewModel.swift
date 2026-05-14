@@ -33,7 +33,7 @@ class SocialViewModel: ObservableObject {
     @MainActor
     func loadFriends() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ No logged-in user.")
+            //print("⚠️ No logged-in user.")
             return
         }
         
@@ -94,7 +94,7 @@ class SocialViewModel: ObservableObject {
             
             self.friends = fetchedFriends.sorted(by: { $0.name < $1.name })
         } catch {
-            print("❌ Error fetching friends: \(error)")
+            //print("❌ Error fetching friends: \(error)")
         }
         
         isLoading = false
@@ -111,8 +111,8 @@ class SocialViewModel: ObservableObject {
     
     func fetchFavoritedFestivals(
         festivalIDs: [String]
-    ) async throws -> [DataSet.Festival] {
-        print("FESTIVAL IDs: \(festivalIDs)")
+    ) async throws -> [Festival] {
+        //print("FESTIVAL IDs: \(festivalIDs)")
         let db = Firestore.firestore()
         
         // 1. Extract Festival IDs from the dictionary keys
@@ -123,7 +123,7 @@ class SocialViewModel: ObservableObject {
         }
         
         // 2. Fetch in parallel using TaskGroup
-        return try await withThrowingTaskGroup(of: DataSet.Festival?.self) { group in
+        return try await withThrowingTaskGroup(of: Festival?.self) { group in
             
             for festivalID in festivalIDs {
                 group.addTask {
@@ -137,7 +137,7 @@ class SocialViewModel: ObservableObject {
                         return nil
                     }
 
-                    var festival = try snapshot.data(as: DataSet.Festival.self)
+                    var festival = try snapshot.data(as: Festival.self)
                     
                     // 3. Inject Firestore document ID as UUID
                     guard let uuid = UUID(uuidString: festivalID) else {
@@ -150,7 +150,7 @@ class SocialViewModel: ObservableObject {
             }
             
             // 4. Collect results
-            var results: [DataSet.Festival] = []
+            var results: [Festival] = []
             
             for try await festival in group {
                 if let festival {
@@ -199,7 +199,7 @@ class SocialViewModel: ObservableObject {
 //    }
 //    
 //    func fetchGroups(from ids: [String]) async throws -> [SocialGroup] {
-//        print("IDs: \(ids)")
+//        //print("IDs: \(ids)")
 //        
 //        let db = Firestore.firestore()
 //        
@@ -233,7 +233,7 @@ class SocialViewModel: ObservableObject {
 //                }
 //            }
 //            
-//            print("Groups: \(socialGroups)")
+//            //print("Groups: \(socialGroups)")
 //            
 //            return socialGroups
 //        }

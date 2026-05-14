@@ -13,6 +13,7 @@ struct ArtistList: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var festivalVM: FestivalViewModel
     @EnvironmentObject var spotify: SpotifyViewModel
+    @EnvironmentObject var tags: TagViewModel
     
     @Binding var navigationPath: NavigationPath
     
@@ -28,10 +29,10 @@ struct ArtistList: View {
    
     var titleText: String?
 //    var currentFestival: DataSet.Festival
-    @State var currentFestival: DataSet.Festival
+    @State var currentFestival: Festival
     
-    @State var artistList: Array<DataSet.Artist>
-    @State var artistDict = [String : Array<DataSet.Artist>]()
+    @State var artistList: Array<Artist>
+    @State var artistDict = [String : Array<Artist>]()
 //    {
 //        didSet {
 //            viewSubsection = Array(repeating: true, count: data.getSortLables(sort: sortType).count)
@@ -50,74 +51,92 @@ struct ArtistList: View {
     @State var sortType: DataSet.sortType = .alpha
     @State var viewSubsection = Array<Bool>()
     
+    @State var showFullGroupPhotosIndex: Int?
+    
+    var secondaryNavigationPath: Binding<NavigationPath>?
+    
     var body: some View {
-        ZStack {
-            VStack {
+        ZStack(alignment: .top) {
+            Color.white
+//                .ignoresSafeArea(edges: [.top, .leading, .trailing]) // covers status bar + nav bar area
+                .ignoresSafeArea()
+//                .frame(height: 1)
+//                .offset(y: -65)
+//                .offset(y: -10)
+            ZStack(alignment: .center) {
                 VStack {
-                    
-                    if !data.isArtistDicEmpty(currDict: artistDict) {
-                        if searchText == "" {
-                            VStack {
-                                HStack {
-                                    ShuffleButtonSection
-                                    CreatePlaylistSection
-                                }
-                                .padding(15)
-                                .frame(height: 80)
-                                .shadow(radius: 5)
+                    VStack {
+                        if !data.isArtistDicEmpty(currDict: artistDict) {
+                            if searchText == "" {
+                                //                            VStack {
+                                //                                HStack {
+                                ShuffleButtonSection
+                                //                                    CreatePlaylistSection
+                                //                                }
+                                //                                .padding(15)
+                                //                                .frame(height: 80)
+                                //                                .shadow(radius: 5)
                                 FullList
                                 
+                                //                            }
+                            } else {
+                                SearchResults
                             }
-                        } else {
-                            SearchResults
                         }
+                        
                     }
-                    
-                }
-//                TabView() {
-//                    Tab("Search", systemImage: "magnifyingglass", role: .search) {
-//                        SearchResults
-//                    }
-//                }
-//                .toolbarRole()
-                .searchable(
+                    //                TabView() {
+                    //                    Tab("Search", systemImage: "magnifyingglass", role: .search) {
+                    //                        SearchResults
+                    //                    }
+                    //                }
+                    //                .toolbarRole()
+                    .searchable(
                         text: $searchText,
                         placement: .navigationBarDrawer(displayMode: .always),
                         prompt: titleText.map { "Search \($0)" } ?? "Search"
                     )
-//                .searchToolbarBehavior(.)
-            }
-//            .if(!friendList) { view in
-//                view.searchable(text: $searchText)
-//            }
-            if isLoading {
-                VStack {
-                    ProgressView("Adding songs...")
-                        .padding()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                        .foregroundStyle(Color.black)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white))
-                        .shadow(radius: 5)
+                    //                .searchToolbarBehavior(.)
+                }
+                //            .if(!friendList) { view in
+                //                view.searchable(text: $searchText)
+                //            }
+                if isLoading {
+                    VStack {
+                        ProgressView("Adding songs...")
+                            .padding()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                            .foregroundStyle(Color.black)
+                            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white))
+                            .shadow(radius: 5)
+                    }
                 }
             }
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
-                FestivalLogoView(
-                    logoPath: currentFestival.logoPath,
-                    title: currentFestival.name,
-                    frame: 40.0
-                )
+                Button {
+                    //print("TAPPED")
+                    secondaryNavigationPath?.wrappedValue.append(currentFestival)
+                } label: {
+                    FestivalLogoView(
+                        logoPath: currentFestival.logoPath,
+                        title: currentFestival.name,
+                        frame: 40.0
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
 //        .onChange(of: groupFavorites) { newValue in
-//            print("CHANGED")
+//            //print("CHANGED")
 //            artistDict = data.getArtistDict(currDict: artistDict, favorites: favorites, sort: sortType, sortDict: groupFavorites)
 //            
 //        }
         .onAppear() {
             artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+            showFullGroupPhotosIndex = nil
 //            if let festival = festivalVM.currentFestival {
 //                currentFestival = festival
 //                artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
@@ -163,18 +182,58 @@ struct ArtistList: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarItems(trailing: HStack {
-            SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
-        })
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+//                HStack {
+//                    Button(action: shuffleArtists) {
+//                        Image(systemName: "shuffle")
+//                    }
+                    SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
+//                }
+//                if !previewView {
+//                    HStack {
+//                        if let userID = firestore.getUserID(), userID == currentFestival.ownerID {
+//                            NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: currentFestival, draftView: true)) {
+//                                Image(systemName: "pencil.circle")
+//                                    .foregroundStyle(.blue)
+//                            }
+//                        }
+//                        NavigationLink(value: "Festival Settings") {
+//                            Image(systemName: "gear")
+//                                .foregroundStyle(.blue)
+//                        }
+//                    }
+//                .foregroundStyle(Color("OASIS Dark Orange"))
+//                .imageScale(.large)
+//                .foregroundStyle(.tint)
+//                }
+            }
+        }
+//        .navigationBarItems(trailing: HStack {
+//            SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
+//        })
         .onChange(of: sortType) { newSort in
             artistDict = festivalVM.getArtistDict(currList: artistList, sort: newSort, secondWeekend: currentFestival.secondWeekend,  groupFavs: groupFavs)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+        }
+        .onChange(of: searchText) { _ in
+            showFullGroupPhotosIndex = nil
         }
 //        .if(!friendList) { view in
 //            view.navigationBarItems(trailing: HStack {
 //                SortMenu
 //            })
 //        }
+    }
+    
+    func shuffleArtists() {
+//        let currentList = data.getArtistList(currDict: artistDict)
+        let dislikedArtists = tags.getDNSTArtists(currList: currentFestival.artistList)
+        if let randomArtist = festivalVM.shuffleArtist(currentList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend, dislikedArtists: dislikedArtists) {
+            navigationPath.append(ArtistPageStruct(artist: randomArtist, festival: currentFestival,
+                                                           shuffleTitle: titleText != nil ? titleText! : "All Artists",
+                                                           shuffleList: currentFestival.artistList))
+        }
     }
     
     
@@ -184,29 +243,37 @@ struct ArtistList: View {
             //            NavigationLink(destination: ArtistPage(currentArtist: data.shuffleArtist(currentList: data.getArtistList(currDict: artistDict), includeFavorites: true), shuffle: true, shuffleList: data.getArtistList(currDict: artistDict), shuffleLable: titleText == "All Artists" ? "Random" : titleText, includeFavorites: true).environmentObject(data)) {
             //            NavigationLink(value: )
             //            Navigation
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .foregroundStyle(LinearGradient(gradient: Gradient(colors: [Color("OASIS Dark Orange"), Color("OASIS Light Orange"), Color("OASIS Light Blue"), Color("OASIS Dark Blue")]), startPoint: .topLeading, endPoint: .bottomTrailing))
-                VStack (spacing: 3) {
-                    Text("Shuffle")
-                        .multilineTextAlignment(.center)
-                    Image(systemName: "shuffle")
-                    
+            if titleText != "Do Not Suggest" {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .foregroundStyle(LinearGradient(gradient: Gradient(colors: [Color("OASIS Dark Orange"), Color("OASIS Light Orange"), Color("OASIS Light Blue"), Color("OASIS Dark Blue")]), startPoint: .topLeading, endPoint: .bottomTrailing))
+                    //                VStack (spacing: 3) {
+                    HStack {
+                        Text(/*titleText != nil ? "Shuffle \(titleText!)" : */"Shuffle")
+                            .multilineTextAlignment(.center)
+                        Image(systemName: "shuffle")
+                        
+                    }
+                    .font(Font.system(size: 18))
+                    .bold()
+                    .foregroundStyle(Color.black)
                 }
-                .font(Font.system(size: 18))
-                .bold()
-                .foregroundStyle(Color.black)
-            }
-            //            }
-            .frame(height: 70, alignment: .center)
-            .padding(.trailing, 5)
-            .onTapGesture {
-                let currentList = data.getArtistList(currDict: artistDict)
-                if let randomArtist = festivalVM.shuffleArtist(currentList: currentList, secondWeekend: currentFestival.secondWeekend) {
-                    navigationPath.append(DataSet.ArtistPageStruct(artist: randomArtist, festival: currentFestival,
-                                                                   shuffleTitle: titleText != nil ? titleText! : "All Artists",
-                                                                   shuffleList: currentList))
+                //            }
+                //            .frame(height: 70, alignment: .center)
+                //            .padding(.trailing, 5)
+                .onTapGesture {
+                    shuffleArtists()
+                    //                let currentList = data.getArtistList(currDict: artistDict)
+                    //                if let randomArtist = festivalVM.shuffleArtist(currentList: currentList, secondWeekend: currentFestival.secondWeekend) {
+                    //                    navigationPath.append(ArtistPageStruct(artist: randomArtist, festival: currentFestival,
+                    //                                                                   shuffleTitle: titleText != nil ? titleText! : "All Artists",
+                    //                                                                   shuffleList: currentList))
+                    //                }
                 }
+                .shadow(radius: 5)
+                .padding(.bottom, 5)
+                .padding(.horizontal, 20)
+                .frame(height: 65)
             }
         }
 //        .alert(isPresented: $data.createPlaylist) {
@@ -219,7 +286,7 @@ struct ArtistList: View {
 //        }
     }
     
-    var CreatePlaylistSection: some View {
+    var CreatePlaylistSection: some View {  //MARK: DEFUNCT
         Group {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
@@ -277,11 +344,11 @@ struct ArtistList: View {
 //                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
 //                        self.playlistCreatedAlert = true
 //                    }
-//                    print("🎉 Playlist successfully created: https://open.spotify.com/playlist/\(playlistID)")
+//                    //print("🎉 Playlist successfully created: https://open.spotify.com/playlist/\(playlistID)")
 //                } else {
 //                    self.isLoading = false
 //                    self.errorAlert = true
-//                    print("❌ Playlist creation failed")
+//                    //print("❌ Playlist creation failed")
 //                }
 //            }
 //        }
@@ -290,6 +357,7 @@ struct ArtistList: View {
     var FullList: some View {
         Group {
             ScrollView {
+//                ShuffleButtonSection
                 ForEach(Array(data.getDictKeysSorted(currDict: artistDict, sort: sortType).enumerated()), id: \.element) { i, section in
                     if let artistArray = artistDict[section] {
                         if !artistArray.isEmpty {
@@ -315,12 +383,19 @@ struct ArtistList: View {
 //                                        ShuffleSubgroupSection(artistArray: artistArray, section: section)
 //                                    }
                                 Divider().padding(.horizontal, 20)
-                                ForEach(artistArray, id: \.self) { artist in
-                                    ArtistLink(artist: artist,
-                                               shuffleList: data.getArtistList(currDict: artistDict),
-                                               titleText: titleText,
-                                               currentFestival: currentFestival,
-                                               memberIDs: groupFavs?.first(where: { $0.artistID == artist.id })?.userIDs)
+//                                ForEach(artistArray, id: \.id) { artist in
+                                ForEach(Array(artistArray.enumerated()), id: \.element.id) { index, artist in
+//                                    ZStack(alignment: .center) {
+                                        ArtistLink(artist: artist,
+                                                   shuffleList: data.getArtistList(currDict: artistDict),
+                                                   titleText: titleText,
+                                                   currentFestival: currentFestival,
+                                                   memberIDs: groupFavs?.first(where: { $0.artistID == artist.id })?.userIDs,
+                                                   index: index,
+                                                   showFullGroupPhotosIndex: $showFullGroupPhotosIndex
+                                        )
+                                        
+//                                    }
                                 }
                             }
 //                            Section(header: Group {
@@ -373,8 +448,16 @@ struct ArtistList: View {
                 if !searchList.isEmpty {
                     Divider().padding(.horizontal, 20)
                     ScrollView {
-                        ForEach(searchList, id: \.self) { artist in
-                            ArtistLink(artist: artist, shuffleList: artistList, titleText: titleText, currentFestival: currentFestival)
+//                        ForEach(searchList, id: \.self) { artist in
+                        ForEach(Array(searchList.enumerated()), id: \.element.id) { index, artist in
+                            ArtistLink(artist: artist,
+                                       shuffleList: artistList,
+                                       titleText: titleText,
+                                       currentFestival: currentFestival,
+                                       memberIDs: groupFavs?.first(where: { $0.artistID == artist.id })?.userIDs,
+                                       index: index,
+                                       showFullGroupPhotosIndex: $showFullGroupPhotosIndex
+                            )
                         }
                     }
                 } else {
@@ -386,8 +469,8 @@ struct ArtistList: View {
     }
     
     
-    func searchArtists() -> Array<DataSet.Artist> {
-        var artistSearchList = Array<DataSet.Artist>()
+    func searchArtists() -> Array<Artist> {
+        var artistSearchList = Array<Artist>()
         for a in artistList {
             if a.name.lowercased().starts(with: searchText.lowercased()) || a.name.lowercased().contains(String(" " + searchText.lowercased())) {
                 artistSearchList.append(a)
@@ -537,7 +620,7 @@ struct ArtistList: View {
     }
     
     
-//    init(navigationPath: Binding<NavigationPath>, currList: Array<DataSet.Artist> /*currDict: [String : Array<DataSet.artistNEW>]*/, titleText: String? = nil, currentFestival: DataSet.Festival, /*titleText: String,*/ /*favorites: Bool = false, *//*friendList: Bool = false,*/ groupFavorites: [String : [String]]? = nil, groupPhotos: [String : UIImage]? = nil/*, sortType: DataSet.sortType, subsectionLen: Int*/) {
+//    init(navigationPath: Binding<NavigationPath>, currList: Array<Artist> /*currDict: [String : Array<DataSet.artistNEW>]*/, titleText: String? = nil, currentFestival: DataSet.Festival, /*titleText: String,*/ /*favorites: Bool = false, *//*friendList: Bool = false,*/ groupFavorites: [String : [String]]? = nil, groupPhotos: [String : UIImage]? = nil/*, sortType: DataSet.sortType, subsectionLen: Int*/) {
 //        self._navigationPath = navigationPath
 //        self.artistList = currList
 //        self.titleText = titleText
@@ -570,11 +653,12 @@ struct ArtistList: View {
 struct ArtistLink: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var festivalVM: FestivalViewModel
+    @EnvironmentObject var tags: TagViewModel
     
-    var artist: DataSet.Artist
-    var shuffleList: Array<DataSet.Artist>
+    var artist: Artist
+    var shuffleList: Array<Artist>
     var titleText: String? = nil
-    var currentFestival: DataSet.Festival
+    var currentFestival: Festival
 //    var includeFavorites: Bool
 //    var favorites: Bool
     
@@ -584,12 +668,15 @@ struct ArtistLink: View {
     var memberIDs: [String]? = nil
 //    var groupFavs: Array<UserFestivalFavorites>? = nil
     
+    var index: Int
+    @Binding var showFullGroupPhotosIndex: Int?
+    
     @State private var showOverlay: Bool = false
     
     var body: some View {
         Group {
             VStack {
-                NavigationLink(value: DataSet.ArtistPageStruct(artist: artist, festival: currentFestival,
+                NavigationLink(value: ArtistPageStruct(artist: artist, festival: currentFestival,
                                                                shuffleTitle: titleText != nil ? titleText! : "All Artists",
 //                                                               shuffleTitle: "All Artists",
                                                                shuffleList: shuffleList)) {
@@ -598,29 +685,74 @@ struct ArtistLink: View {
                         HStack{
                             ArtistImage(imageURL: artist.imageURL, frame: 50)
                             Text(artist.name)
+                            
                             Spacer()
                             if let members = memberIDs {
-                                GroupMemberPhotos(memberIDs: members)
-                            } else if /*titleText != "Favorites" && */festivalVM.favoriteList.contains(artist.id) {
+                                if members.count > 3 {
+                                    GroupMemberPhotos(memberIDs: members)
+                                        .onTapGesture {
+                                            withAnimation(.spring()) {
+                                                showFullGroupPhotosIndex = index
+                                            }
+                                        }
+                                } else {
+                                    GroupMemberPhotos(memberIDs: members)
+                                }
+                                //                                    .onTapGesture {
+                                //                                        if members.count > 3 {
+                                //                                            showFullGroupPhotosIndex = index
+                                //                                        }
+                                //                                    }
+                                //                            } else if /*titleText != "Favorites" && */festivalVM.favoriteList.contains(artist.id) {
+                            } else if tags.isArtistFavorited(artist.id) {
                                 Image(systemName: "heart.fill")
                                     .imageScale(.large)
                                     .foregroundStyle(.red)
                                     .padding(.trailing, 5)
                             }
-//                            if self.groupFavorites != nil {
-//                                FriendPictures
-//                            } else if data.getFavorability(artistID: artist.id) == 1 /*&& !favorites*/ {
-//                                Image(systemName: "star.fill")
-//                                    .imageScale(.large)
-//                                    .foregroundStyle(Color.yellow)
-//                            }
+                            //                            if self.groupFavorites != nil {
+                            //                                FriendPictures
+                            //                            } else if data.getFavorability(artistID: artist.id) == 1 /*&& !favorites*/ {
+                            //                                Image(systemName: "star.fill")
+                            //                                    .imageScale(.large)
+                            //                                    .foregroundStyle(Color.yellow)
+                            //                            }
                             Image(systemName: "chevron.right")
                                 .imageScale(.large)
                             
                         }
-                        if showOverlay {
-                            FriendPicsOverlay
+                        .foregroundStyle(.black)
+//                        Group {
+//                            RoundedRectangle(cornerRadius: 30, style: .continuous)
+//                                .fill(Color.white)
+//                                .overlay(
+//                                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+//                                        .stroke(Color.black, lineWidth: 1)
+//                                )
+//                            ScrollView(.horizontal) {
+//                                LazyHStack {
+//                                    HStack {
+//                                        
+//                                    }
+//                                }
+//                            }
+//                        }
+                        if let members = memberIDs {
+                            if showFullGroupPhotosIndex == index {
+                                FullGroupMemberPhotos(memberIDs: members)
+                                    .padding(.leading, 150)
+                                    .padding(.trailing, 20)
+//                                    .onTapGesture {
+//                                        withAnimation(.spring()) {
+//                                            showFullGroupPhotosIndex = nil
+//                                        }
+//                                    }
+                            }
                         }
+                        //                            .frame(height: 50)
+                        //                        if showOverlay {
+                        //                            FriendPicsOverlay
+                        //                        }
                     }
                     .contentShape(Rectangle())
                 }
@@ -811,11 +943,11 @@ struct SortMenu: View {
     @EnvironmentObject var festivalVM: FestivalViewModel
     
     @Binding var sortType: DataSet.sortType
-    var currList: Array<DataSet.Artist>
+    var currList: Array<Artist>
     var secondWeekend: Bool
 //    @Binding var artistDict: [String : Array<DataSet.artistNEW>]
     
-    @State var currentFestival = DataSet.Festival.newFestival()
+    @State var currentFestival = Festival.newFestival()
     
     var editing: Bool = false
     
@@ -832,7 +964,7 @@ struct SortMenu: View {
             
             //            if dayBool || genreBool || stageBool || tierBool {
             Menu(content: {
-                if let groupDict = groupFavs {
+                if groupFavs != nil {
                     Button (action: {
                         sortType = .group
                     }, label: {
@@ -973,10 +1105,11 @@ extension View {
 }
 
 
-class ImageCache {
+final class ImageCache {
     static let shared = ImageCache()
 
     private let cacheDir: URL
+    private let memoryCache = NSCache<NSString, UIImage>() // 🔥 add this
 
     private init() {
         cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -991,12 +1124,30 @@ class ImageCache {
     }
 
     func getCachedImage(for url: String) -> UIImage? {
+        // 1. Memory (fastest)
+        if let image = memoryCache.object(forKey: url as NSString) {
+            return image
+        }
+
+        // 2. Disk
         let path = localPath(for: url)
-        return UIImage(contentsOfFile: path.path)
+        if let image = UIImage(contentsOfFile: path.path) {
+            memoryCache.setObject(image, forKey: url as NSString) // 🔥 promote to memory
+            return image
+        }
+
+        return nil
     }
 
     func cacheImage(_ data: Data, for url: String) {
         let path = localPath(for: url)
+
+        // Save to disk
         try? data.write(to: path)
+
+        // Save to memory
+        if let image = UIImage(data: data) {
+            memoryCache.setObject(image, forKey: url as NSString)
+        }
     }
 }

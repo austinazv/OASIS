@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="Check out this festival on OASIS!" />
+    <meta property="og:description" content="Discover this music festival on OASIS." />
+    <meta property="og:image" content="https://oasis-austinzv.web.app/images/oasis-icon.jpg" />
+    <meta property="og:url" content="https://oasis-austinzv.web.app/share/festival/" />
+
+    <title>OASIS Festival Share</title>
+</head>
+
+<body>
+    <p>Redirecting to the festival...</p>
+    <script>
+        
+        const pathParts = window.location.pathname.split("/");
+        // path looks like: /share/festival/FESTIVAL_ID
+        const festivalId = pathParts[3];
+
+        if (festivalId) {
+            window.location.href = `https://oasis-austinzv.web.app/invite/festival/${festivalId}`;
+        } else {
+            document.body.innerHTML = "<p>Error: No festival ID provided.</p>";
+        }
+    </script>
+</body>
+</html>

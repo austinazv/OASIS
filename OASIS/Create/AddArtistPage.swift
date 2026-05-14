@@ -11,17 +11,21 @@ struct AddArtistPage: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var festivalVM: FestivalViewModel
     
+    
+    
 //    let artistID: String
-    @State var newArtist: DataSet.Artist
+    @State var newArtist: Artist
     @State var artistImage: UIImage?
     
-    @Binding var newFestival: DataSet.Festival
+    @Binding var newFestival: Festival
     
     @Binding var showArtistSearchPage: Bool
     
     @State var isLoading = true
     
     @State var isGenreLoading = true
+    
+    var lastEditedArtist: Artist?
     
     var body: some View {
         Group {
@@ -50,6 +54,12 @@ struct AddArtistPage: View {
                 }
             }
             if !newFestival.artistList.contains(where: {$0.id == newArtist.id}) {
+                if let lastArtist = lastEditedArtist {
+                    newArtist.weekend = lastArtist.weekend
+                    newArtist.day = lastArtist.day
+                    newArtist.stage = lastArtist.stage
+                    newArtist.tier = lastArtist.tier
+                }
                 isGenreLoading = true
                 var genreList = newArtist.genres.map { $0.capitalized }
                 fetchGenresFromLastFM(artistName: newArtist.name) { genres in
@@ -65,6 +75,7 @@ struct AddArtistPage: View {
                         $0.contains("My Top") ||
                         $0.contains("Lidarr") ||
                         $0.contains("Batch") ||
+                        $0.contains("Spotify") ||
                         $0.contains(newArtist.name)
                     })
                     if genreList.contains("Hip Hop") {
@@ -99,6 +110,7 @@ struct AddArtistPage: View {
                 isLoading = false
                 isGenreLoading = false
             }
+            
         }
     }
     
@@ -157,22 +169,35 @@ struct AddArtistPage: View {
     
     func addArtist() {
         if newArtist.stage == "+ Add Stage" {
-            newArtist.stage = data.NA_TITLE_BLOCK
+            if stageName.isEmpty {
+                newArtist.stage = data.NA_TITLE_BLOCK
+            } else {
+                addStage()
+            }
         }
         
         newArtist.modifyDate = Date()
         
         if let index = newFestival.artistList.firstIndex(where: { $0.name == newArtist.name }) {
-            newFestival.artistList.remove(at: index)
-        } else if let image = artistImage {
-            do {
-                let savedURL = try data.saveImageToDisk(image: image, artistID: newArtist.id)
-                print("Saved image at:", savedURL.path)
-            } catch {
-                print("Failed to save image:", error)
+//            DispatchQueue.main.asyncAfter(deadline: .now() + (wait ? 0.1 : 0.0)) {
+                newFestival.artistList[index] = newArtist
+//                newFestival.artistList.append(newArtist)
+//            }
+//            newFestival.artistList.remove(at: index)
+        } else  {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                newFestival.artistList.append(newArtist)
+            }
+            if let image = artistImage {
+                do {
+                    let savedURL = try data.saveImageToDisk(image: image, artistID: newArtist.id)
+//                    print("Saved image at:", savedURL.path)
+                } catch {
+//                    print("Failed to save image:", error)
+                }
             }
         }
-        newFestival.artistList.append(newArtist)
+        
     }
     
     
@@ -180,32 +205,18 @@ struct AddArtistPage: View {
     var TitleBar: some View {
         VStack {
             HStack(spacing: 20) {
-                //                        if let artist = newArtist {
-                //TODO: Fix
                 Group {
                     if let url = spotifyArtistURL(from: newArtist.id) {
                         Link(destination: url, label: {
                             ArtistImage(imageURL: newArtist.imageURL, frame: 90)
                         })
                     }
-//                    if let image = artistImage {
-//                        Image(uiImage: image)
-//                            .resizable()
-//                    } else {
-//                        Image(systemName: "person.crop.circle.fill")
-//                            .resizable()
-//                    }
                 }
-//                .frame(width: 90, height: 90)
                 Text(newArtist.name)
                     .font(.headline)
             }
-            //                    }
             .padding(.vertical, 2)
             .contentShape(Rectangle())
-//            Text(newArtist.genres.joined(separator: ", "))
-//                            .font(.subheadline)
-//                            .foregroundColor(.gray)
         }
     }
     
@@ -217,25 +228,32 @@ struct AddArtistPage: View {
         Group {
             if newFestival.secondWeekend {
                 Section {
-                    HStack {
-                        Text("Weekend")
-                        Spacer()
-                        Menu {
-                            Picker("Weekend", selection: $newArtist.weekend) {
-                                Text("Both").tag("Both")
-                                Text("Weekend 1").tag("Weekend 1")
-                                Text("Weekend 2").tag("Weekend 2")
-                            }
-                            .labelsHidden()
-                            .pickerStyle(InlinePickerStyle())
-                        } label:  {
-                            HStack {
-                                Text(newArtist.weekend)
-                                Image(systemName: "chevron.up.chevron.down")
-                            }
-                            .foregroundStyle(Color("OASIS Dark Orange"))
-                        }
+                    Picker("Weekend", selection: $newArtist.weekend) {
+                        Text("Both").tag("Both")
+                        Text("Weekend 1").tag("Weekend 1")
+                        Text("Weekend 2").tag("Weekend 2")
                     }
+                    .pickerStyle(.menu)
+                    .tint(Color("OASIS Dark Orange"))
+//                    HStack {
+//                        Text("Weekend")
+//                        Spacer()
+//                        Menu {
+//                            Picker("Weekend", selection: $newArtist.weekend) {
+//                                Text("Both").tag("Both")
+//                                Text("Weekend 1").tag("Weekend 1")
+//                                Text("Weekend 2").tag("Weekend 2")
+//                            }
+//                            .labelsHidden()
+//                            .pickerStyle(InlinePickerStyle())
+//                        } label:  {
+//                            HStack {
+//                                Text(newArtist.weekend)
+//                                Image(systemName: "chevron.up.chevron.down")
+//                            }
+//                            .foregroundStyle(Color("OASIS Dark Orange"))
+//                        }
+//                    }
                 }
             }
         }
@@ -245,26 +263,36 @@ struct AddArtistPage: View {
         Group {
             if !Calendar.current.isDate(newFestival.startDate, inSameDayAs: newFestival.endDate) {
                 Section {
-                    HStack {
-                        Text("Day")
-                        Spacer()
-                        Menu {
-                            Picker("Day", selection: $newArtist.day) {
-                                Text("-- N/A --").tag("-- N/A --")
-                                ForEach(formattedDateStrings, id: \.self) { dateString in
-                                    Text(dateString)
-                                }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(InlinePickerStyle())
-                        } label:  {
-                            HStack {
-                                Text(newArtist.day)
-                                Image(systemName: "chevron.up.chevron.down")
-                            }
-                            .foregroundStyle(Color("OASIS Dark Orange"))
+                    Picker("Day", selection: $newArtist.day) {
+                        Text("-- N/A --").tag("-- N/A --")
+
+                        ForEach(formattedDateStrings, id: \.self) { dateString in
+                            Text(dateString)
                         }
                     }
+                    .pickerStyle(.menu)
+                    .tint(Color("OASIS Dark Orange"))
+//                    HStack {
+//                        Text("Day")
+//                        Spacer()
+//                        Menu {
+//                            Picker("Day", selection: $newArtist.day) {
+//                                Text("-- N/A --").tag("-- N/A --")
+//                                ForEach(formattedDateStrings, id: \.self) { dateString in
+//                                    Text(dateString)
+//                                }
+//                            }
+//                            .labelsHidden()
+//                            .pickerStyle(InlinePickerStyle())
+//                        } label:  {
+//                            HStack {
+//                                Text(newArtist.day)
+//                                Image(systemName: "chevron.up.chevron.down")
+//                            }
+//                            .frame(minWidth: 120, alignment: .trailing)
+//                            .foregroundStyle(Color("OASIS Dark Orange"))
+//                        }
+//                    }
                 }
             }
         }
@@ -301,28 +329,43 @@ struct AddArtistPage: View {
         Group {
             Section {
                 VStack {
-                    HStack {
-                        Text("Stage")
-                        Spacer()
-                        Menu {
-                            Picker("Stage", selection: $newArtist.stage) {
-                                Text("-- N/A --").tag("-- N/A --")
-                                ForEach(newFestival.stageList.sorted(), id: \.self) { stage in
-                                    Text(stage).tag(stage)
-                                }
-                                Text("+ Add Stage").tag("+ Add Stage")
+//                    HStack {
+
+                        Picker("Stage", selection: $newArtist.stage) {
+                            Text("-- N/A --").tag("-- N/A --")
+
+                            ForEach(newFestival.stageList.sorted(), id: \.self) { stage in
+                                Text(stage).tag(stage)
                             }
-                            .labelsHidden()
-                            .pickerStyle(InlinePickerStyle())
-                        } label:  {
-                            HStack {
-                                Text(newArtist.stage)
-                                Image(systemName: "chevron.up.chevron.down")
-                            }
-                            .foregroundStyle(Color("OASIS Dark Orange"))
+
+                            Text("+ Add Stage").tag("+ Add Stage")
                         }
-                        
-                    }
+                        .pickerStyle(.menu)
+                        .tint(Color("OASIS Dark Orange"))
+//                    }
+//                    HStack {
+//                        Text("Stage")
+//                        Spacer()
+//                        Menu {
+//                            Picker("Stage", selection: $newArtist.stage) {
+//                                Text("-- N/A --").tag("-- N/A --")
+//                                ForEach(newFestival.stageList.sorted(), id: \.self) { stage in
+//                                    Text(stage).tag(stage)
+//                                }
+//                                Text("+ Add Stage").tag("+ Add Stage")
+//                            }
+//                            .labelsHidden()
+//                            .pickerStyle(InlinePickerStyle())
+//                        } label:  {
+//                            HStack {
+//                                Text(newArtist.stage)
+//                                Image(systemName: "chevron.up.chevron.down")
+//                            }
+//                            .fixedSize()
+//                            .foregroundStyle(Color("OASIS Dark Orange"))
+//                        }
+//                        
+//                    }
 //                    .padding(.horizontal, 5)
                     if newArtist.stage == "+ Add Stage" {
                         Divider()
@@ -385,27 +428,36 @@ struct AddArtistPage: View {
     var ArtistTier: some View {
         Group {
             Section {
-                HStack {
-                    Text("Tier")
-                    Spacer()
-                    Menu {
-                        Picker("Tier", selection: $newArtist.tier) {
-                            Text("-- N/A --").tag("-- N/A --")
-                            ForEach(data.tierLables, id: \.self) { tier in
-                                Text(tier).tag(tier)
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(InlinePickerStyle())
-                    } label:  {
-                        HStack {
-                            Text(newArtist.tier)
-                            Image(systemName: "chevron.up.chevron.down")
-                        }
-                        .foregroundStyle(Color("OASIS Dark Orange"))
+                Picker("Tier", selection: $newArtist.tier) {
+                    Text("-- N/A --").tag("-- N/A --")
+
+                    ForEach(data.tierLables, id: \.self) { tier in
+                        Text(tier).tag(tier)
                     }
-                    
                 }
+                .pickerStyle(.menu)
+                .tint(Color("OASIS Dark Orange"))
+//                HStack {
+//                    Text("Tier")
+//                    Spacer()
+//                    Menu {
+//                        Picker("Tier", selection: $newArtist.tier) {
+//                            Text("-- N/A --").tag("-- N/A --")
+//                            ForEach(data.tierLables, id: \.self) { tier in
+//                                Text(tier).tag(tier)
+//                            }
+//                        }
+//                        .labelsHidden()
+//                        .pickerStyle(InlinePickerStyle())
+//                    } label:  {
+//                        HStack {
+//                            Text(newArtist.tier)
+//                            Image(systemName: "chevron.up.chevron.down")
+//                        }
+//                        .foregroundStyle(Color("OASIS Dark Orange"))
+//                    }
+//                    
+//                }
             }
 //            }
         }
@@ -510,7 +562,7 @@ struct AddArtistPage: View {
 
         URLSession.shared.dataTask(with: url) { data, _, error in
             guard let data = data, error == nil else {
-                print("❌ Last.fm error: \(error?.localizedDescription ?? "Unknown")")
+//                print("❌ Last.fm error: \(error?.localizedDescription ?? "Unknown")")
                 completion([])
                 return
             }
@@ -521,14 +573,14 @@ struct AddArtistPage: View {
                    let tags = artist["tags"] as? [String: Any],
                    let tagArray = tags["tag"] as? [[String: Any]] {
                     let genres = tagArray.compactMap { $0["name"] as? String }
-                    print("🎯 Last.fm genres for \(artistName): \(genres)")
+//                    print("🎯 Last.fm genres for \(artistName): \(genres)")
                     completion(genres)
                 } else {
-                    print("⚠️ No genres found on Last.fm")
+//                    print("⚠️ No genres found on Last.fm")
                     completion([])
                 }
             } catch {
-                print("❌ JSON parse error from Last.fm: \(error)")
+//                print("❌ JSON parse error from Last.fm: \(error)")
                 completion([])
             }
         }.resume()
