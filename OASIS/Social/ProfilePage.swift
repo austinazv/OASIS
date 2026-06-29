@@ -30,32 +30,42 @@ struct ProfilePage: View {
     @State var following = Array<UserProfile>()
     @State var followers = Array<UserProfile>()
     
+    @State private var photoExpanded = false
     
     var body: some View {
 //        NavigationStack(path: $navigationPath) {
-            
+//        ScrollView {
+        ZStack(alignment: photoExpanded ? .center : .topLeading) {
+            SocialImage(imageURL: profile.profilePic, name: profile.name, frame: photoExpanded ? 320 : 110)
+                .shadow(radius: photoExpanded ? 20 : 0)
+                .padding(.leading, photoExpanded ? 0 : 40)
+                .onTapGesture {
+                    if profile.profilePic != nil {
+                        toggleImage()
+                    }
+                }
+                .zIndex(2)
             VStack(spacing: 0) {
                 UserHeaderSection
                 UserInfoSection
-                
-                
                 if isLoading {
                     Spacer()
                     ProgressView()
                         .foregroundStyle(.black)
                     Spacer()
                 } else {
+                    
                     ZStack {
                         switch selectedSection {
                         case .festivals:
                             FestivalsView
                                 .transition(pageSlideTransition)
-
+                            
                         case .followers:
                             FollowersView
                                 .id(profile.safeFollowers.count)
                                 .transition(pageSlideTransition)
-
+                            
                         case .following:
                             FollowingView
                                 .id(profile.safeFollowing.count)
@@ -63,22 +73,32 @@ struct ProfilePage: View {
                         }
                     }
                     .animation(.easeInOut(duration: 0.25), value: selectedSection)
-
-//                    FestivalsView
+                    
+                    //                    FestivalsView
                 }
                 Spacer()
             }
+//        }
+//        .refreshable {
+//            print("REFRESHED")
+////            explore.fetchVerifiedFestivals()
+//        }
             .background(Color(.white))
             .onAppear() {
-                if profile.id! == firestore.myUserProfile.id! { profile = firestore.myUserProfile }
-                loadUser()
+                Task { @MainActor in
+                    isLoading = true
+                    defer { isLoading = false }
+                    
+                    if profile.id == firestore.myUserProfile.id { profile = firestore.myUserProfile }
+                    await loadUser()
+                }
             }
-            .onChange(of: profile.safeFollowers) { newFollowerIDs in
+            .onChange(of: profile.safeFollowers) { _, newFollowerIDs in
                 Task {
                     followers = await firestore.users(from: newFollowerIDs)
                 }
             }
-            .onChange(of: profile.safeFollowing) { newFollowingIDs in
+            .onChange(of: profile.safeFollowing) { _, newFollowingIDs in
                 Task {
                     following = await firestore.users(from: newFollowingIDs)
                 }
@@ -96,10 +116,10 @@ struct ProfilePage: View {
 //                }
 //            }
             .toolbar {
-                if true {
+//                if true {
                     ToolbarItem(placement: .principal) {
                         Group {
-                            if let id = profile.id, id == firestore.getUserID() {
+                            if /*let id = profile.id,*/ profile.id == firestore.getUserID() {
                                 Text("My Profile")
                             } else {
 //                                Text("\(profile.name)'s Profile")
@@ -108,11 +128,11 @@ struct ProfilePage: View {
                         }
                         .foregroundStyle(.black)
                     }
-                }
+//                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Group {
-                        if let profileID = profile.id {
-                            if profileID == firestore.getUserID() {
+//                        if let profileID = profile.id {
+                        if profile.id == firestore.getUserID() {
                                 Button {
                                     navigationPath.append("Settings")
                                 } label: {
@@ -122,11 +142,11 @@ struct ProfilePage: View {
                                 }
                             } else {
                                 Menu(content: {
-                                    if firestore.myUserProfile.safeFollowing.contains(profileID) {
+                                    if firestore.myUserProfile.safeFollowing.contains(profile.id) {
                                         Button (action: {
-                                            firestore.unfollowUser(profileID) { success in
+                                            firestore.unfollowUser(profile.id) { success in
                                                 if success {
-                                                    profile.followers?.removeAll(where: { $0 == firestore.myUserProfile.id! })
+                                                    profile.followers?.removeAll(where: { $0 == firestore.myUserProfile.id })
                                                 }
                                             }
                                             
@@ -135,9 +155,9 @@ struct ProfilePage: View {
                                         })
                                     } else {
                                         Button (action: {
-                                            firestore.followUser(profileID) { success in
+                                            firestore.followUser(profile.id) { success in
                                                 if success {
-                                                    profile.followers?.append(firestore.myUserProfile.id!)
+                                                    profile.followers?.append(firestore.myUserProfile.id)
                                                 }
                                             }
                                         }, label: {
@@ -151,56 +171,17 @@ struct ProfilePage: View {
                                     }
                                 })
                             }
-                        }
+//                        }
                     }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            //        .toolbarRole(ToolbarRole)
             
-            
-            
-            //            if let favList = profile.favorites, !favList.isEmpty {
-            //                ArtistList(currDict: [String(profile.name + "'s Favorites") : data.getArtistListFromID(artists: favList) as [DataSet.artist]],
-            //                           titleText: String(profile.name + "'s Favorites"),
-            ////                           favorites: false,
-            ////                           friendList: true,
-            //                           sortType: .alpha,
-            //                           subsectionLen: data.getSortLables(sort: .alpha).count)
-            //                    .environmentObject(data)
-            //            } else {
-            //                Text("\(profile.name) has no Starred Artist yet.")
-            //                    .multilineTextAlignment(.center)
-            //                    .padding(.top, 20)
-            //                Spacer()
-            //            }
-            
-            //        .navigationBarTitleDisplayMode(.inline)
-            
-            //        .toolbar {
-            //            ToolbarItem(placement: .topBarTrailing) {
-            //                Menu(content: {
-            //                    Button (action: {
-            ////                        unfriendAlert = true
-            //                    }, label: {
-            //                        HStack {
-            //                            Spacer()
-            //                            Text("❌ Unfriend")
-            //
-            //                        }.foregroundStyle(Color.red)
-            //                    })
-            //
-            //                }, label: {
-            //                    Image(systemName: "gear")
-            //                    .foregroundStyle(Color.blue)
-            //                })
-            //            }
-            //        }
             .alert(isPresented: self.$unfriendAlert) {
                 Alert(title: Text("Unfriend"),
                       message: Text("Are you sure you want to unfriend \(profile.name)?"),
                       primaryButton: .destructive(Text("Unfriend")) {
-                    data.unfriendUser(currentUserID: data.userInfo!.id!, friendID: profile.id!) { error in
+                    data.unfriendUser(currentUserID: data.userInfo!.id, friendID: profile.id) { error in
                         if let error = error {
                             //print("Error unfriending user: \(error.localizedDescription)")
                         } else {
@@ -214,25 +195,80 @@ struct ProfilePage: View {
                 }, secondaryButton: .cancel()
                 )
             }
-//        }
+            if photoExpanded {
+                Color.black.opacity(0.45)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .zIndex(1)
+                    .onTapGesture {
+                        collapseImage()
+                    }
+            }
+        }
+        .animation(
+            .spring(response: 0.45, dampingFraction: 0.86),
+            value: photoExpanded
+        )
     }
     
-    func loadUser() {
-        isLoading = true
-        
-        Task {
-            defer { isLoading = false }
-            
-//            let likedFestivals = [Festival]() /*try await social.fetchFavoritedFestivals(festivalIDs: Array(profile.safeFestivalFavorites.keys))*/
-            let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: profile.safeStarredFestivalsList)
-            let split = festivalVM.splitFestivals(likedFestivals)
-            attendedFestivals = split.attended
-            upcomingFestivals = split.upcoming
-            
-            followers = await firestore.users(from: profile.safeFollowers)
-            following = await firestore.users(from: profile.safeFollowing)
+    func toggleImage() {
+        withAnimation {
+            photoExpanded.toggle()
         }
     }
+
+    func collapseImage() {
+        withAnimation {
+            photoExpanded = false
+        }
+    }
+    
+    func loadUser() async {
+//        isLoading = true
+//        
+//        defer { isLoading = false }
+        
+        //            let likedFestivals = [Festival]() /*try await social.fetchFavoritedFestivals(festivalIDs: Array(profile.safeFestivalFavorites.keys))*/
+        do {
+            let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: profile.safeStarredFestivalsList)
+            let split = festivalVM.splitFestivals(likedFestivals)
+            
+            
+            let followers = await firestore.users(from: profile.safeFollowers)
+            let following = await firestore.users(from: profile.safeFollowing)
+            
+            await MainActor.run {
+                self.attendedFestivals = split.attended
+                self.upcomingFestivals = split.upcoming
+                self.followers = followers
+                self.following = following
+            }
+        } catch {
+            print("loadUser failed:", error)
+        }
+    }
+    
+    
+    func refreshUserProfile() async {
+        do {
+            // 1. re-fetch latest profile from Firestore
+            let updatedProfile = try await firestore.fetchUserProfile(userID: profile.id)
+            
+
+            // 2. update local profile first
+            await MainActor.run {
+                self.profile = updatedProfile
+                firestore.usersByID[profile.id] = updatedProfile
+            }
+
+            // 3. then load dependent data
+            await loadUser()
+
+        } catch {
+            print("Failed to refresh profile:", error)
+        }
+    }
+    
 //            do {
 //                profile = (try? await firestore.fetchUserProfile(userID: profile.id!)) ?? profile
 //                
@@ -270,25 +306,26 @@ struct ProfilePage: View {
 //    }
     
     var UserHeaderSection: some View {
-            HStack {
-                SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 110)
-                    .padding(.leading, 40)
-                Spacer()
-                VStack {
-                    Text(profile.name)
-                        .foregroundStyle(.black)
-                        .multilineTextAlignment(.center)
-                        .font(Font.system(size: 25))
-                    ProfileButton(profile: $profile)
-                    //                if profile.id! != firestore.getUserID() && !firestore.myUserProfile.safeFollowing.contains(profile.id!) {
-                    //                    FollowButtonLong(profile: profile/*, longView: true*/)
-                    //                }
-                }
-                Spacer()
-                
+        HStack() {
+            Spacer().frame(width: 150)
+            Spacer()
+            VStack {
+                Text(profile.name)
+                    .foregroundStyle(.black)
+                    .multilineTextAlignment(.center)
+                    .font(Font.system(size: 25))
+                ProfileButton(profile: $profile)
+                //                if profile.id! != firestore.getUserID() && !firestore.myUserProfile.safeFollowing.contains(profile.id!) {
+                //                    FollowButtonLong(profile: profile/*, longView: true*/)
+                //                }
             }
-            //        .padding(.top, 20)
-            .padding(.bottom, 20)
+            Spacer()
+            
+        }
+        //        .padding(.top, 20)
+//        .padding(.bottom, 20)
+//        .padding(.trailing, 20)
+        .frame(height: 130)
         
     }
     
@@ -405,81 +442,98 @@ struct ProfilePage: View {
     
     
     var FestivalsView: some View {
-        VStack {
-            if upcomingFestivals.isEmpty && attendedFestivals.isEmpty {
-                Spacer()
-                Group {
-                    if let id = profile.id, id == firestore.getUserID() {
-                        Text("You have no saved festivals yet.")
-                    } else {
-                        Text("\(profile.name) has no saved festivals yet.")
-                        
+        ScrollView {
+            VStack {
+                if upcomingFestivals.isEmpty && attendedFestivals.isEmpty {
+                    Spacer()
+                    Group {
+                        if/* let id = profile.id,*/ profile.id == firestore.getUserID() {
+                            Text("You have no saved festivals yet.")
+                        } else {
+                            Text("\(profile.name) has no saved festivals yet.")
+                            
+                        }
                     }
+                    .foregroundStyle(.black)
+                    Spacer()
+                } else {
+//                    let userArtistDict = getUserArtistDict(festivals: (upcomingFestivals + attendedFestivals))
+                    ScrollView {
+                        FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", largeText: true, collapsable: true, profile: profile.id == firestore.getUserID() ? nil : profile)
+                        FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true, showList: upcomingFestivals.isEmpty, profile: profile.id == firestore.getUserID() ? nil : profile)
+                    }
+                    .padding(.top, LIST_PADDING)
                 }
-                .foregroundStyle(.black)
-                Spacer()
-            } else {
-                let userArtistDict = getUserArtistDict(festivals: (upcomingFestivals + attendedFestivals))
-                ScrollView {
-                    FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", largeText: true, collapsable: true, friendInfoToPopup: userArtistDict, profile: profile)
-                    FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true, showList: upcomingFestivals.isEmpty, friendInfoToPopup: userArtistDict, profile: profile)
-                }
-                .padding(.top, LIST_PADDING)
             }
+        }
+        .refreshable {
+            await refreshUserProfile()
         }
     }
     
-    func getUserArtistDict(festivals: [Festival]) -> [UUID : [Artist]] {
-        var userArtistDict = [UUID : [Artist]]()
-        for festival in festivals {
-            let festivalFavoritesList = festival.artistList.filter({ profile.safeFavoriteArtistsList.contains($0.id) })
-            if !festivalFavoritesList.isEmpty {
-                userArtistDict[festival.id] = festivalFavoritesList
-            }
-        }
-        return userArtistDict
-    }
+//    func getUserArtistDict(festivals: [Festival]) -> [UUID : [Artist]] {
+//        var userArtistDict = [UUID : [Artist]]()
+//        for festival in festivals {
+//            let festivalFavoritesList = festival.artistList.filter({ profile.safeFavoriteArtistsList.contains($0.id) })
+//            if !festivalFavoritesList.isEmpty {
+//                userArtistDict[festival.id] = festivalFavoritesList
+//            }
+//        }
+//        return userArtistDict
+//    }
+    
+    
     
     var FollowingView: some View {
-        VStack {
-            if following.isEmpty {
-                Spacer()
-                Group {
-                    if let id = profile.id, id == firestore.getUserID() {
-                        Text("You are not following anyone yet.")
-                    } else {
-                        Text("\(profile.name) is not following anyone yet.")
+        ScrollView {
+            VStack {
+                if following.isEmpty {
+                    Spacer()
+                    Group {
+                        if/* let id = profile.id,*/ profile.id == firestore.getUserID() {
+                            Text("You are not following anyone yet.")
+                        } else {
+                            Text("\(profile.name) is not following anyone yet.")
+                        }
                     }
+                    .foregroundStyle(.black)
+                    Spacer()
+                } else {
+                    ProfilesListed(navigationPath: $navigationPath, profiles: following, maxHeight: 370)
+                        .padding(.top, LIST_PADDING)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
                 }
-                .foregroundStyle(.black)
-                Spacer()
-            } else {
-                ProfilesListed(navigationPath: $navigationPath, profiles: following, maxHeight: 370)
-                    .padding(.top, LIST_PADDING)
-                    .fixedSize(horizontal: false, vertical: true)
-                
             }
+        }
+        .refreshable {
+            await refreshUserProfile()
         }
     }
     
     var FollowersView: some View {
-        VStack {
-            if followers.isEmpty {
-                Spacer()
-                Group {
-                    if let id = profile.id, id == firestore.getUserID() {
-                        Text("You have no followers yet.")
-                    } else {
-                        Text("\(profile.name) has no followers yet.")
+        ScrollView {
+            VStack {
+                if followers.isEmpty {
+                    Spacer()
+                    Group {
+                        if /*let id = profile.id,*/ profile.id == firestore.getUserID() {
+                            Text("You have no followers yet.")
+                        } else {
+                            Text("\(profile.name) has no followers yet.")
+                        }
                     }
+                    .foregroundStyle(.black)
+                    Spacer()
+                } else {
+                    ProfilesListed(navigationPath: $navigationPath, profiles: followers)
+                        .padding(.top, LIST_PADDING)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .foregroundStyle(.black)
-                Spacer()
-            } else {
-                ProfilesListed(navigationPath: $navigationPath, profiles: followers)
-                    .padding(.top, LIST_PADDING)
-                    .fixedSize(horizontal: false, vertical: true)
             }
+        }
+        .refreshable {
+            await refreshUserProfile()
         }
     }
     
@@ -501,13 +555,14 @@ struct UserNumber: View {
         VStack {
             VStack(spacing: 2) {
                 Text("\(number)")
+//                    .font(.system(size: 17))
                     .font(.headline)
                     .fontWeight(.bold)
                 Text(text)
                     .font(.caption)
             }
             .padding(.vertical, 10)
-            .frame(width: width)
+            .frame(width: width, height: 57)
             .foregroundColor(isSelected ? .oasisDarkOrange : .black)
             .background(
                 ZStack {

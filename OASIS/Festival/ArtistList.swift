@@ -19,7 +19,7 @@ struct ArtistList: View {
     
     @State private var isLoading = false
     @State var notLoggedInAlert: Bool = false
-    @State var playlistCreatedAlert: Bool = false
+    
     @State var errorAlert: Bool = false
     @State var createPlaylistSheet: Bool = false
     @State var playlistName = ""
@@ -39,8 +39,8 @@ struct ArtistList: View {
 //        }
 //    }
     
-    
-    
+    @State var playlistURL: URL?
+    @State var playlistCreatedAlert: Bool = false
     
 //    var favorites: Bool
 //    var friendList: Bool
@@ -57,7 +57,7 @@ struct ArtistList: View {
     
     var body: some View {
         ZStack(alignment: .top) {
-            Color.white
+            Color.bwColorSwitchReverse
 //                .ignoresSafeArea(edges: [.top, .leading, .trailing]) // covers status bar + nav bar area
                 .ignoresSafeArea()
 //                .frame(height: 1)
@@ -68,11 +68,14 @@ struct ArtistList: View {
                     VStack {
                         if !data.isArtistDicEmpty(currDict: artistDict) {
                             if searchText == "" {
-                                //                            VStack {
-                                //                                HStack {
-                                ShuffleButtonSection
-                                //                                    CreatePlaylistSection
-                                //                                }
+                                HStack(spacing: 20) {
+                                    ShuffleButtonSection
+                                    CreatePlaylistSection
+                                }
+                                .shadow(radius: 5)
+                                .padding(.bottom, 5)
+                                .padding(.horizontal, 20)
+                                .frame(height: 75)
                                 //                                .padding(15)
                                 //                                .frame(height: 80)
                                 //                                .shadow(radius: 5)
@@ -113,21 +116,21 @@ struct ArtistList: View {
                 }
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Button {
-                    //print("TAPPED")
-                    secondaryNavigationPath?.wrappedValue.append(currentFestival)
-                } label: {
-                    FestivalLogoView(
-                        logoPath: currentFestival.logoPath,
-                        title: currentFestival.name,
-                        frame: 40.0
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-        }
+//        .toolbar {
+//            ToolbarItem(placement: .principal) {
+//                Button {
+//                    //print("TAPPED")
+//                    secondaryNavigationPath?.wrappedValue.append(currentFestival)
+//                } label: {
+//                    FestivalLogoView(
+//                        logoPath: currentFestival.logoPath,
+//                        title: currentFestival.name,
+//                        frame: 40.0
+//                    )
+//                }
+//                .buttonStyle(.plain)
+//            }
+//        }
 //        .onChange(of: groupFavorites) { newValue in
 //            //print("CHANGED")
 //            artistDict = data.getArtistDict(currDict: artistDict, favorites: favorites, sort: sortType, sortDict: groupFavorites)
@@ -148,19 +151,33 @@ struct ArtistList: View {
 //        .onChange(of: selectedItem) { newItem in
 //            
 //        }
+        .onChange(of: playlistURL) { _, url in
+            guard url != nil else { return }
+
+            createPlaylistSheet = false
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                playlistCreatedAlert = true
+            }
+        }
+        .onChange(of: playlistCreatedAlert) { _, bool in
+            if !bool {
+                playlistURL = nil
+            }
+        }
         .alert(isPresented: self.$playlistCreatedAlert) {
             Alert(title: Text("Playlist Created!"),
                   primaryButton: .default(Text("Ok")),
                   secondaryButton: .default(Text("Go to playlist")) {
-                if let URL = spotify.getPlaylistURL() {
-                    UIApplication.shared.open(URL)
+                if let url = playlistURL {
+                    UIApplication.shared.open(url)
                 } else {
                     self.errorAlert = true
                 }
             })
         }
         .sheet(isPresented: $createPlaylistSheet) {
-            PlaylistCreationSheet(artistList: artistList, playlistCreatedAlert: $playlistCreatedAlert, titleText: titleText)
+            PlaylistCreationSheet(artistList: artistList, currentFestival: currentFestival, /*playlistCreatedAlert: $playlistCreatedAlert,*/ playlistURL: $playlistURL, titleText: titleText)
 //            PlaylistCreationSheet(artistDict: data.getArtistDict(currDict: artistDict, favorites: favorites, sort: .alpha), sortType: .alpha, playlistCreatedAlert: self.$playlistCreatedAlert).environmentObject(data)
         }
 //        .alert(isPresented: self.$errorAlert) {
@@ -174,11 +191,27 @@ struct ArtistList: View {
 //        .navigationTitle(Text(String(currentFestival.name + ": Artist List")))
         .toolbar {
             ToolbarItem(placement: .principal) {
-                FestivalLogoView(
-                    logoPath: currentFestival.logoPath,
-                    title: currentFestival.name,
-                    frame: 40.0
-                )
+                Group {
+                    if secondaryNavigationPath != nil {
+                        Button {
+                            secondaryNavigationPath?.wrappedValue.append(currentFestival)
+                        } label: {
+                            FestivalLogoView(
+                                logoPath: currentFestival.logoPath,
+                                title: currentFestival.name,
+                                frame: 40.0
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(secondaryNavigationPath == nil)
+                    } else {
+                        FestivalLogoView(
+                            logoPath: currentFestival.logoPath,
+                            title: currentFestival.name,
+                            frame: 40.0
+                        )
+                    }
+                }
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -212,11 +245,11 @@ struct ArtistList: View {
 //        .navigationBarItems(trailing: HStack {
 //            SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
 //        })
-        .onChange(of: sortType) { newSort in
+        .onChange(of: sortType) { _, newSort in
             artistDict = festivalVM.getArtistDict(currList: artistList, sort: newSort, secondWeekend: currentFestival.secondWeekend,  groupFavs: groupFavs)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
         }
-        .onChange(of: searchText) { _ in
+        .onChange(of: searchText) {
             showFullGroupPhotosIndex = nil
         }
 //        .if(!friendList) { view in
@@ -228,69 +261,69 @@ struct ArtistList: View {
     
     func shuffleArtists() {
 //        let currentList = data.getArtistList(currDict: artistDict)
-        let dislikedArtists = tags.getDNSTArtists(currList: currentFestival.artistList)
-        if let randomArtist = festivalVM.shuffleArtist(currentList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend, dislikedArtists: dislikedArtists) {
+//        let dislikedArtists = /*tags.getDNSTArtists(currList: currentFestival.artistList)*/Set<String>()
+        let dislikedArtists = tags.getDNSIDSet(currList: artistList)
+        if let randomArtist = festivalVM.shuffleArtist(currentList: artistList, secondWeekend: currentFestival.secondWeekend, dislikedArtists: dislikedArtists) {
             navigationPath.append(ArtistPageStruct(artist: randomArtist, festival: currentFestival,
                                                            shuffleTitle: titleText != nil ? titleText! : "All Artists",
-                                                           shuffleList: currentFestival.artistList))
+                                                           shuffleList: artistList))
         }
     }
     
+    
+    //            NavigationLink(destination: ArtistPage(currentArtist: data.shuffleArtist(currentList: data.getArtistList(currDict: artistDict), includeFavorites: true), shuffle: true, shuffleList: data.getArtistList(currDict: artistDict), shuffleLable: titleText == "All Artists" ? "Random" : titleText, includeFavorites: true).environmentObject(data)) {
+    //            NavigationLink(value: )
+    //            Navigation
+//            if titleText != "Do Not Suggest" {
+    
+//                        .foregroundStyle(Color("Spotify Color Green"))
+//                        Image("Spotify Image Always Black")
+//                            .resizable()
+//                            .frame(width: 24, height: 24, alignment: .center)
+    //                if !isLoading {
+    //                    spotify.isUserLoggedIn { isLoggedIn in
+    //                        DispatchQueue.main.async {
+    //                            if isLoggedIn {
+    //                                self.createPlaylistSheet = true
+    ////                                self.makeStarredPlaylist(name: "")
+    //                            } else {
+    //                                self.notLoggedInAlert = true
+    //                            }
+    //                        }
+    //                    }
+    //                }
     
     
     var ShuffleButtonSection: some View {
         Group {
-            //            NavigationLink(destination: ArtistPage(currentArtist: data.shuffleArtist(currentList: data.getArtistList(currDict: artistDict), includeFavorites: true), shuffle: true, shuffleList: data.getArtistList(currDict: artistDict), shuffleLable: titleText == "All Artists" ? "Random" : titleText, includeFavorites: true).environmentObject(data)) {
-            //            NavigationLink(value: )
-            //            Navigation
-            if titleText != "Do Not Suggest" {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .foregroundStyle(LinearGradient(gradient: Gradient(colors: [Color("OASIS Dark Orange"), Color("OASIS Light Orange"), Color("OASIS Light Blue"), Color("OASIS Dark Blue")]), startPoint: .topLeading, endPoint: .bottomTrailing))
-                    //                VStack (spacing: 3) {
-                    HStack {
-                        Text(/*titleText != nil ? "Shuffle \(titleText!)" : */"Shuffle")
-                            .multilineTextAlignment(.center)
-                        Image(systemName: "shuffle")
-                        
-                    }
-                    .font(Font.system(size: 18))
-                    .bold()
-                    .foregroundStyle(Color.black)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .foregroundStyle(LinearGradient(gradient: Gradient(colors: [Color("OASIS Dark Orange"), Color("OASIS Light Orange"), Color("OASIS Light Blue"), Color("OASIS Dark Blue")]), startPoint: .topLeading, endPoint: .bottomTrailing))
+                VStack (spacing: 3) {
+                    Text("Shuffle")
+                    Image(systemName: "shuffle")
                 }
-                //            }
-                //            .frame(height: 70, alignment: .center)
-                //            .padding(.trailing, 5)
-                .onTapGesture {
-                    shuffleArtists()
-                    //                let currentList = data.getArtistList(currDict: artistDict)
-                    //                if let randomArtist = festivalVM.shuffleArtist(currentList: currentList, secondWeekend: currentFestival.secondWeekend) {
-                    //                    navigationPath.append(ArtistPageStruct(artist: randomArtist, festival: currentFestival,
-                    //                                                                   shuffleTitle: titleText != nil ? titleText! : "All Artists",
-                    //                                                                   shuffleList: currentList))
-                    //                }
-                }
-                .shadow(radius: 5)
-                .padding(.bottom, 5)
-                .padding(.horizontal, 20)
-                .frame(height: 65)
+                .font(Font.system(size: 18))
+                .bold()
+                .foregroundStyle(Color.black)
             }
+            .onTapGesture {
+                shuffleArtists()
+            }
+//            .shadow(radius: 5)
+//            .padding(.bottom, 5)
+//            .padding(.horizontal, 20)
+//            .frame(height: 65)
         }
-//        .alert(isPresented: $data.createPlaylist) {
-//            Alert(title: Text("Connection to Spotify Successful!"),
-//                  message: Text("Do you want to create a starred playlist?"),
-//                  primaryButton: .default(Text("Create Playlist")) {
-//                self.makeStarredPlaylist(name: "")
-//            }, secondaryButton: .cancel()
-//            )
-//        }
     }
     
-    var CreatePlaylistSection: some View {  //MARK: DEFUNCT
+    var CreatePlaylistSection: some View {
         Group {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
+//                    .foregroundStyle(LinearGradient(gradient: Gradient(colors: [Color("OASIS Dark Orange"), Color("OASIS Light Orange"), Color("OASIS Light Blue"), Color("OASIS Dark Blue")]), startPoint: .topLeading, endPoint: .bottomTrailing))
                     .foregroundStyle(Color("Spotify Color Green"))
+                    
                 VStack (spacing: 3) {
                     Text("Create Playlist")
                     Image("Spotify Image Always Black")
@@ -300,38 +333,29 @@ struct ArtistList: View {
                 .font(Font.system(size: 18))
                 .bold()
                 .foregroundStyle(Color.black)
-                
             }
-            .frame(height: 70, alignment: .center)
+//            .frame(height: 70, alignment: .center)
             .onTapGesture {
-                if !isLoading {
-                    spotify.isUserLoggedIn { isLoggedIn in
-                        DispatchQueue.main.async {
-                            if isLoggedIn {
-                                self.createPlaylistSheet = true
-//                                self.makeStarredPlaylist(name: "")
-                            } else {
-                                self.notLoggedInAlert = true
-                            }
-                        }
-                    }
-                }
+//                UIApplication.shared.open(SpotifyAuth.authURL)
+                self.createPlaylistSheet = true
+
             }
-            .padding(.leading, 5)
+            
+//            .padding(.leading, 5)
             
         }
-        .background(Color.clear)
-        .alert(isPresented: self.$playlistCreatedAlert) {
-            Alert(title: Text("Playlist Created!"),
-                  primaryButton: .default(Text("Ok")),
-                  secondaryButton: .default(Text("Go to playlist")) {
-                if let URL = spotify.getPlaylistURL() {
-                    UIApplication.shared.open(URL)
-                } else {
-                    self.errorAlert = true
-                }
-            })
-        }
+//        .background(Color.clear)
+//        .alert(isPresented: self.$playlistCreatedAlert) {
+//            Alert(title: Text("Playlist Created!"),
+//                  primaryButton: .default(Text("Ok")),
+//                  secondaryButton: .default(Text("Go to playlist")) {
+//                if let URL = spotify.getPlaylistURL() {
+//                    UIApplication.shared.open(URL)
+//                } else {
+//                    self.errorAlert = true
+//                }
+//            })
+//        }
     }
     
     func makeStarredPlaylist(playlistName: String, isPublic: Bool) {
@@ -364,28 +388,28 @@ struct ArtistList: View {
                             if sortType != .alpha && sortType != .group {
                                 HStack {
                                     Text(section)
-                                    if viewSubsection[i] {
-                                        Image(systemName: "chevron.up")
-                                    } else {
-                                        Image(systemName: "chevron.down")
-                                    }
+                                    Image(systemName: "chevron.down").rotationEffect(viewSubsection[i] ? Angle(degrees: 180) : Angle(degrees: 0))
+//                                    if viewSubsection[i] {
+//                                        Image(systemName: "chevron.up")
+//                                    } else {
+//                                        Image(systemName: "chevron.down")
+//                                    }
                                     Spacer()
                                 }
                                 .padding(.horizontal, 20)
                                 .padding(.top, 10)
                                 .font(.headline)
                                 .onTapGesture(perform: {
-                                    viewSubsection[i] = !viewSubsection[i]
+                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                        viewSubsection[i] = !viewSubsection[i]
+                                    }
                                 })
                             }
                             if viewSubsection[i] {
-//                                    if sortType != .alpha && !favorites {
-//                                        ShuffleSubgroupSection(artistArray: artistArray, section: section)
-//                                    }
-                                Divider().padding(.horizontal, 20)
-//                                ForEach(artistArray, id: \.id) { artist in
-                                ForEach(Array(artistArray.enumerated()), id: \.element.id) { index, artist in
-//                                    ZStack(alignment: .center) {
+                                VStack {
+                                    Divider().padding(.horizontal, 20)
+                                    ForEach(Array(artistArray.enumerated()), id: \.element.id) { index, artist in
+                                        //                                    ZStack(alignment: .center) {
                                         ArtistLink(artist: artist,
                                                    shuffleList: data.getArtistList(currDict: artistDict),
                                                    titleText: titleText,
@@ -395,8 +419,12 @@ struct ArtistList: View {
                                                    showFullGroupPhotosIndex: $showFullGroupPhotosIndex
                                         )
                                         
-//                                    }
+                                        //                                    }
+                                    }
+                                    Text((artistArray.count == 1 ? "1 Artist" : "\(artistArray.count) Artists")).padding(10)
                                 }
+                                .animation(.spring(), value: viewSubsection[i])
+//                                .transition(.move(edge: .top).combined(with: .opacity))
                             }
 //                            Section(header: Group {
 //                                if friendList {
@@ -420,6 +448,7 @@ struct ArtistList: View {
                         }
                     }
                 }
+//                Text("\(artistList.count) Artists").padding(10)
             }
         }
 //        .sheet(isPresented: $createPlaylistSheet) {
@@ -721,7 +750,7 @@ struct ArtistLink: View {
                                 .imageScale(.large)
                             
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.bwColorSwitch)
 //                        Group {
 //                            RoundedRectangle(cornerRadius: 30, style: .continuous)
 //                                .fill(Color.white)
@@ -762,7 +791,7 @@ struct ArtistLink: View {
             .frame(height: 65)
             .padding(.horizontal, 20)
             .buttonStyle(PlainButtonStyle())
-            .foregroundStyle(Color("BW Color Switch"))
+//            .foregroundStyle(Color("BW Color Switch"))
             
             
             
@@ -947,7 +976,7 @@ struct SortMenu: View {
     var secondWeekend: Bool
 //    @Binding var artistDict: [String : Array<DataSet.artistNEW>]
     
-    @State var currentFestival = Festival.newFestival()
+//    @State var currentFestival = Festival.newFestival()
     
     var editing: Bool = false
     
@@ -956,10 +985,12 @@ struct SortMenu: View {
 
     var body: some View {
         Group {
-            let dayBool = festivalVM.listHasDays(currList: currList, secondWeekend: currentFestival.secondWeekend)
-            let genreBool = festivalVM.listHasGenres(currList: currList, secondWeekend: currentFestival.secondWeekend)
-            let stageBool = festivalVM.listHasStages(currList: currList, secondWeekend: currentFestival.secondWeekend)
-            let tierBool = festivalVM.listHasTiers(currList: currList, secondWeekend: currentFestival.secondWeekend)
+            let artistList = festivalVM.checkSettings(currList: currList, secondWeekend: secondWeekend)
+            
+            let dayBool = festivalVM.listHasDays(currList: artistList, secondWeekend: secondWeekend)
+            let genreBool = festivalVM.listHasGenres(currList: artistList)
+            let stageBool = festivalVM.listHasStages(currList: artistList)
+            let tierBool = festivalVM.listHasTiers(currList: artistList)
             
             
             //            if dayBool || genreBool || stageBool || tierBool {
@@ -1149,5 +1180,9 @@ final class ImageCache {
         if let image = UIImage(data: data) {
             memoryCache.setObject(image, forKey: url as NSString)
         }
+    }
+    
+    func removeCachedImage(for key: String) {
+        memoryCache.removeObject(forKey: key as NSString)
     }
 }

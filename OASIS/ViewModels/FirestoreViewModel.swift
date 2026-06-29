@@ -24,9 +24,9 @@ class FirestoreViewModel: ObservableObject {
     
     @Published var myUserProfile = UserProfile() {
         didSet {
-            if let id = myUserProfile.id {
-                usersByID[id] = myUserProfile
-            }
+//            if let id = myUserProfile.id {
+            usersByID[myUserProfile.id] = myUserProfile
+//            }
         }
     }
 
@@ -56,59 +56,68 @@ class FirestoreViewModel: ObservableObject {
         self.saveName = name
         self.publicFestivals = []
         self.isLoggedIn = (Auth.auth().currentUser != nil)
-
-        setUpAccount()
-    }
-    
-    func setUpAccount() {
         Task {
+            await MainActor.run {
+                self.socialLoading = true
+            }
             defer {
                 Task { @MainActor in
                     self.socialLoading = false
                 }
             }
+            await setUpAccount()
+        }
+    }
+    
+    func setUpAccount() async {
 
-            await loadMyUserProfile()
-            
-            //print("IS LOGGED IN: \(isLoggedIn)")
-            
-            guard isLoggedIn else { return }
+//        defer {
+//            Task { @MainActor in
+//                self.socialLoading = false
+//            }
+//        }
 
-            let hasPhone = await userHasPhoneHash()
+        await loadMyUserProfile()
 
-            await MainActor.run {
-                self.phoneConnected = hasPhone
-            }
-            
-            //print("HAS PHONE HASH: \(phoneConnected)")
-            
-            guard hasPhone else { return }
+        guard isLoggedIn else { return }
 
-            do {
-                // 1️⃣ Fetch groups (final usable structs)
-                let groups = try await fetchGroups(from: myUserProfile.safeGroups)
+        let hasPhone = await userHasPhoneHash()
 
-                // 2️⃣ Collect all user IDs
-                let allUserIDs = Array(
-                    Set(
-                        myUserProfile.safeFollowing +
-                        myUserProfile.safeFollowers +
-                        groups.flatMap { $0.members }
-                    )
+        await MainActor.run {
+            self.phoneConnected = hasPhone
+        }
+
+        guard hasPhone else { return }
+
+        await getOtherAccounts()
+    }
+    
+    func getOtherAccounts() async {
+        do {
+
+            // 1️⃣ Fetch groups
+            let groups = try await fetchGroups(from: myUserProfile.safeGroups)
+
+            // 2️⃣ Collect all user IDs
+            let allUserIDs = Array(
+                Set(
+                    myUserProfile.safeFollowing +
+                    myUserProfile.safeFollowers +
+                    groups.flatMap { $0.members }
                 )
+            )
 
-                // 3️⃣ Fetch all users once
-                let fetchedUsersByID = try await fetchUsersByID(allUserIDs)
+            // 3️⃣ Fetch all users once
+            let fetchedUsersByID = try await fetchUsersByID(allUserIDs)
 
-                // 4️⃣ Publish results
-                await MainActor.run {
-                    self.mySocialGroups = groups
-                    self.usersByID = fetchedUsersByID
-                }
-
-            } catch {
-                //print("❌ Social init failed: \(error)")
+            // 4️⃣ Publish results
+            await MainActor.run {
+                self.mySocialGroups = groups
+                self.usersByID = fetchedUsersByID
             }
+
+        } catch {
+            // handle error
         }
     }
 
@@ -191,7 +200,7 @@ class FirestoreViewModel: ObservableObject {
         //print("⚪ Using default empty UserProfile")
         await MainActor.run {
             self.myUserProfile = UserProfile(
-                id: nil,
+//                documentID: nil,
                 name: "",
                 profilePic: nil,
                 following: [],
@@ -227,9 +236,9 @@ class FirestoreViewModel: ObservableObject {
 
                     let user = try snapshot.data(as: UserProfile.self)
 
-                    guard let userID = user.id else {
-                        return nil
-                    }
+//                    guard let userID = user.id else {
+//                        return nil
+//                    }
 //                    //print("USER RETURNED: \(user)")
                     return user
                 }
@@ -239,7 +248,7 @@ class FirestoreViewModel: ObservableObject {
 
             for try await user in group {
                 if let user {
-                    usersByID[user.id!] = user
+                    usersByID[user.id] = user
                 }
             }
 
@@ -272,10 +281,10 @@ class FirestoreViewModel: ObservableObject {
             guard snapshot.exists else { return nil }
 
             let user = try snapshot.data(as: UserProfile.self)
-            guard let userID = user.id else { return nil }
+//            guard let userID = user.id else { return nil }
 
             await MainActor.run {
-                self.usersByID[userID] = user
+                self.usersByID[user.id] = user
             }
 
             return user
@@ -342,7 +351,7 @@ class FirestoreViewModel: ObservableObject {
                     guard snapshot.exists else { return nil }
 
                     let user = try snapshot.data(as: UserProfile.self)
-                    guard let id = user.id else { return nil }
+//                    guard let id = user.id else { return nil }
 
                     return user
                 }
@@ -352,7 +361,7 @@ class FirestoreViewModel: ObservableObject {
 
             for try await user in group {
                 if let user {
-                    dict[user.id!] = user
+                    dict[user.id] = user
                 }
             }
 
@@ -1357,21 +1366,77 @@ class FirestoreViewModel: ObservableObject {
     func addFestivalsToGroup(
         groupID: String,
         festivalIDs: [String]
-    ) {
-        guard !festivalIDs.isEmpty else { return }
+    ) async -> Bool {
+
+        guard !festivalIDs.isEmpty else { return true }
 
         let db = Firestore.firestore()
         let groupRef = db.collection("groups").document(groupID)
 
-        groupRef.updateData([
-            "festivals": FieldValue.arrayUnion(festivalIDs)
-        ]) { error in
-            if let error = error as NSError? {
-                // Ignore "not found" errors
-                if error.code != FirestoreErrorCode.notFound.rawValue {
-                    //print("Failed to update group \(groupID): \(error.localizedDescription)")
+        do {
+            try await groupRef.updateData([
+                "festivals": FieldValue.arrayUnion(festivalIDs)
+            ])
+
+            await MainActor.run {
+                if let index = self.mySocialGroups.firstIndex(where: { $0.id == groupID }) {
+                    self.mySocialGroups[index].festivals = Array(
+                        Set(self.mySocialGroups[index].festivals)
+                            .union(festivalIDs)
+                    )
                 }
             }
+
+            return true
+
+        } catch {
+            let nsError = error as NSError
+
+            // Ignore "not found" if desired
+            if nsError.code == FirestoreErrorCode.notFound.rawValue {
+                return true
+            }
+
+            // print("Failed to update group \(groupID): \(error.localizedDescription)")
+            return false
+        }
+    }
+    
+    func removeFestivalsFromGroup(
+        groupID: String,
+        festivalIDs: [String]
+    ) async -> Bool {
+
+        guard !festivalIDs.isEmpty else { return true }
+
+        let db = Firestore.firestore()
+        let groupRef = db.collection("groups").document(groupID)
+
+        do {
+            try await groupRef.updateData([
+                "festivals": FieldValue.arrayRemove(festivalIDs)
+            ])
+
+            await MainActor.run {
+                if let index = self.mySocialGroups.firstIndex(where: { $0.id == groupID }) {
+                    self.mySocialGroups[index].festivals.removeAll {
+                        festivalIDs.contains($0)
+                    }
+                }
+            }
+
+            return true
+
+        } catch {
+            let nsError = error as NSError
+
+            // Ignore "not found" if desired
+            if nsError.code == FirestoreErrorCode.notFound.rawValue {
+                return true
+            }
+
+            // print("Failed to update group \(groupID): \(error.localizedDescription)")
+            return false
         }
     }
 
@@ -1484,6 +1549,86 @@ class FirestoreViewModel: ObservableObject {
         self.isLoggedIn = false
         
 //        self.signOutUser(completion: <#T##(Result<Void, any Error>) -> Void#>)
+    }
+    
+    
+    
+    
+    func uploadPoster(image: UIImage, festival: Festival, completion: @escaping (Result<Festival, Error>) -> Void) {
+        guard let jpegData = image.jpegData(compressionQuality: 0.9) else {
+            completion(.failure(NSError(
+                domain: "UploadPoster",
+                code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to convert image to JPEG."]
+            )))
+            return
+        }
+
+        var updatedFestival = festival
+
+        let storageRef = Storage.storage()
+            .reference()
+            .child("festival_posters/\(festival.id.uuidString).jpg")
+
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+        metadata.customMetadata = [
+            "displayName": "\(festival.name) Poster.jpg"
+        ]
+
+        storageRef.putData(jpegData, metadata: metadata) { _, error in
+            if let error {
+                completion(.failure(error))
+                return
+            }
+
+            storageRef.downloadURL { url, error in
+                if let error {
+                    completion(.failure(error))
+                    return
+                }
+
+                updatedFestival.posterPath = url?.absoluteString
+                completion(.success(updatedFestival))
+            }
+        }
+    }
+    
+    func loadPoster(festivalID: UUID, festivalName: String, completion: @escaping (Result<URL, Error>) -> Void) {
+        let storageRef = Storage.storage()
+            .reference()
+            .child("festival_posters/\(festivalID.uuidString).jpg")
+
+        let safeName = festivalName
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+
+        let localURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(safeName) Poster.jpg")
+
+        // Use the cached file if it already exists.
+        if FileManager.default.fileExists(atPath: localURL.path) {
+            completion(.success(localURL))
+            return
+        }
+
+        storageRef.write(toFile: localURL) { url, error in
+            if let error {
+                completion(.failure(error))
+                return
+            }
+
+            guard let url else {
+                completion(.failure(NSError(
+                    domain: "FestivalViewModel",
+                    code: 0,
+                    userInfo: [NSLocalizedDescriptionKey: "Poster download failed."]
+                )))
+                return
+            }
+
+            completion(.success(url))
+        }
     }
 
 

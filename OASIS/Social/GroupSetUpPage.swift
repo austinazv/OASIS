@@ -87,7 +87,7 @@ struct GroupSetUpPage: View {
         }
         .padding()
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem)
-        .onChange(of: selectedItem) { newItem in
+        .onChange(of: selectedItem) { _, newItem in
             Task {
                 // Retrieve the image from the PhotosPickerItem
                 if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
@@ -103,7 +103,7 @@ struct GroupSetUpPage: View {
                 dismissButton: .default(Text("Ok"))
             )
         }
-        .onChange(of: errorAlert) { newValue in
+        .onChange(of: errorAlert) { _, newValue in
             if newValue == false {
                 navigationPath.removeLast()
             }

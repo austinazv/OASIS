@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+import CoreImage
+import CoreImage.CIFilterBuiltins
+import UIKit
 
 struct MyFestivalsPage: View {
     @EnvironmentObject var data: DataSet
@@ -40,53 +43,54 @@ struct MyFestivalsPage: View {
                             .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
                         Group {
                             if !festivalVM.myFestivals.isEmpty {
-                                let split = festivalVM.splitFestivals(festivalVM.myFestivals)
-                                
-                                let noUpcoming = split.upcoming.isEmpty
-                                let hasAttended = !split.attended.isEmpty
-                                let showHalfSplit = noUpcoming && hasAttended
-
-                                if showHalfSplit {
-                                    // Special layout: 50/50 split
-                                    VStack(spacing: 0) {
-                                        
-                                        // Top Half (Empty Upcoming)
-                                        VStack {
-                                            Text("No Upcoming Festivals!")
-                                                .foregroundStyle(.black)
+                                ScrollView {
+                                    let split = festivalVM.splitFestivals(festivalVM.myFestivals)
+                                    
+                                    let noUpcoming = split.upcoming.isEmpty
+                                    let hasAttended = !split.attended.isEmpty
+                                    let showHalfSplit = noUpcoming && hasAttended
+                                    
+                                    if showHalfSplit {
+                                        // Special layout: 50/50 split
+                                        VStack(spacing: 0) {
                                             
-                                            Button(action: {
-                                                selectedTab = 1
-                                            }) {
-                                                HStack {
-                                                    Text("Explore More Festivals")
-                                                    Image(systemName: "chevron.right")
+                                            // Top Half (Empty Upcoming)
+                                            VStack {
+                                                Text("No Upcoming Festivals!")
+                                                    .foregroundStyle(.black)
+                                                
+                                                Button(action: {
+                                                    selectedTab = 1
+                                                }) {
+                                                    HStack {
+                                                        Text("Explore More Festivals")
+                                                        Image(systemName: "chevron.right")
+                                                    }
                                                 }
+                                                .italic()
+                                                .padding(.top, 8)
                                             }
-                                            .italic()
-                                            .padding(.top, 8)
+                                            .padding(.vertical, 40)
+                                            //                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            
+                                            Divider()
+                                                .padding(.bottom, 8)
+                                            
+                                            // Bottom Half (Attended)
+                                            FestivalsListed(
+                                                navigationPath: $navigationPath,
+                                                festivalList: split.attended,
+                                                title: "Attended",
+                                                collapsable: true,
+                                                showList: true,
+                                                reversed: true
+                                            )
+                                            //                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            Spacer()
                                         }
-                                        .padding(.vertical, 40)
-//                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                                        Divider()
-                                            .padding(.bottom, 8)
-
-                                        // Bottom Half (Attended)
-                                        FestivalsListed(
-                                            navigationPath: $navigationPath,
-                                            festivalList: split.attended,
-                                            title: "Attended",
-                                            collapsable: true,
-                                            showList: true,
-                                            reversed: true
-                                        )
-//                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        Spacer()
-                                    }
-                                } else {
-                                    // Default scrolling layout
-                                    ScrollView {
+                                    } else {
+                                        // Default scrolling layout
+                                        //                                    ScrollView {
                                         VStack {
                                             
                                             // Upcoming Section
@@ -103,7 +107,7 @@ struct MyFestivalsPage: View {
                                                     collapsable: false
                                                 )
                                             }
-
+                                            
                                             Button(action: {
                                                 selectedTab = 1
                                             }) {
@@ -115,7 +119,7 @@ struct MyFestivalsPage: View {
                                             .italic()
                                             .padding(8)
                                             .padding(.bottom, noUpcoming ? 75 : 0)
-
+                                            
                                             // Attended Section
                                             if hasAttended {
                                                 FestivalsListed(
@@ -129,6 +133,7 @@ struct MyFestivalsPage: View {
                                                 .padding(.top, 5)
                                             }
                                         }
+                                        //                                    }
                                     }
                                 }
                             } else {
@@ -258,6 +263,7 @@ struct MyFestivalsPage: View {
 
     struct FestivalsListed: View {
         @EnvironmentObject var data: DataSet
+        @EnvironmentObject var firestore: FirestoreViewModel
         @EnvironmentObject var festivalVM: FestivalViewModel
         
         @Binding var navigationPath: NavigationPath
@@ -272,17 +278,22 @@ struct MyFestivalsPage: View {
         var draftView: Bool = false
         
         @State var showList = true
-        
         @State var reversed = false
         
-        var friendInfoToPopup: [UUID : [Artist]]?
-        var profile: UserProfile?
+        
         @State var showSheet = false
+        
         @State var selectedFestival: Festival?
+        
+//        var friendInfoToPopup: [UUID : [Artist]]?
+        var profile: UserProfile?
+        
+//        var groupInfoToPopup: [UUID : [Artist]]?
+        var socialGroup: SocialGroup?
         
         
         var body: some View {
-            Group {
+            ZStack {
                 if !festivalList.isEmpty {
                     VStack {
                         HStack {
@@ -290,7 +301,8 @@ struct MyFestivalsPage: View {
                                 .padding(10)
                                 .font(largeText ? .title3 : .body)
                             if collapsable {
-                                Image(systemName: showList ? "chevron.up" : "chevron.down")
+                                Image(systemName: "chevron.down").rotationEffect(showList ? Angle(degrees: -180) : Angle(degrees: 0))
+//                                Image(systemName: showList ? "chevron.up" : "chevron.down")
                             }
                             Spacer()
                         }
@@ -299,97 +311,248 @@ struct MyFestivalsPage: View {
                         .bold()
                         .onTapGesture {
                             if collapsable {
-                                showList.toggle()
+                                withAnimation {
+                                    showList.toggle()
+                                }
                             }
                         }
                         if showList {
                             VStack {
                                 let sortedList = sortFestivals(festivalList, reversed: reversed)
                                 ForEach(sortedList) { festival in
-    //                                NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView)) {
-    //                                NavigationLink(value: festival) {
-                                        HStack {
-                                            VStack(alignment: .leading) {
-                                                HStack {
-                                                    FestivalLogoView(
-                                                        logoPath: festival.logoPath,
-                                                        title: festival.name,
-                                                        frame: 40.0
-                                                    )
-                                                    if festival.verified {
-                                                        Image(systemName: "checkmark.seal.fill")
-                                                            .foregroundStyle(.blue)
-                                                    }
+                                    //                                NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView)) {
+                                    //                                NavigationLink(value: festival) {
+                                    HStack {
+                                        VStack(alignment: .leading) {
+                                            HStack {
+                                                FestivalLogoView(
+                                                    logoPath: festival.logoPath,
+                                                    title: festival.name,
+                                                    frame: 40.0
+                                                )
+                                                if festival.verified {
+                                                    Image(systemName: "checkmark.seal.fill")
+                                                        .foregroundStyle(.blue)
                                                 }
+                                            }
+                                            VStack(alignment: .leading, spacing: 2) {
                                                 HStack {
+                                                    Image(systemName: "calendar")
                                                     Text(festivalVM.getDates(startDate: festival.startDate, endDate: festival.endDate))
-                                                        
+                                                    
                                                     if festival.secondWeekend {
                                                         Text(" | ")
                                                         Text(festivalVM.getSecondWeekendText(startDate: festival.startDate, endDate: festival.endDate))
                                                     }
                                                     Text("(\(festival.startDate.formatted(.dateTime.year())))")
-//                                                    Text(festival.startDate, format: .dateTime.year())
                                                 }
-                                                .foregroundStyle(.gray)
-                                                .font(.subheadline)
+                                                if let festivalLocation = festival.location {
+                                                    HStack {
+                                                        Image(systemName: "map")
+                                                        Text(festivalLocation)
+                                                    }
+                                                }
                                             }
-                                            .padding(.vertical, 10)
-                                            Spacer()
-                                            Image(systemName: "chevron.right")
+                                            .foregroundStyle(.gray)
+                                            .font(.subheadline)
                                         }
-                                        .contentShape(Rectangle())
-                                        .padding(.horizontal, 10)
-                                        .onTapGesture() {
-                                            if friendInfoToPopup != nil {
-                                                selectedFestival = festival
-                                                
-                                            } else if draftView {
-                                                navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView))
-                                            } else {
-                                                festivalVM.currentFestival = festival
-                                                navigationPath.append(festival)
-                                            }
+                                        .padding(.vertical, 10)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .contentShape(Rectangle())
+                                    .padding(.horizontal, 10)
+                                    .onTapGesture() {
+                                        if profile != nil || socialGroup != nil {
+                                            selectedFestival = festival
+                                            
+                                        } else if draftView {
+                                            navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView))
+                                        } else {
+                                            festivalVM.currentFestival = festival
+                                            navigationPath.append(festival)
                                         }
-                                        
-    //                                }
+                                    }
+                                    
+                                    //                                }
                                     Divider()
+                                        .foregroundStyle(.bwColorSwitch)
                                 }
                                 
                             }
-                            .background(Color.white)
-                            .cornerRadius(10)
-                            .border(Color.gray, width: 2)
+                            .background(Color.bwColorSwitchReverse)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.gray, lineWidth: 2)
+                            )
                             .padding([.leading, .trailing, .bottom], 10)
                             
                         }
                     }
-                    .onChange(of: selectedFestival) { newFestival in
+                    .onChange(of: selectedFestival) { _, newFestival in
                         if newFestival != nil {
                             showSheet = true
                         }
                     }
-                    .onChange(of: showSheet) { bool in
+                    .onChange(of: showSheet) { _, bool in
                         if !bool {
                             selectedFestival = nil
                         }
                     }
-                    .onChange(of: navigationPath) { _ in
+                    .onChange(of: navigationPath) {
                         showSheet = false
                     }
                     .sheet(isPresented: $showSheet) {
                         NavigationStack(path: $newNavigationPath) {
                             VStack {
-//                                Spacer().frame(height: 200)
-                                if let festival = selectedFestival, let artistDict = friendInfoToPopup, let listToShow = artistDict[festival.id] {
-//                                    ArtistList(navigationPath: $newNavigationPath, currentFestival: festival, artistList: listToShow)
-                                    ArtistList(navigationPath: $newNavigationPath,
-                                               titleText: profile == nil ?  "Favorites" : "\(profile!.name)'s Favorites",
-                                               currentFestival: festival,
-                                               artistList: listToShow,
-                                               secondaryNavigationPath: $navigationPath
-                                    )
+                                if let festival = selectedFestival {
+                                    if let user = profile {
+                                        let userFavorites = festivalVM.getUserFavorites(userLikes: user.safeFavoriteArtistsList, artistList: festival.artistList)
+                                        if !userFavorites.isEmpty {
+                                            ArtistList(navigationPath: $newNavigationPath,
+                                                       titleText: "\(user.name)'s Favorites",
+                                                       currentFestival: festival,
+                                                       artistList: userFavorites,
+                                                       secondaryNavigationPath: $navigationPath
+                                            )
+                                        } else {
+                                            VStack {
+                                                Text("\(user.name) has no favorited artists attending \(festival.name).")
+                                                HStack {
+                                                    Text("Go to festival")
+                                                    Image(systemName: "chevron.right")
+                                                }
+                                                .padding()
+                                                .italic()
+                                                .underline()
+                                                .contentShape(Rectangle())
+                                                .onTapGesture {
+                                                    showSheet = false
+                                                    navigationPath.append(festival)
+                                                }
+                                            }
+                                            .padding(10)
+                                            .multilineTextAlignment(.center)
+                                        }
+                                    } else if let group = socialGroup {
+                                        let groupUsers = group.members.compactMap { firestore.usersByID[$0] }
+                                        let groupFavorites = festivalVM.getGroupFavorites(from: groupUsers)
+                                        if !groupFavorites.isEmpty {
+                                            let artistList = festivalVM.getArtistListFromID(artistIDs: groupFavorites.map(\.artistID), festival: festival)
+                                            ArtistList(navigationPath: $newNavigationPath,
+                                                       titleText: "\(group.name) Favorites",
+                                                       currentFestival: festival,
+                                                       artistList: artistList,
+                                                       groupFavs: groupFavorites,
+                                                       sortType: .group,
+                                                       secondaryNavigationPath: $navigationPath
+                                            )
+                                        } else {
+                                            VStack {
+                                                Text("No \(group.name) members have any favorited artists attending \(festival.name).")
+                                                HStack {
+                                                    Text("Go to festival")
+                                                    Image(systemName: "chevron.right")
+                                                }
+                                                .padding()
+                                                .italic()
+                                                .underline()
+                                                .contentShape(Rectangle())
+                                                .onTapGesture {
+                                                    showSheet = false
+                                                    navigationPath.append(festival)
+                                                }
+                                            }
+                                            .padding(10)
+                                            .multilineTextAlignment(.center)
+                                        }
+                                    }
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+//                                    if let artistDict = friendInfoToPopup, let listToShow = artistDict[festival.id] {
+//                                        ArtistList(navigationPath: $newNavigationPath,
+//                                                   titleText: profile == nil ?  "Favorites" : "\(profile!.name)'s Favorites",
+//                                                   currentFestival: festival,
+//                                                   artistList: listToShow,
+//                                                   secondaryNavigationPath: $navigationPath
+//                                        )
+//                                    } else if (false) {//TODO: GROUP STUFF
+//                                        Text("TODO")
+//                                    } else {
+//                                        VStack {
+//                                            if let name = profile?.name {
+//                                                Text("\(name) has no favorited artists attending \(festival.name).")
+//                                            } else if let groupName = group?.name {
+//                                                Text("No \(groupName) members have any favorited artists attending \(festival.name).")
+//                                            } else {
+//                                                Text("No artists to show.")
+//                                            }
+//                                            HStack {
+//                                                Text("Go to festival")
+//                                                Image(systemName: "chevron.right")
+//                                            }
+//                                            .padding()
+//                                            .italic()
+//                                            .underline()
+//                                            .contentShape(Rectangle())
+//                                            .onTapGesture {
+//                                                showSheet = false
+//                                                navigationPath.append(festival)
+//                                            }
+//                                        }
+//                                        .padding(10)
+//                                        .multilineTextAlignment(.center)
+//                                    }
+                                } else {
+                                    Text("No artists to show.")
                                 }
+                                
+                                
+                                
+                                
+                                //                                Spacer().frame(height: 200)
+//                                if let festival = selectedFestival, let artistDict = friendInfoToPopup, let listToShow = artistDict[festival.id] {
+//                                    ArtistList(navigationPath: $newNavigationPath,
+//                                               titleText: profile == nil ?  "Favorites" : "\(profile!.name)'s Favorites",
+//                                               currentFestival: festival,
+//                                               artistList: listToShow,
+//                                               secondaryNavigationPath: $navigationPath
+//                                    )
+//                                    //                                    }
+//                                } else {
+//                                    VStack {
+//                                        if let festival = selectedFestival {
+//                                            if let name = profile?.name {
+//                                                Text("\(name) has no favorited artists attending \(festival.name).")
+//                                            } else {
+//                                                Text("No artists to show.")
+//                                            }
+//                                            HStack {
+//                                                Text("Go to festival")
+//                                                Image(systemName: "chevron.right")
+//                                            }
+//                                            .italic()
+//                                            .underline()
+//                                            .contentShape(Rectangle())
+//                                            .onTapGesture {
+//                                                showSheet = false
+//                                                navigationPath.append(festival)
+//                                            }
+//                                        } else {
+//                                            Text("No artists to show.")
+//                                        }
+//                                    }
+//                                    .padding(10)
+//                                    .multilineTextAlignment(.center)
+//                                }
+                                
+                                
                             }
                             .toolbar {
                                 ToolbarItem(placement: .topBarLeading) {
@@ -405,28 +568,10 @@ struct MyFestivalsPage: View {
                             }
                             .withAppNavigationDestinations(navigationPath: $newNavigationPath, festivalVM: festivalVM)
                         }
-//                        ArtistList(navigationPath: $navigationPath, currentFestival: currentFestival, artistList: <#T##Array<Artist>#>)
-                        
-                        
-//                        ArtistListStruct(titleText: "\(profile.name)'s Favorites",
-//                                                                       festival: currentFestival,
-//                                                                       list: festivalVM.getArtistListFromID(artistIDs: friendsFavs[profile]!, festival: currentFestival))
                     }
                 }
-    //            else {
-    //                if !festivalIDs.isEmpty {
-    //                    HStack(spacing: 10) {
-    //                        ProgressView()
-    //                        Text("Loading")
-    //                    }
-    //                }
-    //            }
             }
-    //        .onAppear() {
-    //            print("ids: \(festivalIDs)")
-    //            festivalList = getFestivals(ids: festivalIDs)
-    //            print("list: \(festivalList)")
-    //        }
+            
         }
         
         
@@ -463,20 +608,30 @@ struct FestivalLogoView: View {
     @State private var image: UIImage?
     
     var body: some View {
-        if let image = image {
-            Image(uiImage: image)
-                .resizable()
-//                .aspectRatio(contentMode: .fit)
-                .scaledToFit()
-                .frame(maxHeight: frame, alignment: .center)
-        } else {
-            Text(title)
-                .font(.title)
-                .frame(height: frame)
-                .foregroundStyle(.black)
-                .onAppear {
-                    loadImage()
-                }
+        Group {
+            if let image = image {
+                InvertInDarkModeImage(image: image, frame: frame)
+                //            Image(uiImage: image)
+                //                .resizable()
+                ////                .aspectRatio(contentMode: .fit)
+                //                .scaledToFit()
+                //                .frame(maxHeight: frame, alignment: .center)
+            } else {
+                Text(title)
+                    .font(.title)
+                    .frame(height: frame)
+                    .foregroundStyle(.bwColorSwitch)
+//                    .onAppear {
+//                        loadImage()
+//                    }
+            }
+        }
+        .onAppear {
+            loadImage()
+        }
+        .onChange(of: logoPath) {
+            image = nil
+            loadImage()
         }
     }
     
@@ -534,6 +689,44 @@ struct FestivalLogoView: View {
         }.resume()
     }
 
+}
+
+struct InvertInDarkModeImage: View {
+    let image: UIImage
+    let frame: CGFloat
+
+    @Environment(\.colorScheme) var colorScheme
+
+    var body: some View {
+        Image(uiImage: processedImage)
+            .resizable()
+            .scaledToFit()
+            .frame(maxHeight: frame, alignment: .center)
+    }
+
+    private var processedImage: UIImage {
+        if colorScheme == .dark {
+            return invertImage(image) ?? image
+        } else {
+            return image
+        }
+    }
+    
+    func invertImage(_ image: UIImage) -> UIImage? {
+        guard let ciImage = CIImage(image: image) else { return nil }
+
+        let filter = CIFilter.colorInvert()
+        filter.inputImage = ciImage
+
+        guard let outputImage = filter.outputImage else { return nil }
+
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
+            return nil
+        }
+
+        return UIImage(cgImage: cgImage)
+    }
 }
 
 

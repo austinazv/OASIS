@@ -31,6 +31,8 @@ struct ArtistPage: View {
     
     @State var showArtistTagSheet: Bool = false
     
+    @State var popupMessage: String?
+    
     
     
     var body: some View {
@@ -78,7 +80,8 @@ struct ArtistPage: View {
         .navigationBarItems(
             trailing: HStack {
                 Button(action: {
-                    let dislikedArtists = tags.getDNSTArtists(currList: currentFestival.artistList)
+                    //                    let dislikedArtists = /*tags.getDNSTArtists(currList: currentFestival.artistList)*/Set<String>()
+                    let dislikedArtists = tags.getDNSIDSet(currList: currentFestival.artistList)
                     if let randomArtist = festivalVM.shuffleArtist(currentList: shuffleList, currentArtist: currentArtist, secondWeekend: currentFestival.secondWeekend, dislikedArtists: dislikedArtists) {
                         currentArtist = randomArtist
                     }
@@ -95,7 +98,23 @@ struct ArtistPage: View {
                     }
                 })
             })
-        
+        .overlay(alignment: .bottom) {
+            if let message = popupMessage {
+                MessagePopUp(message: message)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                //                    .padding(.bottom, 20)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: popupMessage)
+        .onChange(of: popupMessage) { _, newValue in
+            guard newValue != nil else { return }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation {
+                    popupMessage = nil
+                }
+            }
+        }
     }
     
     func getDayInfo(day: Int) -> String {
@@ -157,18 +176,36 @@ struct ArtistPage: View {
                             .foregroundStyle(Color("BW Color Switch"))
                             .padding(.bottom, 5)
                             HStack {
-                                ShareLink(item: getArtistShareLink()) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.white)
-                                            .frame(width: 28, height: 28)
-                                            .shadow(radius: 3)
-                                        
-                                        Image(systemName: "square.and.arrow.up.circle")
-                                            .imageScale(.large)
-                                            .foregroundStyle(.blue)
+                                if currentFestival.published {
+                                    ShareLink(item: getArtistShareLink()) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.white)
+                                                .frame(width: 28, height: 28)
+                                                .shadow(radius: 3)
+                                            
+                                            Image(systemName: "square.and.arrow.up.circle")
+                                                .imageScale(.large)
+                                                .foregroundStyle(.blue)
+                                        }
+                                        .padding([.leading, .trailing], 5)
                                     }
-                                    .padding([.leading, .trailing], 5)
+                                } else {
+                                    Button(action: {
+                                        popupMessage = "Make this festival public to share."
+                                    }, label: {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.white)
+                                                .frame(width: 28, height: 28)
+                                                .shadow(radius: 3)
+                                            
+                                            Image(systemName: "square.and.arrow.up.circle")
+                                                .imageScale(.large)
+                                                .foregroundStyle(.gray)
+                                        }
+                                        .padding([.leading, .trailing], 5)
+                                    })
                                 }
                                 Button(action: {
                                     tags.heartPressed(currentArtist.id)
@@ -335,32 +372,49 @@ struct ArtistPage: View {
     var ArtistTagSection: some View {
         Group {
             //            let artistTags = tags.getTagsFromIDs(currentArtist.artistTags)
-            let artistTags = tags.getArtistTags(artistID: currentArtist.id)
-            if !artistTags.isEmpty {
+            let artistTags = tags.getArtistTags(artistID: currentArtist.id, festivalID: currentFestival.id)
+            let isArtistDNS = tags.isArtistDNS(currentArtist.id)
+            if !artistTags.isEmpty || isArtistDNS {
                 Section(header:
                             HStack {
                     Image(systemName: "tag")
                     Text("My Tags")
                 }) {
                     FlowLayout(spacing: 8) {
-                        //                        Text("Genres:")
-                        //                            .padding(.vertical, INFO_PADDING)
-                        ForEach(artistTags, id: \.id) { tag in
-                            //                            if let tag = tags.getTag(tagID) {
+                        if isArtistDNS {
                             Button {
-                                //                                    let tagList = festivalVM.getTagList(tag: tag, currList: currentFestival.artistList)
-                                let tagList = tags.getArtistList(tag.id, currentList: currentFestival.artistList)
-                                navigationPath.append(ArtistListStruct(titleText: tag.name, festival: currentFestival, list: tagList))
-                                //                                //print("TAG: \(tag.name)")
-                                //                                let genreList = festivalVM.getGenreList(genre: genre, currList: currentFestival.artistList)
-                                //                                navigationPath.append(ArtistListStruct(titleText: genre, festival: currentFestival, list: genreList))
+                                let DNSList = tags.getDNSList(currList: currentFestival.artistList)
+                                navigationPath.append(ArtistListStruct(titleText: tags.DONOTSUGGESTTAG.name, festival: currentFestival, list: DNSList))
                             } label: {
                                 HStack {
-                                    //                                    if let symbol = tag.symbol { Image(systemName: symbol) }
-                                    //                                    else { Image(systemName: "questionmark.square") }
+                                    Image(systemName: tags.DONOTSUGGESTTAG.symbol)
+                                    Text(tags.DONOTSUGGESTTAG.name)
+                                    Image(systemName: "chevron.right")/*.foregroundStyle(.black)*/
+                                }
+                                .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
+                                .padding(INFO_PADDING)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color("BW Color Switch Reverse"))
+                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.black, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        
+                        ForEach(artistTags, id: \.id) { tag in
+                            Button {
+                                let tagList = tags.getTagArtists(tagID: tag.id, festival: currentFestival)
+                                navigationPath.append(ArtistListStruct(titleText: tag.name, festival: currentFestival, list: tagList))
+                            } label: {
+                                HStack {
                                     Image(systemName: tag.symbol)
                                     Text(tag.name)
-                                    Image(systemName: "chevron.right").foregroundStyle(.black)
+                                    Image(systemName: "chevron.right")/*.foregroundStyle(.black)*/
                                 }
                                 .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
                                 .padding(INFO_PADDING)
@@ -465,6 +519,7 @@ struct ArtistPage: View {
                                     .frame(height: 25, alignment: .center)
                                 //                                        .offset(x: -5)
                                 Text("Page")
+                                    .font(.system(size: 17))
                             }
                             Spacer()
                             Image("Spotify Image Black")
@@ -680,7 +735,8 @@ struct ArtistPage: View {
     var RelatedArtistsSection: some View {
         Group {
             //            if let currFest = festivalVM.currentFestival {
-            let relatedArists = data.getRelatedArtists(currentArtist: currentArtist, currentList: currentFestival.artistList)
+            let dislikedArtists = tags.getDNSIDSet(currList: currentFestival.artistList)
+            let relatedArists = festivalVM.getRelatedArtists(currentArtist: currentArtist, currentList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend, dislikedArtists: dislikedArtists)
             if relatedArists.count > 0 {
                 //                    Section {
                 Section(header:
@@ -806,27 +862,29 @@ struct ArtistPage: View {
                     //                        Text("Genres:")
                     //                            .padding(.vertical, INFO_PADDING)
                     ForEach(currentArtist.genres.sorted(), id: \.self) { genre in
-                        Button {
-                            let genreList = festivalVM.getGenreList(genre: genre, currList: currentFestival.artistList)
-                            navigationPath.append(ArtistListStruct(titleText: genre, festival: currentFestival, list: genreList))
-                        } label: {
-                            HStack {
-                                Text(genre)
-                                Image(systemName: "chevron.right")
+                        let genreList = festivalVM.getGenreList(genre: genre, currList: currentFestival.artistList)
+                        if genreList.count > 2 {
+                            Button {
+                                navigationPath.append(ArtistListStruct(titleText: genre, festival: currentFestival, list: genreList))
+                            } label: {
+                                HStack {
+                                    Text(genre)
+                                    Image(systemName: "chevron.right")
+                                }
+                                .foregroundStyle(Color("OASIS Dark Orange"))
+                                .padding(INFO_PADDING)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color("BW Color Switch Reverse"))
+                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.black, lineWidth: 1)
+                                )
                             }
-                            .foregroundStyle(Color("OASIS Dark Orange"))
-                            .padding(INFO_PADDING)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color("BW Color Switch Reverse"))
-                                    .shadow(color: .black, radius: 1, x: 0, y: 2)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(.black, lineWidth: 1)
-                            )
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                         //                            .onTapGesture {
                         //                                let genreList = festivalVM.getGenreList(genre: genre, currList: currFest.artistList)
                         //                                navigationPath.append(ArtistListStruct(titleText: genre, festival: currFest, list: genreList))
@@ -981,7 +1039,8 @@ struct ArtistPage: View {
     var ArtistStage: some View {
         Group {
             //            if let currFest = festivalVM.currentFestival {
-            if festivalVM.listHasStages(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend) {
+            let artistList = festivalVM.checkSettings(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
+            if festivalVM.listHasStages(currList: artistList)  {
                 FlowLayout(spacing: 8) {
                     Text("Stage:")
                         .padding(.vertical, INFO_PADDING)
@@ -1089,11 +1148,8 @@ struct ArtistPage: View {
     }
     
     @State var showAddTagSheet = false
-    
     @State var selectedTags: Set<UUID> = []
-    
     @State var editView = false
-    
     @State var editingTag: ArtistTag?
     
     var ArtistTagSheet: some View {
@@ -1109,100 +1165,17 @@ struct ArtistPage: View {
                 .multilineTextAlignment(.center)
                 .padding([.top, .horizontal], 10)
             ScrollView {
-                let sortedTags = tags.getSortedTag()
-                VStack(spacing: 12) {
-                    ForEach(sortedTags) { tag in
-                        HStack {
-                            if !editView {
-                                Image(systemName: selectedTags.contains(tag.id) ? "checkmark.square.fill" : "square")
-                                    .foregroundStyle(.black)
-                                    .imageScale(.large)
-                            } else if tag != tags.DONOTSUGGESTTAG {
-                                Image(systemName: "square.and.pencil")
-                                    .foregroundStyle(.blue)
-                                    .imageScale(.medium)
-                            }
-                            Spacer()
-                            Group {
-                                //                            ZStack(alignment: .trailing) {
-                                Text(tag.name)/*.padding(.trailing, 50)*/
-                                Image(systemName: tag.symbol)
-                                    .imageScale(.large)
-                            }
-                            .foregroundStyle((editView && tag.id == tags.DONOTSUGGESTTAG.id) ? Color.gray : COLOR_SPECTRUM_ARRAY[tag.color])
-                        }
-                        .contentShape(Rectangle())
-                        .padding(.horizontal, 12)
-                        .onTapGesture {
-                            if !editView {
-                                if selectedTags.contains(tag.id) {
-                                    selectedTags.remove(tag.id)
-                                } else {
-                                    selectedTags.insert(tag.id)
-                                }
-                            } else if tag != tags.DONOTSUGGESTTAG {
-                                editingTag = tag
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    showAddTagSheet = true
-                                }
-                            }
-                        }
-                        if let lastTag = sortedTags.last, tag != lastTag { Divider() }
-                    }
-                    
-                    //                    .padding(/*.vertical,*/ 15)
-                }
-                .padding(.vertical, 12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(.black, lineWidth: 1)
-                )
-                .padding(.horizontal, 40)
-                .padding(.vertical, 10)
-                HStack {
-                    if !editView {
-                        Spacer()
-                        Button {
-                            editingTag = ArtistTag()
-                            DispatchQueue.main.async {
-                                showAddTagSheet = true
-                            }
-                        } label: {
-                            HStack {
-                                Image(systemName: "plus.circle")
-                                Text("Add Tag")
-                            }
-                            .foregroundStyle(.blue)
-                        }
-                        //                        Spacer()
-                        Divider().padding(.horizontal, 10)
-                        //                        Spacer()
-                        Button {
-                            editView = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "pencil.circle")
-                                Text("Edit Tags")
-                            }
-                            .foregroundStyle(.blue)
-                        }
-                        Spacer()
-                    } else {
-                        Button {
-                            editView = false
-                        } label: {
-                            HStack {
-                                //                                Image(systemName: "pencil.circle")
-                                Text("Done Editing")
-                            }
-                            .foregroundStyle(.blue)
-                        }
-                    }
-                }
+                DoNotSuggestTagCheck
+                CurrentFestivalTagList
+                AllOtherTags
             }
         }
         .onAppear {
-            selectedTags = Set(tags.getArtistTagIDs(artistID: currentArtist.id))
+            editView = false
+            selectedTags = Set(tags.getArtistTags(artistID: currentArtist.id, festivalID: currentFestival.id).map(\.id))
+            allOtherTagsSelected = Set<ArtistTag>()
+            showAllTags = false
+            DNSTChecked = tags.isArtistDNS(currentArtist.id)
             //            for tagID in currentArtist.artistTags {
             //            selectedTags.removeAll()
             //            for tagID in tags.getArtistTagIDs(artistID: currentArtist.id) {
@@ -1216,12 +1189,290 @@ struct ArtistPage: View {
         //            }
         //        }
         .sheet(item: $editingTag) { tag in
-            NewTagSheet(editingTag: tag)
+            NewTagSheet(editingTag: tag, binding: $editingTag, currentFestival: currentFestival, selectedTags: $selectedTags)
         }
+//        .onChange(of: tags.festivalTags) { oldFestTags, newFestTags in
+//            let oldTags = oldFestTags[currentFestival.id].map { Set($0.keys) } ?? []
+//            let newTags = newFestTags[currentFestival.id].map { Set($0.keys) } ?? []
+//
+//            let addedTags = newTags.subtracting(oldTags)
+//
+//            selectedTags.formUnion(addedTags)
+//        }
         //        .sheet(isPresented: $showAddTagSheet) {
         //
         //
         //        }
+    }
+    
+    @State var DNSTChecked = false
+    
+    var DoNotSuggestTagCheck: some View {
+        Group {
+            HStack {
+                Group {
+                    Image(systemName: tags.DONOTSUGGESTTAG.symbol)
+                        .imageScale(.large)
+                        .frame(width: 28, alignment: .center)
+                    Text(tags.DONOTSUGGESTTAG.name)
+                }
+                .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
+//                .foregroundStyle(getTagColor(tags.DONOTSUGGESTTAG))
+                Spacer()
+                Group {
+//                    if !editView {
+                        Image(systemName: DNSTChecked ? "checkmark.square.fill" : "square")
+                            .foregroundStyle(.black)
+                            .imageScale(.large)
+//                    }
+                }
+                .frame(height: 24, alignment: .center)
+                
+            }
+            .contentShape(Rectangle())
+            .padding(.horizontal, 12)
+            .onTapGesture {
+                DNSTChecked.toggle()
+////                if !editView {
+//                    if selectedTags.contains(tags.DONOTSUGGESTTAG.id) {
+//                        selectedTags.remove(tags.DONOTSUGGESTTAG.id)
+//                    } else {
+//                        selectedTags.insert(tags.DONOTSUGGESTTAG.id)
+//                    }
+//                }
+            }
+            
+        }
+        .padding(.vertical, 12)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.black, lineWidth: 1)
+        )
+        .padding(.vertical, 12)
+        .padding(.horizontal, 30)
+    }
+    
+    var CurrentFestivalTagList: some View {
+        Group {
+            let currentFestivalTags = tags.getSortedTag(festivalID: currentFestival.id)
+            if currentFestivalTags.isEmpty {
+                Button {
+                    editingTag = ArtistTag()
+                    DispatchQueue.main.async {
+                        showAddTagSheet = true
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle")
+                        Text("Add \(currentFestival.name) Tag")
+                    }
+                    .foregroundStyle(.blue)
+                }
+                .padding(.top, 4)
+            } else {
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("\(currentFestival.name) Tags").italic()
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
+                    .offset(y: 4)
+                    VStack(spacing: 12) {
+                        ForEach(currentFestivalTags) { tag in
+                            HStack {
+                                Group {
+                                    Image(systemName: tag.symbol)
+                                        .imageScale(.large)
+                                        .frame(width: 28, alignment: .center)
+                                    Text(tag.name)
+                                }
+                                .foregroundStyle(getTagColor(tag))
+                                Spacer()
+                                Group {
+                                    if !editView {
+                                        Image(systemName: selectedTags.contains(tag.id) ? "checkmark.square.fill" : "square")
+                                            .foregroundStyle(.black)
+                                            .imageScale(.large)
+                                    } else if tag != tags.DONOTSUGGESTTAG {
+                                        Image(systemName: "square.and.pencil")
+                                            .foregroundStyle(.blue)
+                                            .imageScale(.medium)
+                                    }
+                                }
+                                .frame(height: 24, alignment: .center)
+                                
+                            }
+                            .contentShape(Rectangle())
+                            .padding(.horizontal, 12)
+                            .onTapGesture {
+                                if !editView {
+                                    if selectedTags.contains(tag.id) {
+                                        selectedTags.remove(tag.id)
+                                    } else {
+                                        selectedTags.insert(tag.id)
+                                    }
+                                } else if tag != tags.DONOTSUGGESTTAG {
+                                    editingTag = tag
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        showAddTagSheet = true
+                                    }
+                                }
+                            }
+                            if let lastTag = currentFestivalTags.last, tag != lastTag { Divider() }
+                        }
+                        
+                        //                    .padding(/*.vertical,*/ 15)
+                    }
+                    
+                    .padding(.vertical, 12)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(.black, lineWidth: 1)
+                    )
+                    .padding(.vertical, 12)
+                    
+                    //                .padding(.horizontal, 40)
+                    //                .padding(.vertical, 10)
+                    HStack {
+                        if !editView {
+                            Spacer()
+                            Button {
+                                editingTag = ArtistTag()
+                                DispatchQueue.main.async {
+                                    showAddTagSheet = true
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "plus.circle")
+                                    Text("Add Tag")
+                                }
+                                .foregroundStyle(.blue)
+                            }
+                            //                        Spacer()
+                            Divider().padding(.horizontal, 15)
+                            //                        Spacer()
+                            Button {
+                                editView = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "pencil.circle")
+                                    Text("Edit Tags")
+                                }
+                                .foregroundStyle(.blue)
+                            }
+                            Spacer()
+                        } else {
+                            Button {
+                                editView = false
+                            } label: {
+                                HStack {
+                                    //                                Image(systemName: "pencil.circle")
+                                    Text("Done Editing")
+                                }
+                                .foregroundStyle(.blue)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 30)
+    }
+    
+    
+    
+    @State var showAllTags = false
+    @State var allOtherTagsSelected: Set<ArtistTag> = []
+    
+    var AllOtherTags: some View {
+        Group {
+            let allTags = tags.getAllTagsExcept(currentFestival.id)
+            if !allTags.isEmpty {
+                Divider().padding(.vertical, 20)
+                VStack(spacing: 0) {
+                    HStack {
+                        Group {
+                            Text("Copy Tags From Other Festivals")
+                            Image(systemName: "chevron.down").rotationEffect(showAllTags ? Angle(degrees: 180) : Angle(degrees: 0))
+//                            Image(systemName: showAllTags ? "chevron.up" : "chevron.down")
+                        }
+                        .italic()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation {
+                                showAllTags.toggle()
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
+                    .offset(y: 4)
+                    if showAllTags {
+                        VStack(spacing: 12) {
+                            ForEach(allTags) { tag in
+                                HStack {
+                                    Group {
+                                        Image(systemName: tag.symbol)
+                                            .imageScale(.large)
+                                            .frame(width: 28, alignment: .center)
+                                        Text(tag.name)
+                                    }
+                                    .foregroundStyle(getTagColor(tag))
+                                    Spacer()
+                                    Group {
+                                        Image(systemName: allOtherTagsSelected.contains(tag) ? "checkmark.square.fill" : "square")
+                                            .foregroundStyle(.black)
+                                            .imageScale(.large)
+                                    }
+                                    .frame(height: 24, alignment: .center)
+                                }
+                                .contentShape(Rectangle())
+                                .padding(.horizontal, 12)
+                                .onTapGesture {
+                                    if allOtherTagsSelected.contains(tag) {
+                                        allOtherTagsSelected.remove(tag)
+                                    } else {
+                                        allOtherTagsSelected.insert(tag)
+                                    }
+                                }
+                                if let lastTag = allTags.last, tag != lastTag { Divider() }
+                            }
+                            
+                            //                    .padding(/*.vertical,*/ 15)
+                        }
+                        .padding(.vertical, 12)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(.black, lineWidth: 1)
+                        )
+                        .padding(.vertical, 12)
+                        
+                        //                .padding(.horizontal, 40)
+                        //                .padding(.vertical, 10)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 30)
+//        .padding(.top, 10)
+    }
+    
+    
+    func getTagColor(_ tag: ArtistTag) -> Color {
+        if tag.id == tags.DONOTSUGGESTTAG.id {
+            if editView {
+                return .gray
+            } else {
+                return .black
+            }
+        }
+        return COLOR_SPECTRUM_ARRAY[tag.color]
     }
     
     var titleText: AttributedString {
@@ -1250,7 +1501,9 @@ struct ArtistPage: View {
     
     var ArtistTagSheetAddButton: some View {
         Button {
-            tags.setTags(artistID: currentArtist.id, tagIDs: selectedTags)
+            tags.updateArtistTags(artistID: currentArtist.id, selectedTagIDs: selectedTags, festivalID: currentFestival.id, tagsToAdd: allOtherTagsSelected)
+            tags.updateDNST(artistID: currentArtist.id, DNS: DNSTChecked)
+//            tags.setTags(artistID: currentArtist.id, tagIDs: selectedTags)
             showArtistTagSheet = false
         } label: {
             Text("Save")
@@ -1267,360 +1520,7 @@ struct ArtistPage: View {
 
 
 
-struct NewTagSheet: View {
-    @EnvironmentObject var data: DataSet
-//    @EnvironmentObject var spotify: SpotifyViewModel
-    @EnvironmentObject var festivalVM: FestivalViewModel
-//    @EnvironmentObject var firestore: FirestoreViewModel
-    @EnvironmentObject var tags: TagViewModel
-    
-    @State var editingTag: ArtistTag
-    
-    @Environment(\.dismiss) private var dismiss
-    
-    
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            Rectangle()
-                .fill(Color.clear)
-                .contentShape(Rectangle())
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.spring()) {
-                        showSymbolPicker = false
-                        showColorPicker = false
-                    }
-                    
-                    nameFocused = false
-                }
-            VStack {
-                HStack {
-                    NewTagSheetCancelButton
-                    Spacer()
-                    NewTagSheetAddButton
-                }
-                .padding([.top, .horizontal], 25)
-                //            .padding(.horizontal, 25)
-                Spacer()
-                NewTagCreator
-                Spacer()
-                DeleteButton
-                
-                //            NewTagCreator
-                //            CustomSymbolPickerField()
-            }
-        }
-//        .onAppear() {
-//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-//                self.editingTag = editingTag
-//            }
-//        }
-    }
-    
-    var NewTagSheetCancelButton: some View {
-        Button {
-            dismiss()
-//            showAddTagSheet = false
-        } label: {
-            Text("Cancel")
-                .foregroundStyle(.red)
-        }
-    }
-    
-    var NewTagSheetAddButton: some View {
-        Button {
-//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            tags.addTag(editingTag)
-            dismiss()
-            
-//            showAddTagSheet = false
-                
-        } label: {
-            Text(tags.myTags.contains(where: {$0.id == editingTag.id}) ? "Save" : "Add")
-                .foregroundStyle(editingTag.name.isEmpty ? .gray : .blue)
-        }
-        .disabled(editingTag.name.isEmpty)
-    }
-    
-    @State var deleteAlert = false
-    
-    var DeleteButton: some View {
-        HStack {
-            Spacer()
-            if tags.myTags.contains(where: { $0.id == editingTag.id }) {
-                Button(action: {
-                    deleteAlert = true
-//                    tags.myTags.remove(at: index)
-//                    showAddTagSheet = false
-                }, label: {
-                    Text("Delete Tag")
-                })
-                .padding(30)
-                .frame(width: 250, height: 40)
-                .background(Color.red)
-                .foregroundStyle(.white)
-                .cornerRadius(10)
-                .shadow(radius: 5)
-                
-            }
-            Spacer()
-        }
-        .alert(isPresented: self.$deleteAlert) {
-            Alert(title: Text("Delete Tag?"),
-                  message: Text("Doing so will remove this tag for all artists"),
-                  primaryButton: .destructive(Text("Delete")) {
-                tags.removeTag(editingTag)
-                dismiss()
-//                showAddTagSheet = false
-//                if festivalVM.isNewFestival(oldVersion) {
-//                    festivalVM.deleteEvent(id: oldVersion.id)
-//                } else {
-//                    draft.newFestival = oldVersion
-//                }
-//                navigationPath.removeLast()
-            }, secondaryButton: .cancel())
-        }
-    }
-    
-//    @State private var selectedSymbol = "flame"
-//    @State private var selectedColor = 0
-//    @State private var text = ""
-    
-    
-    
-    @State private var showSymbolPicker = false
-    @State private var showColorPicker = false
-    
-    let symbols = [
-        "flame", "sparkles", "hand.thumbsup", "hand.thumbsdown",
-        "magnifyingglass", "bookmark", "exclamationmark", "questionmark",
-        "party.popper", "figure.socialdance", "rainbow", "music.microphone",
-        "wineglass", "leaf", "snowflake", "paw//print"
-    ]
-    
-    let symbolColumns = Array(
-        repeating: GridItem(.fixed(SYMBOLGRIDSIZE), spacing: 0),
-        count: 4
-    )
-    
-    let colorColumns = Array(
-        repeating: GridItem(.fixed(COLORGRIDSIZE), spacing: 0),
-        count: 4
-    )
-    
-    @FocusState var nameFocused: Bool
-    
-    var NewTagCreator: some View {
-        GeometryReader { geo in
-            
-            ZStack(alignment: .topLeading) {
-//                Rectangle()
-//                        .fill(Color.clear)
-//                        .contentShape(Rectangle())
-//                        .ignoresSafeArea()
-//                        .onTapGesture {
-//                            withAnimation(.spring()) {
-//                                showSymbolPicker = false
-//                                showColorPicker = false
-//                            }
-//                            
-//                            nameFocused = false
-//                        }
-                
-                // MAIN CONTENT
-                VStack(alignment: .leading) {
-                    
-                    HStack(spacing: 0) {
-                        Button {
-                            withAnimation(.spring()) {
-                                showSymbolPicker.toggle()
-                                showColorPicker = false
-                            }
-                            DispatchQueue.main.async {
-                                nameFocused = false
-                            }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: editingTag.symbol)
-                                    .id(editingTag.id)
-                                    .font(.system(size: 24))
-                                Image(systemName: "chevron.up.chevron.down")
-                                    .font(.system(size: 12))
-                            }
-                            .frame(width: 80)
-                        }
-                        .contentShape(Rectangle())
-                        .buttonStyle(.plain)
-                        
-                        Divider()
-                        
-                        TextField("New Tag Name*", text: $editingTag.name)
-                            .padding(.horizontal, 12)
-                            .focused($nameFocused)
-                        
-                        Divider()
-                        
-                        Button {
-                            withAnimation(.spring()) {
-                                showColorPicker.toggle()
-                                showSymbolPicker = false
-                            }
-                            DispatchQueue.main.async {
-                                nameFocused = false
-                            }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Circle()
-                                    .fill()
-                                    .foregroundStyle(COLOR_SPECTRUM_ARRAY[editingTag.color])
-                                    .frame(width: 20, height: 20)
-                                
-                                Image(systemName: "chevron.up.chevron.down")
-                                    .font(.system(size: 12))
-                            }
-                            .frame(width: 80)
-                        }
-                        .contentShape(Rectangle())
-                        .buttonStyle(.plain)
-                    }
-                    .frame(height: 65)
-                    .background(
-                        Capsule()
-                            .stroke(.black, lineWidth: 2)
-                    )
-                    
-                    Spacer()
-                }
-                
-                // FLOATING PICKER
-                if showSymbolPicker {
-                    
-                    // dismiss layer
-                    //                    Color.black.opacity(0.001)
-                    //                        .ignoresSafeArea()
-                    //                        .onTapGesture {
-                    //                            withAnimation(.spring()) {
-                    //                                showSymbolPicker = false
-                    //                            }
-                    //                        }
-                    
-                    // popup positioned independently
-                    LazyVGrid(columns: symbolColumns, spacing: 0) {
-                        
-                        ForEach(symbols, id: \.self) { symbol in
-                            Button {
-                                editingTag.symbol = symbol
-                                
-                                withAnimation(.spring()) {
-                                    showSymbolPicker = false
-                                }
-                            } label: {
-                                Image(systemName: symbol)
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(editingTag.symbol == symbol ? .blue : .black)
-                                    .frame(width: SYMBOLGRIDSIZE, height: SYMBOLGRIDSIZE)
-                            }
-                            .buttonStyle(.plain)
-                            .background(Color.white)
-                            .overlay(
-                                Rectangle()
-                                    .stroke(.black, lineWidth: 1)
-                            )
-                        }
-                    }
-                    .fixedSize() // ← IMPORTANT
-                    .background(Color.white)
-                    //                        .overlay(
-                    //                            Rectangle()
-                    //                                .stroke(.black, lineWidth: 2)
-                    //                        )
-                    .position(
-                        x: 175,
-                        y: 30
-                    )
-                    .zIndex(1000)
-                    .transition(.opacity.combined(with: .scale))
-                } else if showColorPicker {
-                    
-                    // dismiss layer
-                    //                    Color.black.opacity(0.001)
-                    //                        .ignoresSafeArea()
-                    //                        .onTapGesture {
-                    //                            withAnimation(.spring()) {
-                    //                                showColorPicker = false
-                    //                            }
-                    //                        }
-                    
-                    // popup positioned independently
-                    LazyVGrid(columns: colorColumns, spacing: 8) {
-                        
-                        ForEach(Array(COLOR_SPECTRUM_ARRAY.prefix(12).enumerated()), id: \.offset) { index, color in
-                            Button {
-                                editingTag.color = index
-                                
-                                withAnimation(.spring()) {
-                                    showColorPicker = false
-                                }
-                            } label: {
-                                if index == editingTag.color {
-                                    Circle()
-                                        .stroke(Color.black, lineWidth: 2)
-                                        .frame(width: 30, height: 30)
-                                        .overlay(
-                                            Circle()
-                                                .fill(color)
-                                                .frame(width: 25, height: 25)
-                                        )
-                                } else {
-                                    Circle()
-                                        .fill(color)
-                                        .frame(width: 25, height: 25)
-                                }
-                                
-                                //                                Image(systemName: symbol)
-                                //                                    .font(.system(size: 20))
-                                //                                    .foregroundStyle(selectedSymbol == symbol ? .blue : .black)
-                                //                                    .frame(width: SYMBOLGRIDSIZE, height: SYMBOLGRIDSIZE)
-                            }
-                            .buttonStyle(.plain)
-                            .background(Color.white)
-                            //                            .overlay(
-                            //                                Rectangle()
-                            //                                    .stroke(.black, lineWidth: 1)
-                            //                            )
-                        }
-                    }
-                    .padding(.vertical, 8)
-                    .fixedSize() // ← IMPORTANT
-                    .background(Color.white)
-                    .overlay(
-                        Rectangle()
-                            .stroke(.black, lineWidth: 2)
-                        
-                    )
-                    .position(
-                        x: 200,
-                        y: 30
-                    )
-                    .zIndex(1000)
-                    .transition(.opacity.combined(with: .scale))
-                }
-            }
-        }
-        .frame(height: 120)
-        .padding(.horizontal, 20)
-        .onChange(of: nameFocused) { newFocus in
-            if newFocus {
-                showColorPicker = false
-                showSymbolPicker = false
-            }
-        }
-//        .onAppear {
-//            editingTag = ArtistTag()
-//        }
-    }
-        
-}
+
 
 struct Triangle: Shape {
     func path(in rect: CGRect) -> Path {
@@ -1690,7 +1590,7 @@ struct ArtistImage: View {
                     .onAppear { loadImage() }
             }
         }
-        .onChange(of: imageURL) { _ in
+        .onChange(of: imageURL) {
             image = nil
         }
     }
@@ -2047,10 +1947,11 @@ let COLOR_SPECTRUM_ARRAY: [Color] = [
     .pink,
     .brown,
     .gray,
-    .black
+    Color.bwColorSwitch
 ]
 
 
 //#Preview {
 //    ArtistPage(currentArtist: Data"Lady Gaga")
 //}
+

@@ -58,11 +58,14 @@ struct ArtistEditingList: View {
                                         } else {
                                             HStack {
                                                 Text(section)
-                                                Image(systemName: viewSubsection[i] ? "chevron.up" : "chevron.down")
+                                                Image(systemName: "chevron.down").rotationEffect(viewSubsection[i] ? Angle(degrees: 180) : Angle(degrees: 0))
+//                                                Image(systemName: viewSubsection[i] ? "chevron.up" : "chevron.down")
                                                 Spacer()
                                             }
                                             .onTapGesture(perform: {
-                                                viewSubsection[i] = !viewSubsection[i]
+                                                withAnimation {
+                                                    viewSubsection[i] = !viewSubsection[i]
+                                                }
                                             })
                                         }
                                     }
@@ -104,7 +107,7 @@ struct ArtistEditingList: View {
         }
         .onAppear() {
 
-            artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend)
+            artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
 //            print(navigationPath)
         }
@@ -113,19 +116,19 @@ struct ArtistEditingList: View {
                 AddArtistPage(newArtist: artist, newFestival: $newFestival, showArtistSearchPage: $showArtistSearchPage)
             }
         }
-        .onChange(of: selectedArtist) { newArtist in
+        .onChange(of: selectedArtist) { _, newArtist in
             if newArtist != nil {
                 showArtistSearchPage = true
             }
         }
-        .onChange(of: showArtistSearchPage) { bool in
+        .onChange(of: showArtistSearchPage) { _, bool in
             if !bool {
                 selectedArtist = nil
-                artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend)
+                artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false)
             }
         }
-        .onChange(of: sortType) { newSort in
-            artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: newSort, secondWeekend: newFestival.secondWeekend)
+        .onChange(of: sortType) { _, newSort in
+            artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: newSort, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
             reverse = false
         }
@@ -158,7 +161,7 @@ struct ArtistEditingList: View {
             let artistID = searchList[index].id
             newFestival.artistList.removeAll { $0.id == artistID }
         }
-        artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend)
+        artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false)
     }
     
     func delete(at offsets: IndexSet, in section: String) {
@@ -169,11 +172,7 @@ struct ArtistEditingList: View {
             newFestival.artistList.removeAll { $0.id == artistID }
         }
 
-        artistDict = festivalVM.getArtistDict(
-            currList: newFestival.artistList,
-            sort: sortType,
-            secondWeekend: newFestival.secondWeekend
-        )
+        artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false)
     }
     
     var SearchResults: some View {

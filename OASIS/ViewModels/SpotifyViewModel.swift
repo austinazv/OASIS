@@ -20,8 +20,27 @@ class SpotifyViewModel: ObservableObject {
     
     @Published var isLoading = true
     
+    @Published var playlistDictionary: [UUID: [SpotifyPlaylistLink]] = [:] {
+        didSet {
+            do {
+                let encoder = JSONEncoder()
+                let data = try encoder.encode(playlistDictionary)
+                UserDefaults.standard.set(data, forKey: (saveName + "/playlistDictionary"))
+                //print("myTags saved")
+            } catch {
+                //print("Failed to save myTags:", error)
+            }
+        }
+    }
+    
     init(name: String) {
         self.saveName = name
+        
+        if let playlistData = UserDefaults.standard.data(forKey: saveName + "/playlistDictionary"),
+           let tryPlaylist = try? JSONDecoder().decode([UUID: [SpotifyPlaylistLink]].self, from: playlistData) {
+            playlistDictionary = tryPlaylist
+        }
+        
         isUserLoggedIn { [weak self] loggedIn in
             DispatchQueue.main.async {
                 self?.isLoggedIn = loggedIn
@@ -31,6 +50,23 @@ class SpotifyViewModel: ObservableObject {
                 self?.isLoading = false
             }
         }
+    }
+    
+    func getFestivalPlaylists(_ id: UUID) -> [SpotifyPlaylistLink] {
+        return playlistDictionary[id] ?? []
+    }
+    
+    func addFestivalPlaylist(festivalID: UUID, playlistName: String, playlistURL: URL) {
+        playlistDictionary[festivalID, default: []].append(SpotifyPlaylistLink(name: playlistName, URL: playlistURL))
+    }
+    
+    func removeFestivalPlaylist(festivalID: UUID, playlist: SpotifyPlaylistLink) {
+        guard var playlists = playlistDictionary[festivalID] else { return }
+        if let index = playlists.firstIndex(where: { $0.URL == playlist.URL }) {
+            playlists.remove(at: index)
+            playlistDictionary[festivalID] = playlists
+        }
+//        playlistDictionary[festivalID, default: []].append(SpotifyPlaylistLink(name: playlistName, URL: playlistURL))
     }
     
     func isUserLoggedIn(completion: @escaping (Bool) -> Void) {
@@ -74,11 +110,17 @@ class SpotifyViewModel: ObservableObject {
             if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
                 if let accessToken = json["access_token"] as? String,
                    let refreshToken = json["refresh_token"] as? String {
+                    print("✅ ACCESS TOKEN:")
+                        print(accessToken)
+
+                        print("✅ REFRESH TOKEN:")
+                        print(refreshToken)
+                    
                     UserDefaults.standard.set(accessToken, forKey: String(self.saveName + "spotify_access_token"))
                     UserDefaults.standard.set(refreshToken, forKey: String(self.saveName + "spotify_refresh_token"))
                     UserDefaults.standard.set(Date().timeIntervalSince1970 + 3600, forKey: String(self.saveName + "spotify_token_expiry")) // Token valid for 1 hour
                     
-                    self.fetchSpotifyUserProfile(accessToken: accessToken)
+//                    self.fetchSpotifyUserProfile(accessToken: accessToken)
                 }
             }
         }.resume()
@@ -1200,6 +1242,47 @@ class SpotifyViewModel: ObservableObject {
             }
         }.resume()
     }
+    
+    func createSpotifyPlaylist(
+        playlistName: String,
+        artistIDs: [String]
+    ) async throws -> CreateSpotifyPlaylistResponse {
+        
+        let url = URL(
+            string: "https://us-central1-oasis-austinzv.cloudfunctions.net/createSpotifyPlaylist"
+        )!
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = CreateSpotifyPlaylistRequest(
+            playlistName: playlistName,
+            artistIDs: artistIDs
+        )
+        
+        request.httpBody = try JSONEncoder().encode(body)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(
+                domain: "SpotifyPlaylist",
+                code: httpResponse.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: errorString]
+            )
+        }
+        
+        return try JSONDecoder().decode(
+            CreateSpotifyPlaylistResponse.self,
+            from: data
+        )
+    }
 
     
     func openSpotifyLogin() {
@@ -1309,4 +1392,21 @@ class SpotifyViewModel: ObservableObject {
             let display_name: String?
         }
     }
+}
+
+struct SpotifyPlaylistLink: Codable {
+    let name: String
+    let URL: URL
+}
+
+struct CreateSpotifyPlaylistRequest: Codable {
+    let playlistName: String
+    let artistIDs: [String]
+}
+
+struct CreateSpotifyPlaylistResponse: Codable {
+    let success: Bool
+    let playlistUrl: String?
+    let trackCount: Int?
+    let error: String?
 }

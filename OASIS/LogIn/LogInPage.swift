@@ -182,7 +182,9 @@ struct LogInPage: View {
                     }
                     DispatchQueue.main.async {
                         firestore.isLoggedIn = true
-                        firestore.setUpAccount()
+                        Task {
+                            await firestore.setUpAccount()
+                        }
                     }
                 }
             }
@@ -254,13 +256,15 @@ struct LogInPage: View {
                                    name: displayName,
                                    photoURL: photoURL,
                                    isNewUser: isNewUser) { upsertError in
-                    if let upsertError = upsertError {
+//                    if let upsertError = upsertError {
                         //print("⚠️ Failed to upsert Google user doc: \(upsertError.localizedDescription)")
-                    }
+//                    }
                     DispatchQueue.main.async {
                         firestore.isLoggedIn = true
-                        firestore.setUpAccount()
-//                        firestore.loadMyUserProfile()
+                        Task {
+                            await firestore.setUpAccount()
+                        }
+                        //                        firestore.loadMyUserProfile()
                     }
                 }
             }

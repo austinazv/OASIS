@@ -33,7 +33,7 @@ struct FestivalSettingsPage: View {
                 let dayRange = festivalVM.getAmountOfFestivalDays(startDate: currentFestival.startDate, endDate: currentFestival.endDate)
                 if dayRange > 1 {
                     Section(header: Text("Days")) {
-                        ForEach(daysInRange(start: currentFestival.startDate, end: currentFestival.endDate), id: \.self) { day in
+                        ForEach(festivalVM.dayRangeToStringArray(start: currentFestival.startDate, end: currentFestival.endDate), id: \.self) { day in
                             Toggle(
                                 day,
                                 isOn: Binding(
@@ -56,23 +56,23 @@ struct FestivalSettingsPage: View {
         }
     }
     
-    func daysInRange(start: Date, end: Date) -> [String] {
-        let calendar = Calendar.current
-        var days: [String] = []
-        var currentDate = calendar.startOfDay(for: start)
-        let endDate = calendar.startOfDay(for: end)
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE" // "Monday", "Tuesday", etc.
-
-        while currentDate <= endDate {
-            let dayName = formatter.string(from: currentDate)
-            days.append(dayName)
-            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
-        }
-
-        return days
-    }
+//    func dayRangeToStringArray(start: Date, end: Date) -> [String] {
+//        let calendar = Calendar.current
+//        var days: [String] = []
+//        var currentDate = calendar.startOfDay(for: start)
+//        let endDate = calendar.startOfDay(for: end)
+//
+//        let formatter = DateFormatter()
+//        formatter.dateFormat = "EEEE" // "Monday", "Tuesday", etc.
+//
+//        while currentDate <= endDate {
+//            let dayName = formatter.string(from: currentDate)
+//            days.append(dayName)
+//            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+//        }
+//
+//        return days
+//    }
     
     func dayOfWeek(for date: Date) -> String {
         let formatter = DateFormatter()

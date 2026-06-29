@@ -35,10 +35,14 @@ struct SocialPage: View {
 //    let userID: String
 
     var body: some View {
-        if firestore.phoneConnected {
-            SocialPageBody
+        if firestore.socialLoading {
+            ProgressView()
         } else {
-            AccountSetUpPage()
+            if firestore.phoneConnected {
+                SocialPageBody
+            } else {
+                AccountSetUpPage()
+            }
         }
     }
     
@@ -58,24 +62,17 @@ struct SocialPage: View {
                     .padding(.bottom, 5)
                     Divider()
                     ZStack {
-//                        Color(.oasisDarkOrange)
                         Color(red: 235/255, green: 230/255, blue: 245/255)
                             .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
-//                        if explore.isLoading {
-//                            Spacer()
-//                            ProgressView()
-//                                .foregroundStyle(.black)
-//                            Spacer()
-//                        } else {
-                            VStack {
-                                FriendsListed
+                            ScrollView {
                                 GroupsListed
-                                Spacer()
+                                FriendsListed
                             }
                             .padding(.top, 5)
-//                            .refreshable {
-//                                explore.fetchVerifiedFestivals()
-//                            }
+                            .refreshable {
+                                await firestore.setUpAccount()
+                                following = await firestore.users(from: firestore.myUserProfile.safeFollowing)
+                            }
 //                        }
                     }
                     
@@ -91,17 +88,19 @@ struct SocialPage: View {
         Group {
             Menu(content: {
                 Button (action: {
-                    showAddFriendsSheet = true
-                }, label: {
-                    Text("Find People")
-                    Image(systemName: "person.2.fill")
-                })
-                Button (action: {
                     showGroupSheet = true
                 }, label: {
                     Text("New Group")
                     Image(systemName: "person.3.fill")
                 })
+                
+                Button (action: {
+                    showAddFriendsSheet = true
+                }, label: {
+                    Text("Find People")
+                    Image(systemName: "person.2.fill")
+                })
+                
             }, label: {
                 Image(systemName: "person.2.badge.plus.fill")
                     .imageScale(.large)
@@ -113,40 +112,54 @@ struct SocialPage: View {
     
     @State var showAddFriendsSheet = false
     
+    @State var showFriends = true
+    
     var FriendsListed: some View {
         Group {
             VStack {
                 HStack {
                     Text("Following")
+                    Button(action: {
+                        withAnimation {
+                            showFriends.toggle()
+                        }
+                    }) {
+                        Image(systemName: "chevron.down").rotationEffect(showFriends ? Angle(degrees: -180) : Angle(degrees: 0))
+//                        Image(systemName: showFriends ? "chevron.up" : "chevron.down")
+                    }
+                    Spacer()
                     Button(action: { showAddFriendsSheet = true }) {
                         Image(systemName: "plus.circle.fill")
                             .foregroundStyle(.blue)
                     }
-                    Spacer()
                 }
-                .padding([.horizontal, .top], 10)
+                .padding([.horizontal, .top], 15)
                 .foregroundStyle(.black)
                 .bold()
-                VStack {
-                    if isLoadingFriends {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
-                        .frame(height: 60)
-                        .background(Color.white)
-                        .cornerRadius(10)
-                        .border(Color.gray, width: 2)
-                        .padding([.leading, .trailing, .bottom], 10)
-                    } else {
-                        if !following.isEmpty {
-                            ProfilesListed(navigationPath: $navigationPath, profiles: following)
+                if showFriends {
+                    VStack {
+                        if isLoadingFriends {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                Spacer()
+                            }
+                            .frame(height: 60)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.gray, lineWidth: 2)
+                            )
+                            .padding([.leading, .trailing, .bottom], 10)
                         } else {
-//                            Button(action: { showAddFriendsSheet = true }) {
+                            if !following.isEmpty {
+                                ProfilesListed(navigationPath: $navigationPath, profiles: following)
+                            } else {
+                                //                            Button(action: { showAddFriendsSheet = true }) {
                                 HStack {
                                     Spacer()
-//                                    Image(systemName: "plus.circle.fill")
+                                    //                                    Image(systemName: "plus.circle.fill")
                                     Text("You are not following anyone yet.")
                                     Spacer()
                                 }
@@ -154,26 +167,33 @@ struct SocialPage: View {
                                 .frame(height: 60)
                                 .background(Color.white)
                                 .contentShape(Rectangle())
-                                .cornerRadius(10)
-                                .border(Color.gray, width: 2)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.gray, lineWidth: 2)
+                                )
                                 .padding([.leading, .trailing, .bottom], 10)
-//                            }
+                                
+                                
+                                
+                                //                            }
+                            }
                         }
                     }
                 }
-                .fixedSize(horizontal: false, vertical: true)
+//                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .sheet(isPresented: $showAddFriendsSheet) {
             AddFriendsSheet
         }
         .task {
-            isLoadingFriends = true
+            if following.isEmpty { isLoadingFriends = true }
             defer { isLoadingFriends = false }
 
             following = await firestore.users(from: firestore.myUserProfile.safeFollowing)
         }
-        .onChange(of: showAddFriendsSheet) { newValue in
+        .onChange(of: showAddFriendsSheet) { _, newValue in
             if !newValue {
                 Task {
                     isLoadingFriends = true
@@ -183,7 +203,7 @@ struct SocialPage: View {
                 }
             }
         }
-        .onChange(of: navigationPath) { _ in
+        .onChange(of: navigationPath) {
             showAddFriendsSheet = false
             showGroupSheet = false
         }
@@ -265,7 +285,7 @@ struct SocialPage: View {
                                 }
                                 .frame(height: 60)
                                 .frame(maxWidth: .infinity)
-                                .background(.oasisDarkBlue)
+                                .background(.blue)
                                 .foregroundStyle(.white)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
@@ -282,13 +302,14 @@ struct SocialPage: View {
                 } message: {
                     Text("Please enable Contacts access in Settings to find friends.")
                 }
-                .onChange(of: contactsManager.permissionGranted) { granted in
+                .onChange(of: contactsManager.permissionGranted) { _, granted in
                     if granted {
                         Task { await contactsManager.loadContactsIfNeeded() }
                     } else {
                         showingDeniedAlert = true
                     }
                 }
+                //MARK: Not an issue here or above (on first glance)
                 .onAppear {
                     Task {
                         await contactsManager.loadFriendsFromContacts()
@@ -323,18 +344,22 @@ struct SocialPage: View {
                     }
                     .padding()
                 } else {
-                    let listedContacts = contactsManager.matchedFriends.filter { !firestore.myUserProfile.safeFollowing.contains($0.id!)
+                    let listedContacts = contactsManager.matchedFriends.filter { !firestore.myUserProfile.safeFollowing.contains($0.id)
                     }
                     if listedContacts.isEmpty {
                         HStack {
                             Spacer()
                             Text("No new contacts found.")
                                 .padding(10)
+                                .foregroundStyle(.black)
                             Spacer()
                         }
                         .background(Color.white)
-                        .cornerRadius(10)
-                        .border(Color.gray, width: 2)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray, lineWidth: 2)
+                        )
                         .padding(.horizontal, 10)
                     } else {
                         ProfilesListed(navigationPath: $navigationPath, profiles: listedContacts, maxHeight: 230)
@@ -347,6 +372,8 @@ struct SocialPage: View {
     
     @State var followersLoading: Bool = false
     @State var followersNotFollowing = Array<UserProfile>()
+    
+    
         
         var FollowersListed: some View {
             Group {
@@ -408,75 +435,94 @@ struct SocialPage: View {
     
     
     @State var showGroupSheet = false
+    @State var showGroups = true
     
     var GroupsListed: some View {
         Group {
             VStack {
                 HStack {
                     Text("Groups")
+                    
+                    
+                    Button(action: {
+                        withAnimation {
+                            showGroups.toggle()
+                        }
+                    }) {
+                        Image(systemName: "chevron.down").rotationEffect(showGroups ? Angle(degrees: -180) : Angle(degrees: 0))
+//                        Image(systemName: showGroups ? "chevron.up" : "chevron.down")
+                    }
+                    Spacer()
                     Button(action: { showGroupSheet = true }) {
                         Image(systemName: "plus.circle.fill")
                             .foregroundStyle(.blue)
                     }
-                    Spacer()
                 }
-                .padding([.horizontal, .top], 10)
+                .padding([.horizontal, .top], 15)
                 .foregroundStyle(.black)
                 .bold()
-                VStack {
-                    if isLoadingGroups {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
-                        .frame(height: 60)
-                        .background(Color.white)
-                        .cornerRadius(10)
-                        .border(Color.gray, width: 2)
-                        .padding([.leading, .trailing, .bottom], 10)
-                    } else {
-                        if !firestore.mySocialGroups.isEmpty {
-                            GroupsList(navigationPath: $navigationPath, groups: firestore.mySocialGroups)
-                            //                        ForEach(social.groups) { group in
-                            ////                            EmptyView()
-                            //                            HStack {
-                            //                                SocialImage(imageURL: group.photo, name: group.name, frame: 40)
-                            //                                Text(group.name)
-                            //                            }
-                            //                            .contentShape(Rectangle())
-                            //                            .padding(.horizontal, 10)
-                            //                            .onTapGesture() {
-                            ////                                //TODO: NavPath to GroupPage
-                            //////                                 navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView))
-                            //                            }
-                            ////                            Divider()
-                            //                        }
-                        } else {
-                            //                        Button(action: { showGroupSheet = true }) {
+                if showGroups {
+                    VStack {
+                        if isLoadingGroups {
                             HStack {
                                 Spacer()
-                                //                                Image(systemName: "plus.circle.fill")
-                                Text("You do not have any groups yet.")
+                                ProgressView()
                                 Spacer()
                             }
-                            .foregroundStyle(.black)
                             .frame(height: 60)
-                            .background(Color.white)
-                            .contentShape(Rectangle())
-                            .cornerRadius(10)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.gray, lineWidth: 2)
+                            )
                             .border(Color.gray, width: 2)
                             .padding([.leading, .trailing, .bottom], 10)
-                            //                            .background()
+                        } else {
+                            if !firestore.mySocialGroups.isEmpty {
+                                GroupsList(navigationPath: $navigationPath, groups: firestore.mySocialGroups)
+                                //                        ForEach(social.groups) { group in
+                                ////                            EmptyView()
+                                //                            HStack {
+                                //                                SocialImage(imageURL: group.photo, name: group.name, frame: 40)
+                                //                                Text(group.name)
+                                //                            }
+                                //                            .contentShape(Rectangle())
+                                //                            .padding(.horizontal, 10)
+                                //                            .onTapGesture() {
+                                ////                                //TODO: NavPath to GroupPage
+                                //////                                 navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView))
+                                //                            }
+                                ////                            Divider()
+                                //                        }
+                            } else {
+                                //                        Button(action: { showGroupSheet = true }) {
+                                HStack {
+                                    Spacer()
+                                    //                                Image(systemName: "plus.circle.fill")
+                                    Text("You do not have any groups yet.")
+                                    Spacer()
+                                }
+                                .foregroundStyle(.black)
+                                .frame(height: 60)
+                                .background(Color.white)
+                                .contentShape(Rectangle())
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.gray, lineWidth: 2)
+                                )
+                                .padding([.leading, .trailing, .bottom], 10)
+                                //                            .background()
+                            }
+                            //                        .onTapGesture() {
+                            //                            //TODO: New group
+                            //                            showGroupSheet = true
+                            //                        }
                         }
-                        //                        .onTapGesture() {
-                        //                            //TODO: New group
-                        //                            showGroupSheet = true
-                        //                        }
+                        
                     }
-                    
                 }
-                .fixedSize(horizontal: false, vertical: true)
+//                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .sheet(isPresented: $showGroupSheet) {
@@ -577,7 +623,7 @@ struct SocialPage: View {
         }
         .padding()
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem)
-        .onChange(of: selectedItem) { newItem in
+        .onChange(of: selectedItem) { _, newItem in
             Task {
                 // Retrieve the image from the PhotosPickerItem
                 if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
@@ -593,7 +639,7 @@ struct SocialPage: View {
                 dismissButton: .default(Text("Ok"))
             )
         }
-        .onChange(of: errorAlert) { newValue in
+        .onChange(of: errorAlert) { _, newValue in
             if newValue == false {
                 navigationPath.removeLast()
             }
@@ -835,6 +881,7 @@ struct SocialImage: View {
         }
         .frame(width: frame, height: frame)
         .clipShape(Circle())
+        .contentShape(Circle())
         .overlay(
             Circle().stroke(.black, lineWidth: 1)
         )
@@ -931,21 +978,27 @@ struct ProfilesListed: View {
     var allowNavigation = true
     
     var topUser: String?
+    
+    var sortedProfiles: [UserProfile] {
+        profiles.sorted { a, b in
+            if a.id == topUser { return true }
+            if b.id == topUser { return false }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
 
     var body: some View {
-        ScrollView {
+//        ScrollView {
             VStack(spacing: 0) {
-                let sortedProfiles = sortProfiles()
-                
+//                let sortedProfiles = sortProfiles()
                 ForEach(sortedProfiles) { profile in
-//                    let profile = sortedProfiles[index]
                     HStack {
                         ZStack(alignment: .center) {
                             SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 50)
                                 .overlay(alignment: .topTrailing) {
                                     if profile.id == topUser {
                                         Image(systemName: "crown.fill")
-                                            .foregroundStyle(.black)
+                                            .foregroundStyle(.bwColorSwitch)
                                             .rotationEffect(.degrees(45))
                                             .font(.system(size: 16))
                                             .offset(x: 5, y: -5)
@@ -953,12 +1006,12 @@ struct ProfilesListed: View {
                                 }
                         }
                         Text(profile.name)
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.bwColorSwitch)
                         Spacer()
-                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
+                        if firestore.myUserProfile.safeFollowing.contains(profile.id) {
                             if allowNavigation {
                                 Image(systemName: "chevron.right")
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.bwColorSwitch)
                             }
                         } else {
                             FollowButtonShort(profile: profile, allowNavigation: allowNavigation)
@@ -967,31 +1020,25 @@ struct ProfilesListed: View {
                     .padding(.vertical, 8)
                     .contentShape(Rectangle())
                     .padding(.horizontal, 10)
-                    .onTapGesture {
-                        if allowNavigation {
-                            navigationPath.append(profile)
-                        }
+                    .onTapGesture { if allowNavigation { navigationPath.append(profile) }
                     }
-
                     if profile.id != sortedProfiles.last?.id {
                         Divider()
+                            .padding(.horizontal, 10)
                     }
                 }
-
             }
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .background(Color.white)
-        .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
-        .cornerRadius(10)
-        .border(Color.gray, width: 2)
+//            .fixedSize(horizontal: false, vertical: true)
+//        }
+//        .frame(maxHeight: maxHeight)
+        .background(Color(uiColor: .systemBackground))
+        
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.gray, lineWidth: 2)
+        )
         .padding(.horizontal, 10)
-//        .onAppear() {
-//            //print("On Appear: \(profiles)")
-//        }
-//        .onChange(of: profiles) { newList in
-//            //print("NOW SHOWING: \(newList)")
-//        }
     }
     
     func sortProfiles() -> [UserProfile] {
@@ -1013,16 +1060,16 @@ struct FollowButtonShort: View {
     
     var body: some View {
         Group {
-            if let profileID = profile.id {
-                if profileID != firestore.getUserID() {
+//            if let profileID = profile.id {
+            if profile.id != firestore.getUserID() {
                     Button {
-                        firestore.followUser(profileID) { success in
+                        firestore.followUser(profile.id) { success in
                             
                             //print("Follow is a \(success)")
                         }
                     } label: {
                         Group {
-                            if firestore.followUnfollowLoadingArray.contains(profileID) {
+                            if firestore.followUnfollowLoadingArray.contains(profile.id) {
                                 ProgressView()
                             } else {
                                 HStack {
@@ -1045,7 +1092,7 @@ struct FollowButtonShort: View {
                             .foregroundStyle(.black)
                     }
                 }
-            }
+//            }
         }
     }
 }
@@ -1057,9 +1104,9 @@ struct ProfileButton: View {
     @Binding var profile: UserProfile
     
     var body: some View {
-        if let profileID = profile.id/*, profileID != firestore.getUserID() */{
-            button(for: profileID)
-        }
+//        if let profileID = profile.id/*, profileID != firestore.getUserID() */{
+        button(for: profile.id)
+//        }
     }
     
     @ViewBuilder
@@ -1070,6 +1117,7 @@ struct ProfileButton: View {
                     Image(systemName: "square.and.arrow.up")
                     Text("Share Profile")
                 }
+                .font(.system(size: 17))
                 .padding(0)
                 .frame(width: 155, height: 35)
                 .background(
@@ -1129,7 +1177,7 @@ struct ProfileButton: View {
             ) {
                 firestore.followUser(profileID) { success in
                     if success {
-                        profile.followers?.append(firestore.myUserProfile.id!)
+                        profile.followers?.append(firestore.myUserProfile.id)
                     }
                 }
                 
@@ -1143,7 +1191,7 @@ struct ProfileButton: View {
             ) {
                 firestore.followUser(profileID) { success in
                     if success {
-                        profile.followers?.append(firestore.myUserProfile.id!)
+                        profile.followers?.append(firestore.myUserProfile.id)
                     }
                 }
             }
@@ -1239,6 +1287,7 @@ struct FollowButtonLong: View {
                             Image(systemName: symbol)
                         }
                     }
+                    .font(.system(size: 17))
                 }
             }
             .foregroundStyle(.white)
@@ -1263,18 +1312,25 @@ struct GroupsList: View {
     var groups: [SocialGroup]
 
     var maxHeight: CGFloat = 235
+    
+    var sortedGroups: [SocialGroup] {
+        groups.sorted { a, b in
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
 
     var body: some View {
-        ScrollView {
+//        ScrollView {
             VStack(spacing: 0) {
-                let sortedGroups = groups.sorted(by: { $0.name < $1.name })
+//                let sortedGroups = groups.sorted(by: { $0.name < $1.name })
                 
-                ForEach(sortedGroups.indices, id: \.self) { index in
-                    let group = sortedGroups[index]
+                ForEach(sortedGroups) { group in
+//                    let group = sortedGroups[index]
                     HStack {
                         SocialImage(imageURL: group.photo, name: group.name, frame: 50)
 //                        VStack(alignment: .leading, spacing: 5) {
                             Text(group.name)
+                            .foregroundStyle(.bwColorSwitch)
 //                                .bold()
 //                                .font(.title)
                                 .foregroundStyle(.black)
@@ -1285,7 +1341,7 @@ struct GroupsList: View {
                         GroupMemberPhotos(memberIDs: group.members)
 //                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
                             Image(systemName: "chevron.right")
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.bwColorSwitch)
 //                        } else {
 //                            FollowButtonShort(profile: profile)
 //                        }
@@ -1297,18 +1353,21 @@ struct GroupsList: View {
                         navigationPath.append(group)
                     }
 
-                    if index < sortedGroups.count - 1 {
+                    if group  != sortedGroups.last! {
                         Divider()
                     }
                 }
 
             }
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .background(Color.white)
-        .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
-        .cornerRadius(10)
-        .border(Color.gray, width: 2)
+//            .fixedSize(horizontal: false, vertical: true)
+//        }
+//        .frame(maxHeight: maxHeight)
+        .background(Color(uiColor: .systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.gray, lineWidth: 2)
+        )
         .padding(.horizontal, 10)
     }
 }
@@ -1321,13 +1380,20 @@ struct GroupMemberPhotos: View {
     var memberIDs: Array<String>
     @State var members: Array<UserProfile> = []
     
+    var membersSorted: [UserProfile] {
+        members.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+    
     var photoWidth: CGFloat = 30
     let OFFSET_WIDTH = -20
     
     var body: some View {
         ZStack {
-            let membersSorted = members.sorted(by: { $0.name < $1.name })
+//            let membersSorted = members.sorted(by: { $0.name < $1.name })
             if members.count > 3 {
+                Text("1")
                 Group {
                     SocialImage(imageURL: membersSorted[0].profilePic, name: membersSorted[0].name, frame: photoWidth)
                         .offset(x: CGFloat(OFFSET_WIDTH*2))
@@ -1341,9 +1407,11 @@ struct GroupMemberPhotos: View {
                         )
                     Text("+\(members.count - 2)")
                         .font(.subheadline)
+                        .foregroundStyle(.black)
                 }
                
             } else {
+//                Text("2")
                 ForEach(Array(membersSorted.enumerated()), id: \.element.id) { index, profile in
 //                    let offset = CGFloat((members.count - (index + 1)) * 15.0)
                     SocialImage(imageURL: profile.profilePic, name: profile.name, frame: photoWidth)
@@ -1683,7 +1751,7 @@ class ContactsManager: ObservableObject {
             UserDefaults.standard.set(hashedContacts, forKey: hashCacheKey)
         }
 
-        await uploadContacts(hashedContacts)
+//        await uploadContacts(hashedContacts)
         uploadComplete = true
         UserDefaults.standard.set(true, forKey: uploadKey)
     }
@@ -1708,7 +1776,7 @@ class ContactsManager: ObservableObject {
                         }
                     }
                 } catch {
-                    //print("❌ Contact fetch failed:", error)
+                    print("❌ Contact fetch failed:", error)
                 }
 
                 continuation.resume(returning: results)

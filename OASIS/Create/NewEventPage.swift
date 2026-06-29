@@ -8,6 +8,8 @@
 import SwiftUI
 import MapKit
 import PhotosUI
+import PDFKit
+import QuickLook
 
 struct NewEventPage: View {
     @EnvironmentObject var data: DataSet
@@ -48,41 +50,55 @@ struct NewEventPage: View {
     @State var discardChangesAlert: Bool = false
     
     var body: some View {
-        Group {
-            ZStack {
-                VStack {
-                    //                ScrollViewReader { proxy in
-                    Form {
-                        EventName
-                        EventDates
-                        EventLocation
-                        EventArtists
-                        EventStages
-                        if let uid = firestore.getUserID(), uid == "zrayyA8BieWLLpuqgJo5g1sBGYw1" {
-//                        if let uid = firestore.getUserID(), uid == "zrayyA8BieWLLpuqgJo5g1sBGYw2" {
-                            EventLogo
-                            EventWebsite
-                        }
-                        DeleteButton
-                        
-                        //                    Section {
-                        //                        Spacer()
-                        //                            .frame(height: 200)
-                        //                    }
-                        //                    .listRowBackground(Color("Same As Background"))
+        //        Group {
+        ZStack {
+            VStack {
+                //                ScrollViewReader { proxy in
+                Form {
+                    EventName
+                    EventDates
+                    EventLocation
+                    EventArtists
+                    EventStages
+                    if let uid = firestore.getUserID(), uid == "zrayyA8BieWLLpuqgJo5g1sBGYw1" {
+                        //                        if let uid = firestore.getUserID(), uid == "zrayyA8BieWLLpuqgJo5g1sBGYw2" {
+                        EventLogo
+                        EventPoster
+                        EventWebsite
                     }
-                    //                }
-                    //                .frame(height: 1000)
+                    DeleteButton
+                    
+                    //                    Section {
+                    //                        Spacer()
+                    //                            .frame(height: 200)
+                    //                    }
+                    //                    .listRowBackground(Color("Same As Background"))
                 }
-                if uploadingFestival {
-                    RoundedRectangle(cornerRadius: 10)
-                        .frame(width: 40, height: 40, alignment: .center)
-                        .foregroundStyle(.gray)
-                        .opacity(0.5)
-                    ProgressView()
-                }
+                //                }
+                //                .frame(height: 1000)
+            }
+            if uploadingFestival {
+                RoundedRectangle(cornerRadius: 10)
+                    .frame(width: 40, height: 40, alignment: .center)
+                    .foregroundStyle(.gray)
+                    .opacity(0.5)
+                ProgressView()
             }
         }
+        .photosPicker(
+            isPresented: $showLogoPicker,
+            selection: $logoItem,
+            matching: .images,
+            photoLibrary: .shared()
+        )
+        .photosPicker(
+            isPresented: $showPosterPicker,
+            selection: $posterItem,
+            matching: .images,
+            photoLibrary: .shared()
+        )
+        .quickLookPreview($posterURL)
+        //        }
         .toolbar(.hidden, for: .tabBar)
         .scrollDismissesKeyboard(.immediately)
         .navigationBarBackButtonHidden()
@@ -90,7 +106,7 @@ struct NewEventPage: View {
             ToolbarItem(placement: .topBarLeading) {
                 Group {
                     Button (action: {
-//                        if hasBeenEdited {
+                        //                        if hasBeenEdited {
                         if draft.newFestival == oldVersion {
                             navigationPath.removeLast()
                         } else {
@@ -118,8 +134,8 @@ struct NewEventPage: View {
                             Task {
                                 await saveLocally()
                             }
-//                            festivalVM.saveDraft(draft.newFestival)
-//                            navigationPath.removeLast()
+                            //                            festivalVM.saveDraft(draft.newFestival)
+                            //                            navigationPath.removeLast()
                         }, label: {
                             HStack {
                                 Text("Save As Draft")
@@ -156,7 +172,7 @@ struct NewEventPage: View {
                                     uploadingFestival = false
                                     navigationPath.removeLast()
                                 case .failure(let error):
-                                    ////print("Upload failed:", error)
+                                    print("Upload failed:", error)
                                     uploadingFestival = false
                                 }
                             }
@@ -180,19 +196,19 @@ struct NewEventPage: View {
             }
         }
         .onAppear() {
-            
-            
-//            if let logoPath = draft.newFestival.logoPath {
-//                FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
-//                    if let logo = logo {
-//                        //                , let logo = festivalVM.loadFestivalImage(filePath: logoPath) {
-//                        selectedImage = logo
-//                    }
-//                }
-//            }
             if !festivalVM.isNewFestival(draft.newFestival) {
                 singleDayEvent = festivalVM.isSameDay(draft.newFestival.startDate, draft.newFestival.endDate)
             }
+            
+            //            if let logoPath = draft.newFestival.logoPath {
+            //                FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
+            //                    if let logo = logo {
+            //                        //                , let logo = festivalVM.loadFestivalImage(filePath: logoPath) {
+            //                        selectedImage = logo
+            //                    }
+            //                }
+            //            }
+            
         }
         .sheet(isPresented: $showArtistSearchPage) {
             if let artist = selectedArtist {
@@ -212,22 +228,52 @@ struct NewEventPage: View {
             }, secondaryButton: .cancel()
             )
         }
-        .photosPicker(
-            isPresented: $showPhotoPicker,
-            selection: $selectedItem,
-            matching: .images,
-            photoLibrary: .shared()
-        )
-        .onChange(of: draft.newFestival) { newVersion in
+        
+        //        .photosPicker(
+        //            isPresented: Binding(
+        //                get: { activePicker != nil },
+        //                set: { _ in }
+        //            ),
+        //            selection: $selectedItem,
+        //            matching: .images
+        //        )
+        //        .onChange(of: selectedItem) { newItem in
+        //            guard let newItem else { return }
+        //
+        //            switch activePicker {
+        //            case .logo:
+        //                Task {
+        //                    if let data = try? await newItem.loadTransferable(type: Data.self),
+        //                       let uiImage = UIImage(data: data) {
+        //                        selectedLogo = uiImage
+        //                    }
+        //
+        //                    activePicker = nil
+        //                    selectedItem = nil
+        //                }
+        //
+        //            case .poster:
+        //                // Handle poster
+        //                activePicker = nil
+        //                selectedItem = nil
+        //
+        //            case nil:
+        //                break
+        //            }
+        //        }
+        .onChange(of: draft.newFestival) { _, newVersion in
             festivalVM.saveDraft(newVersion)
         }
         
     }
-    
+
     func saveLocally() async {
-        if let imageToUpload = selectedImage,
-           let logoPath = festivalVM.saveImageForFestival(imageToUpload, festivalID: draft.newFestival.id) {
+        if let imageToUpload = selectedLogo,
+           let logoPath = festivalVM.saveImageForFestival(imageToUpload, festivalID: draft.newFestival.id, previousPath: draft.newFestival.logoPath) {
             draft.newFestival.logoPath = logoPath
+        } else if logoDeleted {
+            festivalVM.removeImageForFestival(previousPath: draft.newFestival.logoPath)
+            draft.newFestival.logoPath = nil
         }
         navigationPath.removeLast()
     }
@@ -354,7 +400,13 @@ struct NewEventPage: View {
                             DatePicker(
                                 "Select a date",
                                 selection: $draft.newFestival.endDate,
-                                in: draft.newFestival.startDate...,
+                                in: draft.newFestival.startDate...(
+                                    Calendar.current.date(
+                                        byAdding: .day,
+                                        value: 6,
+                                        to: draft.newFestival.startDate
+                                    ) ?? draft.newFestival.startDate
+                                ),
                                 displayedComponents: [.date]
                             )
                             .datePickerStyle(.graphical)
@@ -383,17 +435,31 @@ struct NewEventPage: View {
                     }
                 }
             }
-            .onChange(of: singleDayEvent) { _ in
+            .onChange(of: singleDayEvent) {
                 draft.newFestival.endDate = draft.newFestival.startDate
                 draft.newFestival.secondWeekend = false
+                festivalVM.setSettings(currentFestival: draft.newFestival)
                 dismissKeyboard()
             }
-            .onChange(of: draft.newFestival.startDate) { newDate in
+            .onChange(of: draft.newFestival.startDate) { _, newDate in
+                let maxEndDate = Calendar.current.date(
+                    byAdding: .day,
+                    value: 6,
+                    to: newDate
+                ) ?? newDate
+                
                 if singleDayEvent {
                     draft.newFestival.endDate = newDate
                 } else if draft.newFestival.endDate < newDate {
                     draft.newFestival.endDate = newDate
+                } else if draft.newFestival.endDate > maxEndDate {
+                    draft.newFestival.endDate = maxEndDate
                 }
+                
+                festivalVM.setSettings(currentFestival: draft.newFestival)
+            }
+            .onChange(of: draft.newFestival.endDate) {
+                festivalVM.setSettings(currentFestival: draft.newFestival)
             }
             
 //            .onChange(of: draft.newFestival) { _ in
@@ -404,6 +470,8 @@ struct NewEventPage: View {
             
         }
     }
+    
+    
     
     func getStartDateText() -> String {
         if singleDayEvent {
@@ -481,7 +549,7 @@ struct NewEventPage: View {
                 }
             }
         }
-        .onChange(of: urlText) { text in
+        .onChange(of: urlText) { _, text in
             if isValidURL(text) {
                 draft.newFestival.website = text
             } else {
@@ -555,8 +623,8 @@ struct NewEventPage: View {
                             .cornerRadius(8)
                             .autocapitalization(.words)
                             .focused($locationFocused)
-                            .onChange(of: query) {
-                                searchService.update(query: $0)
+                            .onChange(of: query) { _, newQuery in
+                                searchService.update(query: newQuery)
                             }
                             if !query.isEmpty {
                                 HStack {
@@ -895,7 +963,7 @@ struct NewEventPage: View {
                 .animation(.default, value: artistSearchResults)
             }
         }
-        .onChange(of: artistSearchResults) { searchResults in
+        .onChange(of: artistSearchResults) { _, searchResults in
             Task {
                 for artist in searchResults {
                     if let image = await data.loadArtistImage(artistID: artist.id, imageURL: artist.imageURL) {
@@ -904,17 +972,17 @@ struct NewEventPage: View {
                 }
             }
         }
-        .onChange(of: selectedArtist) { newArtist in
+        .onChange(of: selectedArtist) { _, newArtist in
             if newArtist != nil {
                 showArtistSearchPage = true
             }
         }
-        .onChange(of: showArtistSearchPage) { bool in
+        .onChange(of: showArtistSearchPage) { _, bool in
             if !bool {
                 selectedArtist = nil
             }
         }
-        .onChange(of: artistSearchText) { newValue in
+        .onChange(of: artistSearchText) { _, newValue in
             artistSearchResults.removeAll()
             debounceCancellable?.cancel()
             
@@ -926,7 +994,7 @@ struct NewEventPage: View {
             debounceCancellable = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
         }
-        .onChange(of: draft.newFestival.artistList) { newList in
+        .onChange(of: draft.newFestival.artistList) { _, newList in
             artistSearchText = ""
             artistSearchResults.removeAll()
             let sorted = festivalVM.sortDateModified(currList: newList)[""]!
@@ -1046,23 +1114,212 @@ struct NewEventPage: View {
 //        }.resume()
 //    }
     
-    @State private var showPhotoPicker = false
-    @State private var selectedItem: PhotosPickerItem?
-    @State var selectedImage: UIImage?
+    
+    
+    
+    
+//    @State private var showPhotoPicker = false
+//    @State private var selectedItem: PhotosPickerItem?
+//    @State var selectedImage: UIImage?
+//    
+//    @State var logoDeleted = false
+
+    @State private var showPosterPicker = false
+    @State private var posterItem: PhotosPickerItem?
+//    @State private var selectedPoster: UIImage?
+    @State private var selectedPoster: PDFDocument?
+    @State private var posterURL: URL?
+    
+    @State var posterDeleted = false
+    
+    var EventPoster: some View {
+        Group {
+            Section(header: Text("Poster")) {
+//                let showingPoster = (selectedPoster != nil || (draft.newFestival.posterPath != nil && !posterDeleted))
+                Group {
+                    if draft.newFestival.posterPath != nil {
+                        HStack {
+                            Spacer()
+                            Text("Show Poster")
+                                .foregroundStyle(Color.blue)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    firestore.loadPoster(festivalID: draft.newFestival.id, festivalName: draft.newFestival.name) { result in
+                                        switch result {
+                                        case .success(let url):
+                                            DispatchQueue.main.async {
+                                                posterURL = url
+                                            }
+
+                                        case .failure(let error):
+                                            print(error)
+                                        }
+                                    }
+                                }
+                            Spacer()
+                            Divider()
+                                .frame(height: 25)
+                            //                                .padding(.horizontal, 15)
+                            Spacer()
+                            Text("Remove Poster")
+                                .foregroundStyle(Color.red)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    draft.newFestival.posterPath = nil
+//                                    posterItem = nil
+//                                    selectedPoster = nil
+//                                    posterDeleted = true
+                                }
+                            Spacer()
+                        }
+                        
+                        
+                    } else {
+                        HStack {
+//                            Image(systemName: "plus.circle")
+                            Text("Add Poster")
+                        }
+                            .foregroundStyle(Color.blue)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                showPosterPicker = true
+                            }
+                    }
+                }
+                .frame(height: 20)
+            }
+        }
+        .onChange(of: posterItem) { _, newItem in
+            guard let newItem else { return }
+
+            Task {
+                guard
+                    let data = try? await newItem.loadTransferable(type: Data.self),
+                    let image = UIImage(data: data)
+                else { return }
+
+                firestore.uploadPoster(image: image, festival: draft.newFestival) { result in
+                    switch result {
+                    case .success(let updatedFestival):
+                        DispatchQueue.main.async {
+                            draft.newFestival = updatedFestival
+                            posterItem = nil
+                        }
+
+                    case .failure(let error):
+                        print("Poster upload failed:", error)
+                    }
+                }
+            }
+        }
+//        .onChange(of: posterItem) { _, newItem in
+//            if newItem != nil {
+//                Task {
+//                    guard let newItem,
+//                          let data = try? await newItem.loadTransferable(type: Data.self),
+//                          let image = UIImage(data: data)
+//                    else { return }
+//                    
+//                    let url = FileManager.default.urls(
+//                        for: .documentDirectory,
+//                        in: .userDomainMask
+//                    )[0]
+//                    .appendingPathComponent("\(draft.newFestival.name) Poster.jpg")
+//                    
+//                    do {
+//                        if let jpegData = image.jpegData(compressionQuality: 0.9) {
+//                            try jpegData.write(to: url)
+//                            draft.newFestival.posterPath = url.path
+//                            posterItem = nil
+//                            //                        posterURL = url
+//                        }
+//                    } catch {
+//                        print("Failed writing image:", error)
+//                    }
+//                }
+//            }
+//        }
+        
+//        .onChange(of: posterItem) { newItem in
+//            Task {
+//                guard let newItem,
+//                      let imageData = try? await newItem.loadTransferable(type: Data.self),
+//                      let image = UIImage(data: imageData)
+//                else { return }
+//
+//                let renderer = UIGraphicsPDFRenderer(
+//                    bounds: CGRect(origin: .zero, size: image.size)
+//                )
+//
+//                let pdfData = renderer.pdfData { context in
+//                    context.beginPage()
+//                    image.draw(in: CGRect(origin: .zero, size: image.size))
+//                }
+//
+//                selectedPoster = PDFDocument(data: pdfData)
+//            }
+//        }
+//        .onChange(of: posterItem) { newItem in
+//            Task {
+//                guard let newItem,
+//                      let data = try? await newItem.loadTransferable(type: Data.self),
+//                      let uiImage = UIImage(data: data)
+//                else { return }
+//
+//                selectedPoster = uiImage
+//            }
+//        }
+//        .onChange(of: selectedLogoItem) { newItem in
+//            Task {
+//                if let selectedLogoItem, let data = try? await selectedLogoItem.loadTransferable(type: Data.self),
+//                   let uiImage = UIImage(data: data) {
+//                    selectedImage = uiImage
+//                }
+//            }
+//        }
+//        .onChange(of: selectedImage) { newLogo in
+//            if let logo = newLogo {
+//                Task {
+//                    if let path = festivalVM.saveImageForFestival(logo, festivalID: draft.newFestival.id) {
+//                        draft.newFestival.logoPath = path
+//                    }
+//                }
+//            } else {
+//                draft.newFestival.logoPath = nil
+//            }
+//        }
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+//    @State private var showLogoPhotoPicker = false
+//    @State private var selectedItem: PhotosPickerItem?
+//    @State var selectedLogo: UIImage?
+    
+    @State private var showLogoPicker = false
+    @State private var logoItem: PhotosPickerItem?
+    @State private var selectedLogo: UIImage?
     
     @State var logoDeleted = false
     
     var EventLogo: some View {
         Group {
             Section(header: Text("Logo")) {
-                let showingLogo = (selectedImage != nil || (draft.newFestival.logoPath != nil && !logoDeleted))
+                let showingLogo = (selectedLogo != nil || (draft.newFestival.logoPath != nil && !logoDeleted))
                 VStack {
-                    if let selectedImage {
+                    if let selectedLogo {
+                        InvertInDarkModeImage(image: selectedLogo, frame: 60)
 //                        ZStack {
-                            Image(uiImage: selectedImage)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxHeight: 60, alignment: .center)
+//                            Image(uiImage: selectedLogo)
+//                                .resizable()
+//                                .scaledToFit()
+//                                .frame(maxHeight: 60, alignment: .center)
                                 .padding(5)
 //                        }
 //                        .frame(maxHeight: 60)
@@ -1084,7 +1341,8 @@ struct NewEventPage: View {
                             .frame(height: 20)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                showPhotoPicker = true
+//                                activePicker = .logo
+                                showLogoPicker = true
                             }
                         if showingLogo {
                             Spacer()
@@ -1096,8 +1354,8 @@ struct NewEventPage: View {
                                 .foregroundStyle(Color.red)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    selectedItem = nil
-                                    selectedImage = nil
+                                    logoItem = nil
+                                    selectedLogo = nil
                                     logoDeleted = true
                                 }
 //                                .padding(.leading, 20)
@@ -1108,14 +1366,18 @@ struct NewEventPage: View {
                 }
             }
         }
-        .onChange(of: selectedItem) { newItem in
+        
+        .onChange(of: logoItem) { _, newItem in
             Task {
-                if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data) {
-                    selectedImage = uiImage
-                }
+                guard let newItem,
+                      let data = try? await newItem.loadTransferable(type: Data.self),
+                      let uiImage = UIImage(data: data)
+                else { return }
+
+                selectedLogo = uiImage
             }
         }
+        
 //        .onChange(of: selectedImage) { newLogo in
 //            if let logo = newLogo {
 //                Task {

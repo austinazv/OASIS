@@ -27,15 +27,18 @@ struct PlaylistCreationSheet: View {
     @State var artistBools = [String : Bool]()
     @State var showSections = [String : Bool]()
     
-    @State var currentFestival = Festival.newFestival()
+    @State var currentFestival: Festival
     
-    @Binding var playlistCreatedAlert: Bool
+    @Binding var playlistURL: URL?
+//    @Binding var playlistCreatedAlert: Bool
     
     @State var arrayLength = 0
 //    @State private var progress: Float = 0.0
     @State var titleText: String?
     
     @State private var progressText = "Adding songs..."
+    
+    @State var errorAlert = false
     
     var body: some View {
         ZStack {
@@ -44,26 +47,16 @@ struct PlaylistCreationSheet: View {
                 Title
                 Form {
                     PlaylistNameSection
-                    PrivacySection
+//                    PrivacySection
                     ArtistChecklist
                 }
             }
+            .disabled(isLoading)
             if isLoading {
                 Color.black.opacity(0.2)
                     .ignoresSafeArea()
-                VStack {
-                    Text(progressText)
-                        .padding(.top, 10)
-                        .shadow(radius: 0)
-//                    if data.progress < 1 {
-                        ProgressBarView(progress: $spotify.progress)
-                            .frame(width: 200, height: 20)
-                            .padding()
-//                    } else {
-//                        ProgressView()
-//                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
-//                            .foregroundStyle(Color.black)
-//                    }
+                Group {
+                    ProgressView()
                 }
                 .shadow(radius: 5)
                 .padding(10)
@@ -72,20 +65,36 @@ struct PlaylistCreationSheet: View {
             }
             
         }
+        .interactiveDismissDisabled(isLoading)
         .onAppear() {
-            if let currFest = festivalVM.currentFestival {
-                currentFestival = currFest
-                artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend)
-            } else {
-                dismiss()
-            }
+//            if let currFest = festivalVM.currentFestival {
+//                currentFestival = currFest
+//                
+//            } else {
+//                dismiss()
+//            }
+            artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend)
             initializeCheckBoxes()
 //            changeSectionBool()
         }
-        .onChange(of: sortType) { newSort in
+        .onChange(of: sortType) { _, newSort in
             artistDict = festivalVM.getArtistDict(currList: artistList, sort: newSort, secondWeekend: currentFestival.secondWeekend)
             self.changeSectionBool()
 //            viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+        }
+        .alert(isPresented: self.$errorAlert) {
+            Alert(title: Text("Error"),
+                  message: Text("Please try again later."),
+                  dismissButton: .default(Text("Ok"))
+//                  primaryButton: .default(Text("Ok"))
+        )
+//                  secondaryButton: .default(Text("Go to playlist")) {
+//                if let url = playlistURL {
+//                    UIApplication.shared.open(url)
+//                } else {
+//                    self.errorAlert = true
+//                }
+//            })
         }
 //        .alert(isPresented: self.$playlistCreatedAlert) {
 //            Alert(title: Text("Playlist Created!"),
@@ -198,10 +207,10 @@ struct PlaylistCreationSheet: View {
                 if let artistList = artistDict[section] {
                     HStack {
                         Button(action: {
-                            self.toggleSection(section: section)
+                            self.toggleSection(section: section, sectionList: artistList)
                         }, label: {
                             HStack {
-                                Image(systemName: sectionBools[section] == true ? "checkmark.square.fill" : "square")
+                                Image(systemName: checkSection(sectionList: artistList) ? "checkmark.square.fill" : "square")
                                     .foregroundColor(Color("OASIS Dark Orange"))
                                     .imageScale(.large)
                                 Group {
@@ -217,9 +226,12 @@ struct PlaylistCreationSheet: View {
                             }
                         })
                         Spacer()
-                        Image(systemName: showSections[section]! ? "chevron.up" : "chevron.down")
+                        Image(systemName: "chevron.down").rotationEffect(showSections[section]! ? Angle(degrees: 180) : Angle(degrees: 0))
+//                        Image(systemName: showSections[section]! ? "chevron.up" : "chevron.down")
                             .onTapGesture(perform: {
-                                showSections[section]!.toggle()
+                                withAnimation {
+                                    showSections[section]!.toggle()
+                                }
                             })
                     }
                     if showSections[section]! {
@@ -334,13 +346,22 @@ struct PlaylistCreationSheet: View {
 //        }
 //    }
     
-    func toggleSection(section: String) {
-        let boolValue = !sectionBools[section]!
-        sectionBools[section] = boolValue
+    func toggleSection(section: String, sectionList: Array<Artist>) {
+        let boolValue = !checkSection(sectionList: sectionList)
+//        sectionBools[section] = boolValue
         
         for artist in artistDict[section]! {
             artistBools[artist.id]! = boolValue
         }
+    }
+    
+    func checkSection(sectionList: Array<Artist>) -> Bool {
+        for artist in sectionList {
+            if !artistBools[artist.id]! {
+                return false
+            }
+        }
+        return true
     }
     
     func anyArtistChecked() -> Bool {
@@ -360,29 +381,56 @@ struct PlaylistCreationSheet: View {
                 playlistList.append(artistID)
             }
         }
-        var name = self.playlistName
-        if name == "" {
-            name = "My Coachella 2025 Playlist"
-        }
-//        print(playlistList.count)
-//        self.startProgress(arrayLen: playlistList.count)
-        spotify.makeNewSpotifyPlaylist(artistList: playlistList, playlistName: name, isPublic: self.isPublic) { playlistID in
-            self.arrayLength = playlistList.count
-            DispatchQueue.main.async {
-                if let playlistID = playlistID {
-                    self.isLoading = false
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        self.playlistCreatedAlert = true
-                    }
-//                    print("🎉 Playlist successfully created: https://open.spotify.com/playlist/\(playlistID)")
-                } else {
-                    self.isLoading = false
-//                    self.errorAlert = true
-//                    print("❌ Playlist creation failed")
+//        var name = self.playlistName
+//        if name == "" {
+//            name = "My Coachella 2025 Playlist"
+//        }
+        Task {
+            defer {
+                self.isLoading = false
+//                dismiss()
+            }
+            do {
+                let result = try await spotify.createSpotifyPlaylist(
+                    playlistName: playlistName,
+                    artistIDs: playlistList
+                )
+                
+                print("✅ Success")
+//                print(result.playlistUrl ?? "No URL")
+                if let urlString = result.playlistUrl, let url = URL(string: urlString) {
+                    spotify.addFestivalPlaylist(festivalID: currentFestival.id,
+                                                playlistName: playlistName,
+                                                playlistURL: url)
+                    playlistURL = url
                 }
+                
+            } catch {
+                errorAlert = true
+                print("❌ Error")
+                print(error.localizedDescription)
             }
         }
+//        spotify.createSpotifyPlaylist(playlistName: name, artistIDs: playlistList)
+//        print(playlistList.count)
+//        self.startProgress(arrayLen: playlistList.count)
+//        spotify.makeNewSpotifyPlaylist(artistList: playlistList, playlistName: name, isPublic: self.isPublic) { playlistID in
+//            self.arrayLength = playlistList.count
+//            DispatchQueue.main.async {
+//                if let playlistID = playlistID {
+//                    self.isLoading = false
+//                    dismiss()
+//                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+//                        self.playlistCreatedAlert = true
+//                    }
+////                    print("🎉 Playlist successfully created: https://open.spotify.com/playlist/\(playlistID)")
+//                } else {
+//                    self.isLoading = false
+////                    self.errorAlert = true
+////                    print("❌ Playlist creation failed")
+//                }
+//            }
+//        }
     }
     
     

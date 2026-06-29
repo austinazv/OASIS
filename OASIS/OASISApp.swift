@@ -18,7 +18,7 @@ struct OASISApp: App {
     @StateObject var data = DataSet(name: "AZV31")
     @StateObject var spotify = SpotifyViewModel(name: "AZV30")
     @StateObject var firestore = FirestoreViewModel(name: "AZV31")
-    @StateObject var festivalVM = FestivalViewModel(name: "Austin30")
+    @StateObject var festivalVM = FestivalViewModel(name: "Austin31")
     @StateObject var social = SocialViewModel()
     @StateObject var explore = ExploreViewModel()
     @StateObject var tags = TagViewModel(name: "Austin30")
@@ -148,6 +148,7 @@ struct OASISApp: App {
                 let pathComponents = url.pathComponents
                 
                 if url.absoluteString.contains("spotify") {
+                    print("Spotify URL: \(url)")
                     handleSpotifyURL(components)
                     return
                 }
@@ -215,12 +216,15 @@ struct OASISApp: App {
                     return
                 }
                 
-                if pathComponents.count >= 2,
-                   pathComponents[1] == "share" {
-                    
-                    showRequestSheet = true
-                    handleInviteLink(url)
-                    return
+                if pathComponents.count >= 2, pathComponents[1] == "share" {
+                    if firestore.phoneConnected {
+                        showRequestSheet = true
+                        handleInviteLink(url)
+                        return
+                    } else {
+                        socialPath = NavigationPath()
+                        selectedTab = 2
+                    }
                 }
                 
 //                print("Unhandled URL")

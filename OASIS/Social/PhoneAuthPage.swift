@@ -67,7 +67,7 @@ struct PhoneAuthPage: View {
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(10)
-                        .onChange(of: phoneNumber) { newValue in
+                        .onChange(of: phoneNumber) { _, newValue in
                             updatePhoneNumber(newValue)
                         }
                 }
@@ -194,11 +194,11 @@ struct PhoneAuthPage: View {
                         "phone": phone,
                         "createdAt": FieldValue.serverTimestamp()
                     ], merge: true) { error in
-                        if let error = error {
-                            //print("❌ Error saving user: \(error.localizedDescription)")
-                        } else {
-                            //print("✅ User saved to Firestore!")
-                        }
+//                        if let error = error {
+//                            //print("❌ Error saving user: \(error.localizedDescription)")
+//                        } else {
+//                            //print("✅ User saved to Firestore!")
+//                        }
 
                         // Now that everything is done
                         isLoggedIn = true

@@ -73,7 +73,7 @@ struct AccountSetUpPage: View {
             }
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem)
-        .onChange(of: selectedItem) { newItem in
+        .onChange(of: selectedItem) { _, newItem in
             Task {
                 // Retrieve the image from the PhotosPickerItem
                 if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
@@ -225,7 +225,7 @@ struct AccountSetUpPage: View {
                         }
                     }, alignment: .leading
                 )
-                .onChange(of: phoneNumber) { newValue in
+                .onChange(of: phoneNumber) { _, newValue in
                     updatePhoneNumber(newValue)
                 }
                 .onSubmit {

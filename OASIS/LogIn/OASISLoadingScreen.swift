@@ -69,6 +69,7 @@ struct OASISSpinner: View {
             withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
                 rotation = .degrees(360)
             }
+//            SpotifyAuth.authURL
         }
     }
 }

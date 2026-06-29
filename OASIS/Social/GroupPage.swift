@@ -30,12 +30,23 @@ struct GroupPage: View {
     
     @State var showEditGroupSheet: Bool = false
     
+    @State private var photoExpanded = false
     
     var body: some View {
 //        NavigationStack(path: $navigationPath) {
+        ZStack(alignment: photoExpanded ? .center : .topLeading) {
+            SocialImage(imageURL: group.photo, name: group.name, frame: photoExpanded ? 320 : 110)
+                .shadow(radius: photoExpanded ? 20 : 0)
+                .padding(.leading, photoExpanded ? 0 : 40)
+                .onTapGesture {
+                    if group.photo != nil {
+                        toggleImage()
+                    }
+                }
+                .zIndex(2)
             VStack(spacing: 0) {
-                UserHeaderSection
-                UserInfoSection
+                GroupHeaderSection
+                GroupInfoSection
                 if isLoading {
                     Spacer()
                     ProgressView()
@@ -69,11 +80,27 @@ struct GroupPage: View {
             }
             .background(Color(.white))
             .task {
-                loadGroup()
+                isLoading = true
+                defer { isLoading = false }
+
+                do {
+                    try await loadGroup()
+                } catch {
+                    print(error)
+                }
             }
-            .onChange(of: group.members) { newMemberIDs in
+            .onChange(of: group.members) { _, newMemberIDs in
                 Task {
                     members = await firestore.users(from: newMemberIDs)
+                }
+            }
+            .onChange(of: group.festivals) { _, newFestivalIDs in
+                Task {
+                    let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: newFestivalIDs)
+                    let split = festivalVM.splitFestivals(likedFestivals)
+                    attendedFestivals = split.attended
+                    upcomingFestivals = split.upcoming
+//                    members = await firestore.users(from: newMemberIDs)
                 }
             }
             .sheet(isPresented: $showEditGroupSheet) {
@@ -184,7 +211,32 @@ struct GroupPage: View {
 //                }, secondaryButton: .cancel()
 //                )
 //            }
-//        }
+            if photoExpanded {
+                Color.black.opacity(0.45)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .zIndex(1)
+                    .onTapGesture {
+                        collapseImage()
+                    }
+            }
+        }
+        .animation(
+            .spring(response: 0.45, dampingFraction: 0.86),
+            value: photoExpanded
+        )
+    }
+    
+    func toggleImage() {
+        withAnimation {
+            photoExpanded.toggle()
+        }
+    }
+
+    func collapseImage() {
+        withAnimation {
+            photoExpanded = false
+        }
     }
     
     func joinGroup() {
@@ -209,20 +261,17 @@ struct GroupPage: View {
         }
     }
     
-    func loadGroup() {
-        isLoading = true
-        
-        Task {
-            defer { isLoading = false }
-            
-            let likedFestivals = try await social.fetchFavoritedFestivals(festivalIDs: group.festivals)
-            let split = festivalVM.splitFestivals(likedFestivals)
-            attendedFestivals = split.attended
-            upcomingFestivals = split.upcoming
-            
-//            followers = await firestore.users(from: profile.safeFollowers)
-            members = await firestore.users(from: group.members)
-        }
+    @MainActor
+    func loadGroup() async throws {
+        let likedFestivals = try await social.fetchFavoritedFestivals(
+            festivalIDs: group.festivals
+        )
+
+        let split = festivalVM.splitFestivals(likedFestivals)
+        attendedFestivals = split.attended
+        upcomingFestivals = split.upcoming
+
+        members = await firestore.users(from: group.members)
     }
     
     func loadUser() {
@@ -260,10 +309,9 @@ struct GroupPage: View {
         }
     }
     
-    var UserHeaderSection: some View {
+    var GroupHeaderSection: some View {
             HStack {
-                SocialImage(imageURL: group.photo, name: group.name, frame: 110)
-                    .padding(.leading, 40)
+                Spacer().frame(width: 150)
                 Spacer()
                 VStack {
                     Text(group.name)
@@ -280,8 +328,9 @@ struct GroupPage: View {
                 Spacer()
                 
             }
+            .frame(height: 130)
             //        .padding(.top, 20)
-            .padding(.bottom, 20)
+//            .padding(.bottom, 20)
         
     }
     
@@ -325,7 +374,7 @@ struct GroupPage: View {
     @State private var slideDirection: SlideDirection = .forward
 
     
-    var UserInfoSection: some View {
+    var GroupInfoSection: some View {
         ZStack(alignment: .bottom){
             
             Rectangle()
@@ -433,38 +482,108 @@ struct GroupPage: View {
     
     let LIST_PADDING: CGFloat = 8
     
+    @State var showAddFestivalToGroupSheet: Bool = false
+    
     var FestivalsView: some View {
         VStack {
             if upcomingFestivals.isEmpty && attendedFestivals.isEmpty {
                 Spacer()
                 Group {
-                    Text("This group has no connected festivals yet.")
+                    Text("Your group has no connected festivals yet.")
+                        .foregroundStyle(.black)
+                    Button(action: {
+                        showAddFestivalToGroupSheet = true
+//                        selectedTab = 1
+                    }) {
+                        HStack {
+                            Text("Connect festivals")
+                            Image(systemName: "plus.circle")
+                        }
+                    }
+                    .italic()
+                    .padding(.top, 8)
 //                    Text("There are no festivals connected to this group yet.")
                 }
-                .foregroundStyle(.black)
                 Spacer()
             } else {
-                Group {
-                    FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", collapsable: true)
-                    FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true)
+                ScrollView {
+                    Group {
+                        if !upcomingFestivals.isEmpty {
+                            FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", collapsable: true, socialGroup: group)
+                            Button(action: {
+                                showAddFestivalToGroupSheet = true
+                            }) {
+                                HStack {
+                                    if firestore.myUserProfile.id == group.ownerID {
+                                        Text("Edit connected festivals")
+                                        Image(systemName: "pencil.circle")
+                                    } else {
+                                        Text("Connect more festivals")
+                                        Image(systemName: "plus.circle")
+                                    }
+                                }
+                            }
+                            .italic()
+                            .padding(.top, 8)
+                        } else {
+                            VStack {
+                                Text("No Upcoming Festivals!")
+                                    .foregroundStyle(.black)
+                                Button(action: {
+                                    showAddFestivalToGroupSheet = true
+                                }) {
+                                    HStack {
+                                        Text("Connect more festivals")
+                                        Image(systemName: "plus.circle")
+                                    }
+                                }
+                                .italic()
+                                .padding(.top, 8)
+                            }
+                            .padding(.vertical, 40)
+                            
+                            Divider()
+                                .padding(.bottom, 8)
+                        }
+                        FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true, showList: upcomingFestivals.isEmpty, reversed: true, socialGroup: group)
+                    }
+                    .padding(.top, LIST_PADDING)
                 }
-                .padding(.top, LIST_PADDING)
+                .refreshable {
+                    do {
+                        try await loadGroup()
+                    } catch {
+                        print(error)
+                    }
+                }
             }
+        }
+        .sheet(isPresented: $showAddFestivalToGroupSheet) {
+            AddFestivalsToGroupSheet(group: $group, showAddFestivalToGroupSheet: $showAddFestivalToGroupSheet)
         }
     }
     
     var MembersView: some View {
-        VStack {
-            if members.isEmpty {
-                Spacer()
-                Text("There are no current members.")
-                    .foregroundStyle(.black)
-                Spacer()
-            } else {
-                ProfilesListed(navigationPath: $navigationPath, profiles: members, maxHeight: 370, topUser: group.ownerID)
-                    .padding(.top, LIST_PADDING)
-                    .fixedSize(horizontal: false, vertical: true)
-                
+        ScrollView {
+            VStack {
+                if members.isEmpty {
+                    Spacer()
+                    Text("There are no current members.")
+                        .foregroundStyle(.black)
+                    Spacer()
+                } else {
+                    ProfilesListed(navigationPath: $navigationPath, profiles: members, maxHeight: 370, topUser: group.ownerID)
+                        .padding(.top, LIST_PADDING)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                }
+            }
+        }
+        .refreshable {
+            do {
+                try await loadGroup()
+            } catch {
+                print(error)
             }
         }
     }
@@ -921,7 +1040,7 @@ struct EditGroupSheet: View {
         }
         .padding()
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem)
-        .onChange(of: selectedItem) { newItem in
+        .onChange(of: selectedItem) { _, newItem in
             Task {
                 // Retrieve the image from the PhotosPickerItem
                 if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
@@ -997,7 +1116,261 @@ struct EditGroupSheet: View {
             isLoading = false
         }
     }
+}
 
+
+
+
+struct AddFestivalsToGroupSheet: View {
+    @EnvironmentObject var firestore: FirestoreViewModel
+    @EnvironmentObject var festivalVM: FestivalViewModel
+    
+//    @State var navigationPath = NavigationPath()
+    @Binding var group: SocialGroup
+    
+    @Binding var showAddFestivalToGroupSheet: Bool
+    
+    @State var selectedFestivals: Set<UUID> = []
+    @State var removedFestivals: Set<UUID> = []
+    
+    @State var popupMessage: String?
+    
+    @State var showErrorAlert = false
+    
+    var body: some View {
+        VStack {
+            //            NavigationStack(path: $navigationPath) {
+            NavigationButtons
+            (Text("Connect festivals to \"") + Text(group.name).bold() + Text("\""))
+            //                Text("Add \(festival.name) To Your Groups")
+                .font(.title3)
+                .padding(.vertical)
+            
+            let allFestivals = festivalVM.myFestivals
+            let upcomingFestivals = festivalVM.splitFestivals(allFestivals).upcoming
+            let unconnectedFestivals = Array(upcomingFestivals.filter({ !group.festivals.contains($0.id.uuidString) }))
+            let connectedFestivals = allFestivals.filter({ group.festivals.contains($0.id.uuidString) })
+            
+            ScrollView {
+                if !unconnectedFestivals.isEmpty {
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("My Upcoming Festivals:")
+                            Spacer()
+                        }
+                        .padding(.horizontal, 4)
+                        
+                        VStack(spacing: 0) {
+                            ForEach(Array(unconnectedFestivals.enumerated()), id: \.element.id) { index, festival in
+                                //                                let festival = unconnectedFestivals[index]
+                                HStack {
+                                    FestivalLogoView(logoPath: festival.logoPath, title: festival.name, frame: 35.0)
+                                    //                                    SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+                                    //                                    Text(festival.name)
+                                    //                                        .foregroundStyle(.black)
+                                    Spacer()
+                                    //                                    GroupMemberPhotos(memberIDs: group.members)
+                                    Image(systemName: selectedFestivals.contains(festival.id) ? "checkmark.square.fill" : "square")
+                                        .foregroundColor(Color("OASIS Dark Orange"))
+                                        .imageScale(.large)
+                                        .padding(.leading, 20)
+                                    
+                                }
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                                .padding(.horizontal, 10)
+                                .onTapGesture {
+                                    if selectedFestivals.contains(festival.id) {
+                                        selectedFestivals.remove(festival.id)
+                                    } else {
+                                        selectedFestivals.insert(festival.id)
+                                    }
+                                }
+                                if index < unconnectedFestivals.count - 1 {
+                                    Divider()
+                                }
+                            }
+                            
+                        }
+                        .background(Color.bwColorSwitchReverse)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray, lineWidth: 2)
+                        )
+                        
+                        .padding(.top, 2)
+                    }
+                    .padding(.horizontal, 10)
+                }
+                Text("Favorite festivals to have them appear here.").italic().padding(4)
+                
+                if !connectedFestivals.isEmpty {
+                    VStack(spacing: 4) {
+                        HStack {
+                            if firestore.myUserProfile.id == group.ownerID {
+                                Text("Remove:").foregroundStyle(.red)
+                            } else {
+                                Text("Already Connected:")
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 4)
+                        VStack(spacing: 0) {
+                            ForEach(Array(connectedFestivals.enumerated()), id: \.element.id) { index, festival in
+                                HStack {
+                                    FestivalLogoView(logoPath: festival.logoPath, title: festival.name, frame: 35.0)
+                                    Spacer()
+                                    if firestore.myUserProfile.id == group.ownerID {
+                                        Image(systemName: removedFestivals.contains(festival.id) ? "minus.square.fill" : "square")
+                                            .foregroundColor(.red)
+                                            .imageScale(.large)
+                                            .padding(.leading, 20)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                                .padding(.horizontal, 10)
+                                .onTapGesture {
+                                    if firestore.myUserProfile.id == group.ownerID {
+                                        if removedFestivals.contains(festival.id) {
+                                            removedFestivals.remove(festival.id)
+                                        } else {
+                                            removedFestivals.insert(festival.id)
+                                        }
+                                    } else {
+                                        popupMessage = "Only the festival owner can remove festivals."
+                                    }
+                                }
+                                //                        .onTapGesture {
+                                //                            if selectedGroups.contains(group.id!) {
+                                //                                selectedGroups.remove(group.id!)
+                                //                            } else {
+                                //                                selectedGroups.insert(group.id!)
+                                //                            }
+                                //                        }
+                                if index < connectedFestivals.count - 1 {
+                                    Divider()
+                                }
+                            }
+                            
+                        }
+                        .background(Color.bwColorSwitchReverse)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray, lineWidth: 2)
+                        )
+                        
+                    }
+                    .padding(10)
+                    //                    .padding(.vertical, 20)
+                }
+            }
+            //            }
+        }
+        .overlay(alignment: .bottom) {
+            if let message = popupMessage {
+                MessagePopUp(message: message)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                //                    .padding(.bottom, 20)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: popupMessage)
+        .onChange(of: popupMessage) { _, newValue in
+            guard newValue != nil else { return }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation {
+                    popupMessage = nil
+                }
+            }
+        }
+        .alert(isPresented: self.$removeFestivalsAlert) {
+            Alert(title: Text("Disconnect Festivals?"),
+                  message: Text("Are you sure you want to disconnect\n\(removedFestivals.count) \(removedFestivals.count == 1 ? "festival" : "festivals") from \(group.name)?"),
+                  primaryButton: .destructive(Text("Disconnect")) {
+                removeFestivals()
+                if !selectedFestivals.isEmpty {
+                    addFestivals()
+                } else {
+                    showAddFestivalToGroupSheet = false
+                }
+            }, secondaryButton: .cancel()
+            )
+        }
+//        .alert(isPresented: self.$showErrorAlert) {
+//            Alert(title: Text("Error"),
+//                  message: Text("Please try again later."),
+//                  dismissButton: .default(Text("Ok"))
+//            )
+//        }
+        //        .onAppear() {
+        //            groupSelection = Array(repeating: false, count: firestore.mySocialGroups.count)
+        //        }
+    }
+    
+    @State var removeFestivalsAlert = false
+    
+    var NavigationButtons: some View {
+        VStack {
+            HStack {
+                Button(action: {
+                    showAddFestivalToGroupSheet = false
+                }, label: {
+                    Text("Cancel")
+                        .foregroundStyle(.red)
+                })
+                Spacer()
+                if !removedFestivals.isEmpty {
+                    Button(action: {
+                        removeFestivalsAlert = true
+                    }, label: {
+                        Text("Save").foregroundStyle(.blue)
+                    })
+                } else {
+                    Button(action: {
+                        addFestivals()
+                    }, label: {
+                        Text("Add")
+                        .foregroundStyle(selectedFestivals.isEmpty ? .gray : .blue)
+                    })
+                    .disabled(selectedFestivals.isEmpty)
+                }
+                //                        .disabled(newArtist == oldArtist)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+//            Divider()
+        }
+    }
+    
+    func addFestivals() {
+//        firestore.addFestivalsToGroup(groupID: group.id!, festivalIDs: Array(selectedFestivals.map(\.uuidString)))
+        Task {
+            let success = await firestore.addFestivalsToGroup(groupID: group.id!, festivalIDs: Array(selectedFestivals.map(\.uuidString)))
+            if success {
+                group.festivals.append(contentsOf: selectedFestivals.map(\.uuidString))
+                showAddFestivalToGroupSheet = false
+            } else {
+                showErrorAlert = true
+            }
+        }
+    }
+    
+    func removeFestivals() {
+//        firestore.addFestivalsToGroup(groupID: group.id!, festivalIDs: Array(selectedFestivals.map(\.uuidString)))
+        Task {
+            let success = await firestore.removeFestivalsFromGroup(groupID: group.id!, festivalIDs: Array(removedFestivals.map(\.uuidString)))
+            if success {
+                let removedIDs = Set(removedFestivals.map(\.uuidString))
+                group.festivals.removeAll { removedIDs.contains($0) }
+//                showAddFestivalToGroupSheet = false
+            } else {
+                showErrorAlert = true
+            }
+        }
+    }
 }
 
 //#Preview {

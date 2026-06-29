@@ -45,15 +45,15 @@ struct AccountEditPage: View {
         .onAppear {
             newNameText = firestore.myUserProfile.name
         }
-        .onChange(of: newNameText) { newText in
+        .onChange(of: newNameText) { _, newText in
             if newText != firestore.myUserProfile.name {
                 hasBeenEdited = true
             }
         }
-        .onChange(of: selectedImage) { _ in
+        .onChange(of: selectedImage) {
             hasBeenEdited = true
         }
-        .onChange(of: didRemovePhoto) { _ in
+        .onChange(of: didRemovePhoto) {
             hasBeenEdited = true
         }
 //        .onChange(of: editingProfile) { newValue in
@@ -293,7 +293,7 @@ struct AccountEditPage: View {
             }
             .padding(.vertical, 10)
             .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem)
-            .onChange(of: selectedItem) { newItem in
+            .onChange(of: selectedItem) { _, newItem in
                 Task {
                     // Retrieve the image from the PhotosPickerItem
                     if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),

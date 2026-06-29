@@ -17,6 +17,7 @@ struct FestivalPage: View {
     @EnvironmentObject var festivalVM: FestivalViewModel
     @EnvironmentObject var firestore: FirestoreViewModel
     @EnvironmentObject var tags: TagViewModel
+    @EnvironmentObject var spotify: SpotifyViewModel
     
     @Binding var navigationPath: NavigationPath
     
@@ -27,6 +28,8 @@ struct FestivalPage: View {
     @State var popupMessage: String?
     
 //    var friendFavorites: FriendFavorites? = nil
+    
+    let TRYDARKMODE = true
     
     var body: some View {
         VStack(spacing: 0) {
@@ -57,11 +60,36 @@ struct FestivalPage: View {
                                 FavoritesSection
                                 MyTagSection
                                 ShuffleBySection
-                                WebsiteSection
+                                MyPlaylistsSection
+                                HStack {
+                                    PosterSection
+                                    WebsiteSection
+                                }
                                 InfoSection
                                 Spacer()
                             }
                         }
+                        .refreshable {
+                            print("REFRESHED")
+                //            explore.fetchVerifiedFestivals()
+                        }
+                        .animation(
+                            .easeInOut(duration: 0.25),
+                            value: [
+                                showFriendList,
+                                showGroupList,
+                                showMyTags,
+                                genreAccordian,
+                                dayAccordian,
+                                stageAccordian,
+                                tierAccordian,
+                                showMyPlaylists
+                            ]
+                        )
+//                        .animation(.spring(), value: genreAccordian)
+//                        .animation(.spring(), value: dayAccordian)
+//                        .animation(.spring(), value: stageAccordian)
+//                        .animation(.spring(), value: tierAccordian)
                     } else if !currentFestival.artistList.isEmpty {
                         VStack {
                             Spacer()
@@ -76,9 +104,9 @@ struct FestivalPage: View {
                             }
                             .italic()
                             .padding(8)
-                            .foregroundStyle(.black)
                             Spacer()
                         }
+                        .foregroundStyle(.black)
                     } else {
                         VStack {
                             Spacer()
@@ -106,7 +134,7 @@ struct FestivalPage: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: popupMessage)
-        .onChange(of: popupMessage) { newValue in
+        .onChange(of: popupMessage) { _, newValue in
             guard newValue != nil else { return }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
@@ -124,30 +152,69 @@ struct FestivalPage: View {
                 )
             }
             ToolbarItem(placement: .topBarTrailing) {
-//                if !previewView {
-                    HStack {
-                        if let userID = firestore.getUserID(), userID == currentFestival.ownerID {
-                            NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: currentFestival, draftView: true)) {
-                                Image(systemName: "pencil.circle")
-                                    .foregroundStyle(.blue)
+                if let userID = firestore.getUserID(), userID == currentFestival.ownerID {
+                    Menu(content: {
+                        //View by Alphabetically
+                        Button (action: {
+                            navigationPath.append("Festival Settings")
+                        }, label: {
+                            HStack {
+                                Text("Festival Settings")
+                                Image(systemName: "gear")
                             }
-                        }
-                        NavigationLink(value: "Festival Settings") {
-                            Image(systemName: "gear")
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                .foregroundStyle(Color("OASIS Dark Orange"))
-                .imageScale(.large)
-                .foregroundStyle(.tint)
+                        })
+                        Button (action: {
+                            navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: currentFestival, draftView: true))
+                        }, label: {
+                            HStack {
+                                Text("Edit Festival")
+                                Image(systemName: "pencil.circle")
+                            }
+                        })
+                    }, label: {
+                        Image(systemName: "gear")
+                    })
+                } else {
+                    Button (action: {
+                        navigationPath.append("Festival Settings")
+                    }, label: {
+                        Image(systemName: "gear")
+                    })
+                }
+//                
+//                
+//                
+//                
+////                if !previewView {
+//                    HStack {
+//                        if let userID = firestore.getUserID(), userID == currentFestival.ownerID {
+//                            NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: currentFestival, draftView: true)) {
+//                                Image(systemName: "pencil.circle")
+//                                    .foregroundStyle(.blue)
+//                            }
+//                        }
+//                        NavigationLink(value: "Festival Settings") {
+//                            Image(systemName: "gear")
+//                                .foregroundStyle(.blue)
+//                        }
+//                    }
+//                .foregroundStyle(Color("OASIS Dark Orange"))
+//                .imageScale(.large)
+//                .foregroundStyle(.tint)
 //                }
             }
         }
         .toolbar(.visible, for: .tabBar)
         .toolbarBackground(Color.white, for: .navigationBar)
         .onAppear() {
-//            popupMessage = "This is a test."
-//            festivalVM.currentFestival = currentFestival
+            let artistList = festivalVM.checkSettings(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
+            
+            let genres = festivalVM.sortGenre(currList: artistList)
+            topGenresDict = genres.topGenres
+            allGenresDict = genres.allGenres
+            dayDict = festivalVM.sortDay(currList: artistList, secondWeekend: currentFestival.secondWeekend)
+            stageDict = festivalVM.sortStage(currList: artistList)
+            tierDict = festivalVM.sortTier(currList: artistList)
         }
 //        .onAppear() {
 //            if let festival = festivalVM.currentFestival {
@@ -168,9 +235,43 @@ struct FestivalPage: View {
 //        festivalVM.festivalStarPressed(festival: currentFestival)
 //    }
     
+    var EditingBar: some View {
+        Group {
+            let festivalSettingsWeekendText = festivalVM.attendingWeekendString(currentFestival: currentFestival)
+            let festivalSettingsDayText = festivalVM.attendingDaysString(currentFestival: currentFestival)
+//            if festivalVM.settings.festivalDays
+            if !festivalSettingsWeekendText.isEmpty || !festivalSettingsDayText.isEmpty {
+                Button (action: {
+                    navigationPath.append("Festival Settings")
+                }, label: {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "gear").imageScale(.small)
+                        if !festivalSettingsWeekendText.isEmpty {
+                            Text(festivalSettingsWeekendText).italic()
+                            if !festivalSettingsDayText.isEmpty { Text("•") }
+                        }
+                        if !festivalSettingsDayText.isEmpty { Text(festivalSettingsDayText).italic() }
+                        Image(systemName: "gear").imageScale(.small)
+//                        Image(systemName: "chevron.right").imageScale(.medium)
+                        Spacer()
+                    }
+                    .foregroundStyle(.black)
+                })
+                .padding(5)
+                .background(.blue)
+                .clipped()
+                .edgesIgnoringSafeArea([.leading, .trailing])
+                .contentShape(Rectangle())
+            }
+        }
+    }
+    
+//    func
+    
 
     
-    var EditingBar: some View {
+    var SettingsBar: some View {
         Group {
             if previewView || !currentFestival.published {
                 HStack {
@@ -239,7 +340,7 @@ struct FestivalPage: View {
     
     var FestivalInfoBar: some View {
         ZStack(alignment: .top) {
-            Color.white
+            Color(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                     .ignoresSafeArea(edges: [.top, .leading, .trailing]) // covers status bar + nav bar area
                     .frame(height: 31)
             HStack {
@@ -259,41 +360,69 @@ struct FestivalPage: View {
                     })
                     Text(" | ")
                 }
-                Button (action: {
-                    eventStore.requestAccess(to: .event) { granted, error in
-                        if granted {
-                            var eventTitle  = currentFestival.name
-                            if currentFestival.secondWeekend { eventTitle.append(" (Weekend 1)") }
-                            newCalEvent = calendarEvent(title: eventTitle, startDate: currentFestival.startDate, endDate: currentFestival.endDate)
-                        } else {
-                            //print("Calendar access denied or error: \(error?.localizedDescription ?? "unknown")")
-                        }
-                    }
-                }, label: {
-                    Text(festivalVM.getDates(startDate: currentFestival.startDate, endDate: currentFestival.endDate))
-                })
-                if currentFestival.secondWeekend {
-                    Text(" | ")
+                Menu(content: {
                     Button (action: {
                         eventStore.requestAccess(to: .event) { granted, error in
                             if granted {
-                                newCalEvent = calendarEvent(title: "\(currentFestival.name) (Weekend 2)",
-                                                            startDate: Calendar.current.date(byAdding: .day, value: 7, to: currentFestival.startDate)!,
-                                                            endDate: Calendar.current.date(byAdding: .day, value: 7, to: currentFestival.endDate)!)
+                                var eventTitle  = currentFestival.name
+                                if currentFestival.secondWeekend { eventTitle.append(" (Weekend 1)") }
+                                newCalEvent = calendarEvent(title: eventTitle, startDate: currentFestival.startDate, endDate: currentFestival.endDate)
                             } else {
                                 //print("Calendar access denied or error: \(error?.localizedDescription ?? "unknown")")
                             }
                         }
                     }, label: {
+                        Text("Add to Calendar")
+                        Spacer()
+                        Image(systemName: "calendar")
+                        
+                    })
+                }, label: {
+                    Text(festivalVM.getDates(startDate: currentFestival.startDate, endDate: currentFestival.endDate))
+                })
+                
+                if currentFestival.secondWeekend {
+                    Text(" | ")
+                    Menu(content: {
+                        Button (action: {
+                            eventStore.requestAccess(to: .event) { granted, error in
+                                if granted {
+                                    newCalEvent = calendarEvent(title: "\(currentFestival.name) (Weekend 2)",
+                                                                startDate: Calendar.current.date(byAdding: .day, value: 7, to: currentFestival.startDate)!,
+                                                                endDate: Calendar.current.date(byAdding: .day, value: 7, to: currentFestival.endDate)!)
+                                } else {
+                                    //print("Calendar access denied or error: \(error?.localizedDescription ?? "unknown")")
+                                }
+                            }
+                        }, label: {
+                            Text("Add to Calendar")
+                            Spacer()
+                            Image(systemName: "calendar")
+                            
+                        })
+                    }, label: {
                         Text(festivalVM.getSecondWeekendText(startDate: currentFestival.startDate, endDate: currentFestival.endDate))
                     })
+//                    Button (action: {
+//                        eventStore.requestAccess(to: .event) { granted, error in
+//                            if granted {
+//                                newCalEvent = calendarEvent(title: "\(currentFestival.name) (Weekend 2)",
+//                                                            startDate: Calendar.current.date(byAdding: .day, value: 7, to: currentFestival.startDate)!,
+//                                                            endDate: Calendar.current.date(byAdding: .day, value: 7, to: currentFestival.endDate)!)
+//                            } else {
+//                                //print("Calendar access denied or error: \(error?.localizedDescription ?? "unknown")")
+//                            }
+//                        }
+//                    }, label: {
+//                        Text(festivalVM.getSecondWeekendText(startDate: currentFestival.startDate, endDate: currentFestival.endDate))
+//                    })
                     
                 }
             }
             .foregroundStyle(Color("OASIS Dark Orange"))
             .padding(.bottom, 10)
 //            .padding(.top, 10)
-            .onChange(of: newCalEvent) { calEvent in
+            .onChange(of: newCalEvent) { _, calEvent in
                 if calEvent != nil {
                     showingEventEditor = true
                 }
@@ -399,7 +528,8 @@ struct FestivalPage: View {
                     ShareLink(item: getFestivalLink()) {
                         ZStack {
                             Circle()
-                                .foregroundStyle(Color("BW Color Switch Reverse"))
+                                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+
                                 .shadow(radius: SHADOW)
                             Image(systemName: "square.and.arrow.up")
                                 .imageScale(.large)
@@ -411,7 +541,7 @@ struct FestivalPage: View {
                 } else {
                     ZStack {
                         Circle()
-                            .foregroundStyle(Color("BW Color Switch Reverse"))
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                             .shadow(radius: SHADOW)
                         Image(systemName: "square.and.arrow.up")
                             .imageScale(.large)
@@ -428,7 +558,7 @@ struct FestivalPage: View {
                 
                 ZStack {
                     Circle()
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                         .shadow(radius: SHADOW)
                     Image(systemName: festivalVM.festivalIsFavorited(festivalID: currentFestival.id) ? "star.fill" : "star")
                         .foregroundStyle(.yellow)
@@ -447,7 +577,7 @@ struct FestivalPage: View {
                 
                 ZStack {
                     Circle()
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                         .shadow(radius: SHADOW)
                     Image(systemName: "person.2.badge.plus.fill")
                         .foregroundStyle(.blue)
@@ -463,12 +593,12 @@ struct FestivalPage: View {
                 .frame(height: LARGE_BUTTON_HEIGHT/1.3)
                 .opacity(currentFestival.published ? 1 : 0.5)
             }
-            .foregroundStyle(Color("BW Color Switch"))
+            .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
             .padding(5)
         }
         .padding(.top, 10)
         .sheet(isPresented: $showAddFestivalToGroupSheet) {
-            AddFestivalToGroupSheet(festival: currentFestival, showAddFestivalToGroupSheet: $showAddFestivalToGroupSheet)
+            AddFestivalToGroupsSheet(festival: currentFestival, showAddFestivalToGroupSheet: $showAddFestivalToGroupSheet)
         }
     }
     
@@ -480,7 +610,7 @@ struct FestivalPage: View {
 //    if let url = currentFestival.website {
 //        ZStack {
 //            Circle()
-//                .foregroundStyle(Color("BW Color Switch Reverse"))
+//                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                .shadow(radius: SHADOW)
 //            Image(systemName: "network")
 //                .imageScale(.large)
@@ -568,7 +698,7 @@ struct FestivalPage: View {
                                                bottomTrailingRadius: lastSectionBool ? CORNER_RADIUS : 0,
                                                topTrailingRadius: CORNER_RADIUS,
                                                style: .continuous)
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                        .shadow(radius: SHADOW)
                         HStack{
                             Spacer()
@@ -578,7 +708,7 @@ struct FestivalPage: View {
                                 .foregroundStyle(.red)
                             Spacer()
                         }
-                        .foregroundStyle(Color("BW Color Switch"))
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
                     }
                     .frame(height: LARGE_BUTTON_HEIGHT)
                 }
@@ -589,7 +719,7 @@ struct FestivalPage: View {
                                            bottomTrailingRadius: lastSectionBool ? CORNER_RADIUS : 0,
                                            topTrailingRadius: CORNER_RADIUS,
                                            style: .continuous)
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                        .shadow(radius: SHADOW)
                     HStack{
                         Spacer()
@@ -599,7 +729,7 @@ struct FestivalPage: View {
                             .foregroundStyle(.red)
                         Spacer()
                     }
-                    .foregroundStyle(Color("BW Color Switch"))
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
                 }
                 .frame(height: SMALL_BUTTON_HEIGHT)
             }
@@ -607,7 +737,7 @@ struct FestivalPage: View {
         .task {
             loadGroups()
         }
-        .onChange(of: firestore.mySocialGroups) { _ in
+        .onChange(of: firestore.mySocialGroups) {
             loadGroups()
         }
 //        .onAppear {
@@ -668,7 +798,7 @@ struct FestivalPage: View {
 //                    else { continue }
 
                     for artistID in favs {
-                        artistToUsers[artistID, default: []].insert(user.id!)
+                        artistToUsers[artistID, default: []].insert(user.id)
                     }
                 }
 
@@ -718,10 +848,10 @@ struct FestivalPage: View {
                         UnevenRoundedRectangle(bottomLeadingRadius: /*!showFriendList ? */CORNER_RADIUS/* : 0*/,
                                                bottomTrailingRadius: groupFavorites.isEmpty /*&& !showFriendList*/ ? CORNER_RADIUS : 0,
                                                style: .continuous)
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                        .shadow(radius: showFriendList ? 5 : 0)
                         HStack {
-                            Image(systemName: showFriendList ? "chevron.up" : "chevron.down")
+                            Image(systemName: "chevron.down").rotationEffect(showFriendList ? Angle(degrees: 180) : Angle(degrees: 0))
                             if !showGroupList {
                                 Spacer()
                                 Text("Friends").bold()
@@ -730,22 +860,24 @@ struct FestivalPage: View {
                             } else {
                                 Image(systemName: "person.2.fill")
                             }
-                            Image(systemName: showFriendList ? "chevron.up" : "chevron.down")
+                            Image(systemName: "chevron.down").rotationEffect(showFriendList ? Angle(degrees: 180) : Angle(degrees: 0))
                         }
                         .padding(.horizontal, 15)
                     }
-                    .foregroundStyle(Color("BW Color Switch"))
-                    .transaction { $0.animation = nil }
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                    .transaction { $0.animation = nil }
                     .frame(height: SMALL_BUTTON_HEIGHT)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         withAnimation {
                             showFriendList.toggle()
                             showGroupList = false
+                            showMyTags = false
                             closeInfoSection()
+                            showMyPlaylists = false
                         }
                     }
-                    .foregroundStyle(Color("BW Color Switch"))
+//                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
 //                    if showGroupList {
 //                        Divider().padding(.leading, 40)
 //                    }
@@ -760,7 +892,7 @@ struct FestivalPage: View {
 //                                        UnevenRoundedRectangle(bottomLeadingRadius: lastFriendBool ? CORNER_RADIUS : 0,
 //                                                               bottomTrailingRadius: lastFriendBool ? CORNER_RADIUS : 0,
 //                                                               style: .continuous)
-//                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+//                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                                        HStack {
 //                                            Spacer()
 //                                            SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 30)
@@ -783,7 +915,7 @@ struct FestivalPage: View {
 //                            //                                        UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
 //                            //                                                               bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
 //                            //                                                               style: .continuous)
-//                            //                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+//                            //                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                            //                                        HStack {
 //                            //                                            Spacer()
 //                            //                                            Text(tier)
@@ -830,10 +962,10 @@ struct FestivalPage: View {
                                                bottomTrailingRadius: /*!showGroupList ? */CORNER_RADIUS/* : 0*/,
 //                                               topTrailingRadius: 0,
                                                style: .continuous)
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                        .shadow(radius: showGroupList ? 5 : 0)
                         HStack {
-                            Image(systemName: showGroupList ? "chevron.up" : "chevron.down")
+                            Image(systemName: "chevron.down").rotationEffect(showGroupList ? Angle(degrees: 180) : Angle(degrees: 0))
                             if !showFriendList {
                                 Spacer()
                                 Text("Groups").bold()
@@ -842,21 +974,23 @@ struct FestivalPage: View {
                             } else {
                                 Image(systemName: "person.3.fill")
                             }
-                            Image(systemName: showGroupList ? "chevron.up" : "chevron.down")
+                            Image(systemName: "chevron.down").rotationEffect(showGroupList ? Angle(degrees: -180) : Angle(degrees: 0))
                         }
                         .padding(.horizontal, 15)
                     }
-                    .transaction { $0.animation = nil }
+//                    .transaction { $0.animation = nil }
                     .frame(height: SMALL_BUTTON_HEIGHT)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         withAnimation {
                             showGroupList.toggle()
                             showFriendList = false
+                            showMyTags = false
                             closeInfoSection()
+                            showMyPlaylists = false
                         }
                     }
-                    .foregroundStyle(Color("BW Color Switch"))
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
 //                    if showGroupList {
 ////                        Divider()
 //                        Rectangle()
@@ -880,7 +1014,7 @@ struct FestivalPage: View {
 //                                            bottomTrailingRadius: lastGroupBool ? CORNER_RADIUS : 0,
 ////                                            topTrailingRadius: 0,
 //                                            style: .continuous)
-//                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+//                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                                        HStack {
 //                                            Spacer()
 //                                            SocialImage(imageURL: groupFestFav.group.photo, name: groupFestFav.group.name, frame: 30)
@@ -927,12 +1061,13 @@ struct FestivalPage: View {
                                 UnevenRoundedRectangle(bottomLeadingRadius: lastFriendBool ? CORNER_RADIUS : 0,
                                                        bottomTrailingRadius: lastFriendBool ? CORNER_RADIUS : 0,
                                                        style: .continuous)
-                                .foregroundStyle(Color("BW Color Switch Reverse"))
+                                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                 //                                .shadow(radius: showFriendList ? 5 : 0)
                                 HStack {
                                     Spacer()
                                     SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 30)
                                     Text(profile.name)
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
                                     Image(systemName: "chevron.right")
                                     Spacer()
                                 }
@@ -957,9 +1092,9 @@ struct FestivalPage: View {
 //                            .shadow(radius: SHADOW, x: 0, y: SHADOW)
 //                    )
                 .padding(.horizontal, SIDE_BUFFER)
-                .scaleEffect(showFriendList ? 1 : 0.95, anchor: .top)
-                .opacity(showFriendList ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: showFriendList)
+//                .scaleEffect(showFriendList ? 1 : 0.95, anchor: .top)
+//                .opacity(showFriendList ? 1 : 0)
+//                .animation(.easeInOut(duration: 0.3), value: showFriendList)
             } else if showGroupList {
                 VStack (spacing: 0) {
                     Divider()
@@ -968,7 +1103,7 @@ struct FestivalPage: View {
                         let artistList = festivalVM.getArtistListFromID(artistIDs: groupFestFav.users.map { $0.artistID },
                                                                         festival: currentFestival)
                         
-                        NavigationLink(value: ArtistListStruct(titleText: "\(groupFestFav.group.name)'s Favorites",
+                        NavigationLink(value: ArtistListStruct(titleText: "\(groupFestFav.group.name) Favorites",
                                                                        festival: currentFestival,
                                                                        list: artistList,
                                                                        groupFavs: groupFestFav.users
@@ -981,12 +1116,13 @@ struct FestivalPage: View {
                                     bottomTrailingRadius: lastGroupBool ? CORNER_RADIUS : 0,
                                     //                                            topTrailingRadius: 0,
                                     style: .continuous)
-                                .foregroundStyle(Color("BW Color Switch Reverse"))
+                                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                 //                                .shadow(radius: showGroupList ? 5 : 0)
                                 HStack {
                                     Spacer()
                                     SocialImage(imageURL: groupFestFav.group.photo, name: groupFestFav.group.name, frame: 30)
                                     Text(groupFestFav.group.name)
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
                                     Image(systemName: "chevron.right")
                                     Spacer()
                                 }
@@ -1007,9 +1143,9 @@ struct FestivalPage: View {
 //                .padding(.trailing, friendsFavs.isEmpty ? 20 : 0)
                 .padding(.horizontal, SIDE_BUFFER)
 //                .padding(.leading, 40)
-                .scaleEffect(showGroupList ? 1 : 0.95, anchor: .top)
-                .opacity(showGroupList ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: showGroupList)
+//                .scaleEffect(showGroupList ? 1 : 0.95, anchor: .top)
+//                .opacity(showGroupList ? 1 : 0)
+//                .animation(.easeInOut(duration: 0.3), value: showGroupList)
             }
         }
         .foregroundStyle(.black)
@@ -1035,7 +1171,7 @@ struct FestivalPage: View {
                     //            NavigationLink(value: "Artist List") {
                     ZStack {
                         RoundedRectangle(cornerRadius: CORNER_RADIUS)
-                            .foregroundStyle(Color("BW Color Switch Reverse"))
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                             .shadow(radius: SHADOW)
                         HStack{
                             Spacer()
@@ -1044,7 +1180,7 @@ struct FestivalPage: View {
                                 .imageScale(.large)
                             Spacer()
                         }
-                        .foregroundStyle(Color("BW Color Switch"))
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
                     }
                 }
                 .frame(height: LARGE_BUTTON_HEIGHT)
@@ -1060,7 +1196,7 @@ struct FestivalPage: View {
                 //            NavigationLink(value: data.shuffleArtistNEW(currentList: currentFestival.artistList)!) {
                 ZStack {
                     RoundedRectangle(cornerRadius: CORNER_RADIUS)
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                         .shadow(radius: SHADOW)
                     HStack{
                         Spacer()
@@ -1069,13 +1205,14 @@ struct FestivalPage: View {
                             .imageScale(.large)
                         Spacer()
                     }
-                    .foregroundStyle(Color("BW Color Switch"))
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
                 }
                 //            }
                 .frame(height: LARGE_BUTTON_HEIGHT)
                 .padding(10)
                 .onTapGesture {
-                    let dislikedArtists = tags.getDNSTArtists(currList: currentFestival.artistList)
+//                    let dislikedArtists = /*tags.getDNSTArtists(currList: currentFestival.artistList)*/Set<String>()
+                    let dislikedArtists = tags.getDNSIDSet(currList: currentFestival.artistList)
                     if let randomArtist = festivalVM.shuffleArtist(currentList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend, dislikedArtists: dislikedArtists) {
                         navigationPath.append(ArtistPageStruct(artist: randomArtist, festival: currentFestival,
                                                                        shuffleTitle: "All Artists",
@@ -1088,45 +1225,74 @@ struct FestivalPage: View {
     
     
     @State var showMyTags = false
+    @State var showAddTagSheet = false
+    @State var selectedTags: Set<UUID> = []
+    @State var editingTag: ArtistTag?
+    
+    @State var tagToDelete: ArtistTag?
+    @State var deleteAlert = false
+    
     
     var MyTagSection: some View {
         Group {
-            let tagDictionary = tags.getTagDictionary(currList: currentFestival.artistList)
-            if !tagDictionary.isEmpty {
+//            let tagDictionary = tags.getTagDictionary(currList: currentFestival.artistList)
+            let tagDictionary = tags.getTagDictionary(festival: currentFestival)
+            let DNSTList = tags.getDNSList(currList: currentFestival.artistList)
+            if !tagDictionary.isEmpty || !DNSTList.isEmpty {
                 VStack(spacing: 0) {
-                    //            let finalSectionBool: Bool = (dayDict.count < 2 && stageDict.isEmpty && tierDict.isEmpty)
                     ZStack {
                         RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
-                        //                UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS,
-                        //                                       bottomLeadingRadius: /*showMyTags ? 0 : */ CORNER_RADIUS,
-                        //                                       bottomTrailingRadius: /*showMyTags ? 0 : */ CORNER_RADIUS,
-                        //                                       topTrailingRadius: CORNER_RADIUS,
-                        //                                       style: .continuous)
-                            .foregroundStyle(Color("BW Color Switch Reverse"))
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                         HStack {
-                            Image(systemName: showMyTags ? "chevron.up" : "chevron.down")
+                            Image(systemName: "chevron.down").rotationEffect(showMyTags ? Angle(degrees: 180) : Angle(degrees: 0))
                             Spacer()
                             Text("My Tags").bold()
                             Image(systemName: "tag")
                             Spacer()
-                            Image(systemName: showMyTags ? "chevron.up" : "chevron.down")
+                            Image(systemName: "chevron.down").rotationEffect(showMyTags ? Angle(degrees: -180) : Angle(degrees: 0))
                         }
                         .padding(.horizontal, 15)
                     }
-                    .transaction { $0.animation = nil }
+//                    .transaction { $0.animation = nil }
                     .frame(height: SMALL_BUTTON_HEIGHT)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         withAnimation {
                             showMyTags.toggle()
+                            closeFavoritesSection()
+                            closeInfoSection()
+                            showMyPlaylists = false
                         }
                     }
                     if showMyTags {
                         VStack (spacing: 0) {
                             Divider()
+                            if !DNSTList.isEmpty {
+                                NavigationLink(value: ArtistListStruct(titleText: tags.DONOTSUGGESTTAG.name, festival: currentFestival, list: DNSTList)) {
+                                    ZStack {
+                                        //                                if genres.keys.sorted().last!
+                                        UnevenRoundedRectangle(topLeadingRadius: 0,
+                                                               bottomLeadingRadius: 0,
+                                                               bottomTrailingRadius: 0,
+                                                               topTrailingRadius: 0,
+                                                               style: .continuous)
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                        HStack {
+                                            Spacer()
+                                            Image(systemName: tags.DONOTSUGGESTTAG.symbol)
+                                            Text(tags.DONOTSUGGESTTAG.name)
+                                            Image(systemName: "chevron.right")
+                                            Spacer()
+                                        }
+                                        .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
+                                    }
+                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                if !tagDictionary.isEmpty { Divider() }
+                            }
+                            
                             let sortedTags = tags.sortTags(Array(tagDictionary.keys))
-//                            let sortedTags = tags.getSortedTag()
-                            //                    ForEach(Array(topGenresDict.keys), id: \.self) { genre in
                             ForEach(sortedTags, id: \.id) { tag in
                                 let tagList = tagDictionary[tag]!
                                 let finalTagBool = (tag == sortedTags.last!)
@@ -1135,40 +1301,137 @@ struct FestivalPage: View {
                                     ZStack {
                                         //                                if genres.keys.sorted().last!
                                         UnevenRoundedRectangle(topLeadingRadius: 0,
-                                                               bottomLeadingRadius: finalTagBool ? CORNER_RADIUS : 0,
-                                                               bottomTrailingRadius: finalTagBool ? CORNER_RADIUS : 0,
+                                                               bottomLeadingRadius: 0,
+                                                               bottomTrailingRadius: 0,
                                                                topTrailingRadius: 0,
                                                                style: .continuous)
-                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                         HStack {
                                             Spacer()
-                                            Group {
+                                            
                                                 Image(systemName: tag.symbol)
                                                 Text(tag.name)
-                                            }
-                                            .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+                                            
                                             Image(systemName: "chevron.right")
                                             Spacer()
                                         }
+                                        .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+                                    }
+                                    .contextMenu {
+                                        Button(action: {
+                                            editingTag = tag
+//                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                showAddTagSheet = true
+//                                            }
+//                                            print("Edit")
+//                                            spotify.removeFestivalPlaylist(festivalID: currentFestival.id, playlist: playlist)
+                                        }, label: {
+                                            Image(systemName: "square.and.pencil")
+                                            Text("Edit Tag")
+                                        })
+                                        
+                                        Button(action: {
+                                            tagToDelete = tag
+//                                            print("Delete")
+//                                            spotify.removeFestivalPlaylist(festivalID: currentFestival.id, playlist: playlist)
+                                        }, label: {
+                                            Image(systemName: "trash")
+                                            Text("Delete Tag")
+                                        })
+    //                                    Button("Remove Playlist") {
+    //                                        spotify.removeFestivalPlaylist(festivalID: currentFestival.id, playlist: playlist)
+    ////                                        print("removing,,,")
+    //                                    }
                                     }
                                     .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                                     .buttonStyle(PlainButtonStyle())
                                 }
                                 if !finalTagBool { Divider() }
                             }
+                            Spacer().frame(height: 3)
+                            Button {
+                                editingTag = ArtistTag()
+//                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    showAddTagSheet = true
+//                                }
+//                                openURL(playlist.URL)
+                            } label: {
+                                ZStack {
+                                    UnevenRoundedRectangle(topLeadingRadius: 0,
+                                                           bottomLeadingRadius: CORNER_RADIUS,
+                                                           bottomTrailingRadius: CORNER_RADIUS,
+                                                           topTrailingRadius: 0,
+                                                           style: .continuous)
+                                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "plus")
+                                        Text("New Tag")/*.italic()*/
+//                                        Image(.spotifyImageGreen)
+//                                            .resizable()
+//                                            .frame(width: 20, height: 20, alignment: .center)
+                                        Spacer()
+                                    }
+//                                    .foregroundStyle(Color("Spotify Color Green"))
+//                                    .bold()
+                                    //                                    .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+                                }
+                            }
+                            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                            .buttonStyle(PlainButtonStyle())
                         }
                         //                .padding(.vertical, 1)
                         .padding(.horizontal, SIDE_BUFFER)
-                        .scaleEffect(showMyTags ? 1 : 0.95, anchor: .top)
-                        .opacity(showMyTags ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.3), value: showMyTags)
+//                        .scaleEffect(showMyTags ? 1 : 0.95, anchor: .top)
+//                        .opacity(showMyTags ? 1 : 0)
+//                        .animation(.easeInOut(duration: 0.3), value: showMyTags)
                     }
                 }
-                .foregroundStyle(Color("BW Color Switch"))
-                .compositingGroup()
-                .shadow(radius: SHADOW)
-                .padding(10)
+                
             }
+//            else {
+//                Button(action: {
+//                    editingTag = ArtistTag()
+//                    showAddTagSheet = true
+////                    createPlaylistSheet = true
+//                }, label: {
+//                    ZStack {
+//                        RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+//                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+//                        HStack {
+//                            Spacer()
+//                            Image(systemName: "plus.circle")
+//                            Text("New Tag").bold()
+////                            Image(.spotifyImageGreen)
+////                                .resizable()
+////                                .frame(width: 20, height: 20, alignment: .center)
+//                            Spacer()
+//                        }
+//                        .padding(.horizontal, 15)
+//                    }
+//                    .frame(height: SMALL_BUTTON_HEIGHT)
+//                    .contentShape(Rectangle())
+//                })
+//            }
+        }
+        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+        .compositingGroup()
+        .shadow(radius: SHADOW)
+        .padding(10)
+        .sheet(item: $editingTag) { tag in
+            NewTagSheet(editingTag: tag, binding: $editingTag, currentFestival: currentFestival, selectedTags: $selectedTags)
+        }
+        .onChange(of: tagToDelete) { _, tag in
+            if tag != nil {
+                deleteAlert = true
+            }
+        }
+        .alert(isPresented: self.$deleteAlert) {
+            Alert(title: Text("Delete \"\(tagToDelete!.name)\"?"),
+                  message: Text("Doing so will remove this tag for all artists"),
+                  primaryButton: .destructive(Text("Delete")) {
+                tags.removeTag(tag: tagToDelete!, festivalID: currentFestival.id)
+            }, secondaryButton: .cancel())
         }
     }
     
@@ -1190,42 +1453,37 @@ struct FestivalPage: View {
     
     var ShuffleBySection: some View {
         Group {
-            VStack(spacing: 0) {
-                if !allGenresDict.isEmpty {
-                    SortByGenre
+            if !allGenresDict.isEmpty || dayDict.count > 1 || !stageDict.isEmpty || !tierDict.isEmpty {
+                VStack(spacing: 0) {
+                    if !allGenresDict.isEmpty {
+                        SortByGenre
+                    }
+                    if dayDict.count > 1 {
+                        Divider()
+                        SortByDay
+                    }
+                    if !stageDict.isEmpty {
+                        Divider()
+                        SortByStage
+                    }
+                    if !tierDict.isEmpty {
+                        Divider()
+                        SortByBilling
+                    }
                 }
-                if dayDict.count > 1 {
-                    Divider()
-                    SortByDay
-                }
-                if !stageDict.isEmpty {
-                    Divider()
-                    SortByStage
-                }
-                if !tierDict.isEmpty {
-                    Divider()
-                    SortByBilling
-                }
+                .padding(10)
             }
-            .padding(10)
-            
         }
         .compositingGroup()
         .shadow(radius: SHADOW)
-        .animation(.easeInOut, value: genreAccordian)
-        .animation(.easeInOut, value: dayAccordian)
-        .animation(.easeInOut, value: stageAccordian)
-        .animation(.easeInOut, value: tierAccordian)
+        
+//        .animation(.spring(), value: genreAccordian)
+//        .animation(.spring(), value: dayAccordian)
+//        .animation(.spring(), value: stageAccordian)
+//        .animation(.spring(), value: tierAccordian)
 //        .shadow(radius: SHADOW)
         .shadow(radius: 0)
-        .onAppear() {
-            let genres = festivalVM.sortGenre(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
-            topGenresDict = genres.topGenres
-            allGenresDict = genres.allGenres
-            dayDict = festivalVM.sortDay(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
-            stageDict = festivalVM.sortStage(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
-            tierDict = festivalVM.sortTier(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
-        }
+        
         
     }
         
@@ -1238,18 +1496,18 @@ struct FestivalPage: View {
                                        bottomTrailingRadius: (finalSectionBool /*&& !genreAccordian*/) ? CORNER_RADIUS : 0,
                                        topTrailingRadius: CORNER_RADIUS,
                                        style: .continuous)
-                .foregroundStyle(Color("BW Color Switch Reverse"))
+                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                 HStack {
-                    Image(systemName: genreAccordian ? "chevron.up" : "chevron.down")
+                    Image(systemName: "chevron.down").rotationEffect(genreAccordian ? Angle(degrees: 180) : Angle(degrees: 0))
                     Spacer()
                     Text("Genres").bold()
                     Image(systemName: "theatermasks")
                     Spacer()
-                    Image(systemName: genreAccordian ? "chevron.up" : "chevron.down")
+                    Image(systemName: "chevron.down").rotationEffect(genreAccordian ? Angle(degrees: -180) : Angle(degrees: 0))
                 }
                 .padding(.horizontal, 15)
             }
-            .transaction { $0.animation = nil }
+//            .transaction { $0.animation = nil }
             .frame(height: SMALL_BUTTON_HEIGHT)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -1258,7 +1516,9 @@ struct FestivalPage: View {
                     dayAccordian = false
                     stageAccordian = false
                     tierAccordian = false
+                    showMyTags = false
                     closeFavoritesSection()
+                    showMyPlaylists = false
                 }
             }
             if genreAccordian {
@@ -1271,7 +1531,7 @@ struct FestivalPage: View {
                                 ZStack {
                                     //                                if genres.keys.sorted().last!
                                     Rectangle()
-                                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                     HStack {
                                         Spacer()
                                         Image(systemName: "flame")
@@ -1296,7 +1556,7 @@ struct FestivalPage: View {
                                 UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                        bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                        style: .continuous)
-                                .foregroundStyle(Color("BW Color Switch Reverse"))
+                                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                 HStack {
                                     Spacer()
                                     if topGenresDict[genre] != nil { Image(systemName: "flame") }
@@ -1316,12 +1576,13 @@ struct FestivalPage: View {
                 }
 //                .padding(.vertical, 1)
                 .padding(.horizontal, SIDE_BUFFER)
-                .scaleEffect(genreAccordian ? 1 : 0.95, anchor: .top)
-                .opacity(genreAccordian ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: genreAccordian)
+//                .scaleEffect(genreAccordian ? 1 : 0.95, anchor: .top)
+//                .opacity(genreAccordian ? 1 : 0)
+                
+//                .animation(.spring(), value: genreAccordian)
             }
         }
-        .foregroundStyle(Color("BW Color Switch"))
+        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
         .shadow(radius: 0)
     }
     
@@ -1336,19 +1597,19 @@ struct FestivalPage: View {
                                        bottomTrailingRadius: (finalSectionBool /*&& !dayAccordian*/) ? CORNER_RADIUS : 0,
                                        topTrailingRadius: firstSectionBool ? CORNER_RADIUS : 0,
                                        style: .continuous)
-                .foregroundStyle(Color("BW Color Switch Reverse"))
+                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                 //                    .shadow(radius: SHADOW)
                 HStack {
-                    Image(systemName: dayAccordian ? "chevron.up" : "chevron.down")
+                    Image(systemName: "chevron.down").rotationEffect(dayAccordian ? Angle(degrees: 180) : Angle(degrees: 0))
                     Spacer()
                     Text("Days").bold()
                     Image(systemName: "calendar")
                     Spacer()
-                    Image(systemName: dayAccordian ? "chevron.up" : "chevron.down")
+                    Image(systemName: "chevron.down").rotationEffect(dayAccordian ? Angle(degrees: -180) : Angle(degrees: 0))
                 }
                 .padding(.horizontal, 15)
             }
-            .transaction { $0.animation = nil }
+//            .transaction { $0.animation = nil }
             .frame(height: SMALL_BUTTON_HEIGHT)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -1357,7 +1618,9 @@ struct FestivalPage: View {
                     dayAccordian.toggle()
                     stageAccordian = false
                     tierAccordian = false
+                    showMyTags = false
                     closeFavoritesSection()
+                    showMyPlaylists = false
                 }
             }
             if dayAccordian {
@@ -1373,7 +1636,7 @@ struct FestivalPage: View {
                                     UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                            bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                            style: .continuous)
-                                    .foregroundStyle(Color("BW Color Switch Reverse"))
+                                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                     HStack {
                                         Spacer()
                                         Text(getDayText(from: day))
@@ -1403,13 +1666,14 @@ struct FestivalPage: View {
                     }
                 }
 //                .padding(.vertical, 1)
-                .scaleEffect(dayAccordian ? 1 : 0.95, anchor: .top)
-                .opacity(dayAccordian ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: dayAccordian)
+//                .scaleEffect(dayAccordian ? 1 : 0.95, anchor: .top)
+//                .opacity(dayAccordian ? 1 : 0)
+//                .animation(.easeInOut(duration: 0.3), value: dayAccordian)
+//                .animation(.spring(), value: dayAccordian)
             }
             
         }
-        .foregroundStyle(Color("BW Color Switch"))
+        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
 //        .transition(.opacity.combined(with: .move(edge: .top)))
         .shadow(radius: 0)
 //        .padding(10)
@@ -1436,19 +1700,19 @@ struct FestivalPage: View {
                                        topTrailingRadius: firstSectionBool ? CORNER_RADIUS : 0,
                                        style: .continuous)
                 //                UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS, topTrailingRadius: CORNER_RADIUS, style: .continuous)
-                .foregroundStyle(Color("BW Color Switch Reverse"))
+                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                 //                    .shadow(radius: SHADOW)
                 HStack {
-                    Image(systemName: stageAccordian ? "chevron.up" : "chevron.down")
+                    Image(systemName: "chevron.down").rotationEffect(stageAccordian ? Angle(degrees: 180) : Angle(degrees: 0))
                     Spacer()
                     Text("Stages").bold()
                     Image(systemName: "map")
                     Spacer()
-                    Image(systemName: stageAccordian ? "chevron.up" : "chevron.down")
+                    Image(systemName: "chevron.down").rotationEffect(stageAccordian ? Angle(degrees: -180) : Angle(degrees: 0))
                 }
                 .padding(.horizontal, 15)
             }
-            .transaction { $0.animation = nil }
+//            .transaction { $0.animation = nil }
             .frame(height: SMALL_BUTTON_HEIGHT)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -1457,7 +1721,9 @@ struct FestivalPage: View {
                     dayAccordian = false
                     stageAccordian.toggle()
                     tierAccordian = false
+                    showMyTags = false
                     closeFavoritesSection()
+                    showMyPlaylists = false
                 }
             }
             //            Divider()
@@ -1474,7 +1740,7 @@ struct FestivalPage: View {
                                                            bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                            style: .continuous)
                                     
-                                    .foregroundStyle(Color("BW Color Switch Reverse"))
+                                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                     HStack {
                                         Spacer()
                                         Text(stage)
@@ -1492,12 +1758,13 @@ struct FestivalPage: View {
                     }
                 }
 //                .padding(.vertical, 1)
-                .scaleEffect(stageAccordian ? 1 : 0.95, anchor: .top)
-                .opacity(stageAccordian ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: stageAccordian)
+//                .scaleEffect(stageAccordian ? 1 : 0.95, anchor: .top)
+//                .opacity(stageAccordian ? 1 : 0)
+//                .animation(.easeInOut(duration: 0.3), value: stageAccordian)
+//                .animation(.spring(), value: stageAccordian)
             }
         }
-        .foregroundStyle(Color("BW Color Switch"))
+        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
 //        .transition(.opacity.combined(with: .move(edge: .top)))
         .shadow(radius: 0)
 //        .padding(10)
@@ -1512,18 +1779,18 @@ struct FestivalPage: View {
                                        bottomTrailingRadius: /*tierAccordian ? 0 : */CORNER_RADIUS,
                                        topTrailingRadius: firstSectionBool ? CORNER_RADIUS : 0,
                                        style: .continuous)
-                .foregroundStyle(Color("BW Color Switch Reverse"))
+                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                 HStack {
-                    Image(systemName: tierAccordian ? "chevron.up" : "chevron.down")
+                    Image(systemName: "chevron.down").rotationEffect(tierAccordian ? Angle(degrees: 180) : Angle(degrees: 0))
                     Spacer()
                     Text("Billing").bold()
                     Image(systemName: "list.bullet.indent")
                     Spacer()
-                    Image(systemName: tierAccordian ? "chevron.up" : "chevron.down")
+                    Image(systemName: "chevron.down").rotationEffect(tierAccordian ? Angle(degrees: -180) : Angle(degrees: 0))
                 }
                 .padding(.horizontal, 15)
             }
-            .transaction { $0.animation = nil }
+//            .transaction { $0.animation = nil }
             .frame(height: SMALL_BUTTON_HEIGHT)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -1532,7 +1799,9 @@ struct FestivalPage: View {
                     dayAccordian = false
                     stageAccordian = false
                     tierAccordian.toggle()
+                    showMyTags = false
                     closeFavoritesSection()
+                    showMyPlaylists = false
                 }
             }
             if tierAccordian {
@@ -1547,7 +1816,7 @@ struct FestivalPage: View {
                                     UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                            bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                            style: .continuous)
-                                    .foregroundStyle(Color("BW Color Switch Reverse"))
+                                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                     HStack {
                                         Spacer()
                                         Text(tier)
@@ -1567,12 +1836,13 @@ struct FestivalPage: View {
                     }
                 }
 //                .padding(.vertical, 1)
-                .scaleEffect(tierAccordian ? 1 : 0.95, anchor: .top)
-                .opacity(tierAccordian ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: tierAccordian)
+//                .scaleEffect(tierAccordian ? 1 : 0.95, anchor: .top)
+//                .opacity(tierAccordian ? 1 : 0)
+//                .animation(.easeInOut(duration: 0.3), value: tierAccordian)
+//                .animation(.spring(), value: tierAccordian)
             }
         }
-        .foregroundStyle(Color("BW Color Switch"))
+        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
         .shadow(radius: 0)
 //        .transition(.opacity.combined(with: .move(edge: .top)))
 //        .padding(10)
@@ -1585,6 +1855,177 @@ struct FestivalPage: View {
         formatter.pmSymbol = "pm"
         return formatter
     }()
+    
+    @Environment(\.openURL) private var openURL
+    @State var showMyPlaylists = false
+    @State var createPlaylistSheet = false
+    @State var playlistURL: URL?
+    @State var playlistCreatedAlert: Bool = false
+    
+    var MyPlaylistsSection: some View {
+        Group {
+            let myPlaylists = spotify.getFestivalPlaylists(currentFestival.id)
+            if !myPlaylists.isEmpty {
+                VStack(spacing: 0) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                        HStack {
+                            Image(systemName: "chevron.down").rotationEffect(showMyPlaylists ? Angle(degrees: 180) : Angle(degrees: 0))
+                            Spacer()
+                            Text("My Playlists").bold()
+                            Image(systemName: "music.note.square.stack")
+                            Spacer()
+                            Image(systemName: "chevron.down").rotationEffect(showMyPlaylists ? Angle(degrees: 180) : Angle(degrees: 0))
+                        }
+                        .padding(.horizontal, 15)
+                    }
+                    .frame(height: SMALL_BUTTON_HEIGHT)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation {
+                            showMyPlaylists.toggle()
+                            showMyTags = false
+                            closeFavoritesSection()
+                            closeInfoSection()
+                        }
+                    }
+                    
+                    if showMyPlaylists {
+                        VStack (spacing: 0) {
+                            Divider()
+                            ForEach(myPlaylists, id: \.URL) { playlist in
+                                let finalPlaylistBool = (playlist.URL == myPlaylists.last!.URL)
+                                Button {
+                                    openURL(playlist.URL)
+                                } label: {
+                                    ZStack {
+                                        Rectangle()
+//                                        UnevenRoundedRectangle(topLeadingRadius: 0,
+//                                                               bottomLeadingRadius: 0,
+//                                                               bottomTrailingRadius: 0,
+//                                                               topTrailingRadius: 0,
+//                                                               style: .continuous)
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                        HStack {
+                                            Spacer()
+                                            //                                        Image(systemName: tag.symbol)
+                                            Text(playlist.name)
+                                            Image(systemName: "chevron.right")
+                                            Spacer()
+                                        }
+                                        //                                    .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+                                    }
+                                }
+                                .contextMenu {
+                                    Text(playlist.URL.absoluteString)
+                                    Divider()
+                                    Button(action: {
+                                        spotify.removeFestivalPlaylist(festivalID: currentFestival.id, playlist: playlist)
+                                    }, label: {
+                                        Image(systemName: "trash")
+                                        Text("Remove Playlist")
+                                    })
+//                                    Button("Remove Playlist") {
+//                                        spotify.removeFestivalPlaylist(festivalID: currentFestival.id, playlist: playlist)
+////                                        print("removing,,,")
+//                                    }
+                                }
+                                .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                                .buttonStyle(PlainButtonStyle())
+                                    
+                                if !finalPlaylistBool { Divider() }
+//                                Divider()
+                            }
+                            Spacer().frame(height: 3)
+                            Button {
+                                createPlaylistSheet = true
+//                                openURL(playlist.URL)
+                            } label: {
+                                ZStack {
+                                    UnevenRoundedRectangle(topLeadingRadius: 0,
+                                                           bottomLeadingRadius: CORNER_RADIUS,
+                                                           bottomTrailingRadius: CORNER_RADIUS,
+                                                           topTrailingRadius: 0,
+                                                           style: .continuous)
+                                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "plus")
+                                        Text("New Playlist")/*.italic()*/
+                                        Image(.spotifyImageGreen)
+                                            .resizable()
+                                            .frame(width: 20, height: 20, alignment: .center)
+                                        Spacer()
+                                    }
+//                                    .foregroundStyle(Color("Spotify Color Green"))
+//                                    .bold()
+                                    //                                    .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+                                }
+                            }
+                            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        .padding(.horizontal, SIDE_BUFFER)
+                    }
+                }
+            } else {
+                Button(action: {
+                    createPlaylistSheet = true
+                }, label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                        HStack {
+                            Spacer()
+                            Image(systemName: "plus.circle")
+                            Text("Create Playlist").bold()
+                            Image(.spotifyImageGreen)
+                                .resizable()
+                                .frame(width: 20, height: 20, alignment: .center)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 15)
+                    }
+                    .frame(height: SMALL_BUTTON_HEIGHT)
+                    .contentShape(Rectangle())
+                })
+            }
+        }
+        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+        .compositingGroup()
+        .shadow(radius: SHADOW)
+        .padding(10)
+        .onChange(of: playlistURL) { _, url in
+            guard url != nil else { return }
+
+            createPlaylistSheet = false
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                playlistCreatedAlert = true
+            }
+        }
+        .onChange(of: playlistCreatedAlert) { _, bool in
+            if !bool {
+                playlistURL = nil
+            }
+        }
+        .alert(isPresented: self.$playlistCreatedAlert) {
+            Alert(title: Text("Playlist Created!"),
+                  primaryButton: .default(Text("Ok")),
+                  secondaryButton: .default(Text("Go to playlist")) {
+                if let url = playlistURL {
+                    UIApplication.shared.open(url)
+                }
+//                } else {
+//                    self.errorAlert = true
+//                }
+            })
+        }
+        .sheet(isPresented: $createPlaylistSheet) {
+            PlaylistCreationSheet(artistList: currentFestival.artistList, currentFestival: currentFestival, playlistURL: $playlistURL)
+        }
+    }
     
     
     var InfoSection: some View {
@@ -1600,12 +2041,58 @@ struct FestivalPage: View {
         }
     }
     
+    @State private var posterURL: URL?
+    
+    var PosterSection: some View {
+        Group {
+            if currentFestival.posterPath != nil {
+                Button {
+                    //                    .onTapGesture {
+                    firestore.loadPoster(festivalID: currentFestival.id, festivalName: currentFestival.name) { result in
+                        switch result {
+                        case .success(let url):
+                            DispatchQueue.main.async {
+                                posterURL = url
+                            }
+
+                        case .failure(let error):
+                            print(error)
+                        }
+                    }
+                } label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: CORNER_RADIUS)
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                            .shadow(radius: SHADOW)
+                        HStack{
+                            Spacer()
+                            Text("Poster").bold()
+                            Image(systemName: "list.bullet.rectangle.portrait")
+                                .imageScale(.large)
+                            Spacer()
+                        }
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+                    }
+                }
+//                .transaction { $0.animation = nil }
+                .frame(height: SMALL_BUTTON_HEIGHT)
+                .contentShape(Rectangle())
+//                .onTapGesture {
+//                    UIApplication.shared.open(URL)
+//                }
+                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+                .padding(10)
+                .quickLookPreview($posterURL)
+            }
+        }
+    }
+    
     var WebsiteSection: some View {
         Group {
             if let urlString = currentFestival.website, let URL = URL(string: toHttpWww(urlString)) {
                 ZStack {
                     RoundedRectangle(cornerRadius: CORNER_RADIUS)
-                    .foregroundStyle(Color("BW Color Switch Reverse"))
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                     .shadow(radius: SHADOW)
                     HStack{
                         Spacer()
@@ -1614,15 +2101,15 @@ struct FestivalPage: View {
                             .imageScale(.large)
                         Spacer()
                     }
-                    .foregroundStyle(Color("BW Color Switch"))
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
                 }
-                .transaction { $0.animation = nil }
+//                .transaction { $0.animation = nil }
                 .frame(height: SMALL_BUTTON_HEIGHT)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     UIApplication.shared.open(URL)
                 }
-                .foregroundStyle(Color("BW Color Switch"))
+                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
                 .padding(10)
                 
             }
@@ -1701,7 +2188,7 @@ struct FriendFavorites {
     let favorite: Array<String>
 }
 
-struct AddFestivalToGroupSheet: View {
+struct AddFestivalToGroupsSheet: View {
     @EnvironmentObject var firestore: FirestoreViewModel
 
     @EnvironmentObject var festivalVM: FestivalViewModel
@@ -1757,18 +2244,20 @@ struct AddFestivalToGroupSheet: View {
                                         selectedGroups.insert(group.id!)
                                     }
                                 }
-                                if index < sortedGroups.count - 1 {
+                                if index < unaddedGroups.count - 1 {
                                     Divider()
                                 }
                             }
                             
                         }
-                        .fixedSize(horizontal: false, vertical: true)
-                        .background(Color.white)
-                        //                .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
-                        .cornerRadius(10)
-                        .border(Color.gray, width: 2)
+                        .background(Color.bwColorSwitchReverse)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray, lineWidth: 2)
+                        )
                         .padding(.horizontal, 10)
+                        .padding(.top, 2)
                     }
                     
                     
@@ -1837,17 +2326,18 @@ struct AddFestivalToGroupSheet: View {
                                     //                                selectedGroups.insert(group.id!)
                                     //                            }
                                     //                        }
-                                    if index < sortedGroups.count - 1 {
+                                    if index < alreadyAddedGroups.count - 1 {
                                         Divider()
                                     }
                                 }
                                 
                             }
-                            .fixedSize(horizontal: false, vertical: true)
-                            .background(Color.white)
-                            //                .frame(maxHeight: maxHeight) // <- caps the height; scrolls after this
-                            .cornerRadius(10)
-                            .border(Color.gray, width: 2)
+                            .background(Color.bwColorSwitchReverse)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.gray, lineWidth: 2)
+                            )
                             
                         }
                         .padding(10)
@@ -1992,7 +2482,7 @@ struct NewGroupSheet: View {
         }
         .padding()
         .photosPicker(isPresented: $showPhotoPicker, selection: $selectedItem)
-        .onChange(of: selectedItem) { newItem in
+        .onChange(of: selectedItem) { _, newItem in
             Task {
                 // Retrieve the image from the PhotosPickerItem
                 if let selectedItem, let data = try? await selectedItem.loadTransferable(type: Data.self),
@@ -2008,7 +2498,7 @@ struct NewGroupSheet: View {
                 dismissButton: .default(Text("Ok"))
             )
         }
-        .onChange(of: errorAlert) { newValue in
+        .onChange(of: errorAlert) { _, newValue in
             if newValue == false {
                 navigationPath.removeLast()
             }

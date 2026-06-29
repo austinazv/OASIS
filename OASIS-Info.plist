@@ -30,7 +30,7 @@
 	</array>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Allow OASIS to access your calendar to directly add festivals and events.</string>
-    <key>NSContactsUsageDescription</key>
-    <string>OASIS uses your contacts to help you find friends who already use the app.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Find friends already using Oasis!</string>
 </dict>
 </plist>

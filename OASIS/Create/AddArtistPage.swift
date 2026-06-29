@@ -191,7 +191,7 @@ struct AddArtistPage: View {
             if let image = artistImage {
                 do {
                     let savedURL = try data.saveImageToDisk(image: image, artistID: newArtist.id)
-//                    print("Saved image at:", savedURL.path)
+                    print("Saved image at:", savedURL.path)
                 } catch {
 //                    print("Failed to save image:", error)
                 }
@@ -587,26 +587,30 @@ struct AddArtistPage: View {
     }
     
     var DeleteButton: some View {
-        Section {
-            HStack {
-                Spacer()
-                if let index = newFestival.artistList.firstIndex(where: { $0.id == newArtist.id }) {
-                    Button(action: {
-                        newFestival.artistList.remove(at: index)
-                        showArtistSearchPage = false
-                    }, label: {
-                        Text("Remove Artist")
-                    })
-                    .frame(width: 250, height: 40)
-                    .background(Color.red)
-                    .foregroundStyle(.white)
-                    .cornerRadius(10)
-                    .shadow(radius: 5)
+        Group {
+            if let index = newFestival.artistList.firstIndex(where: { $0.id == newArtist.id }) {
+                Section {
+                    HStack {
+                        Spacer()
+                        
+                        Button(action: {
+                            newFestival.artistList.remove(at: index)
+                            showArtistSearchPage = false
+                        }, label: {
+                            Text("Remove Artist")
+                        })
+                        .frame(width: 250, height: 40)
+                        .background(Color.red)
+                        .foregroundStyle(.white)
+                        .cornerRadius(10)
+                        .shadow(radius: 5)
+                        
+                        Spacer()
+                    }
                 }
-                Spacer()
+                .listRowBackground(Color(uiColor: .systemGroupedBackground))
             }
         }
-        .listRowBackground(Color("Same As Background"))
     }
     
 //   func fetchAccessTokenAndArtistInfo() {

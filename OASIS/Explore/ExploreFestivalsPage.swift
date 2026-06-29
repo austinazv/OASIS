@@ -46,8 +46,8 @@ struct ExploreFestivalsPage: View {
                     .padding(.bottom, 5)
                     Divider()
                     ZStack {
-                        //                        Color(.oasisDarkOrange)
-                        Color(red: 235/255, green: 230/255, blue: 245/255)
+//                        Color(red: 222/255, green: 238/255, blue: 228/255)
+                        Color(red: 214/255, green: 236/255, blue: 236/255)
                             .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
                         if !searching {
                             if explore.isLoading {
@@ -58,7 +58,7 @@ struct ExploreFestivalsPage: View {
                             } else {
                                 //                            if !searching {
                                 ScrollView {
-                                    FestivalsListed(navigationPath: $navigationPath, festivalList: explore.festivals, title: "Verified", collapsable: false)
+                                    FestivalsListed(navigationPath: $navigationPath, festivalList: explore.festivals, title: "Featured", collapsable: false)
                                 }
                                 .padding(.top, 5)
                                 .refreshable {
@@ -131,19 +131,19 @@ struct ExploreFestivalsPage: View {
                             .imageScale(.large)
                             .foregroundStyle(.blue)
                             .contentShape(Rectangle())
-                            .onTapGesture() {
-                                if !searchText.isEmpty {
-                                    Task {
-                                        let results = await explore.searchAlgoliaDatabase(query: searchText,
-                                                                      searchBy: searchBy,
-                                                                      searchDate: searchDate,
-                                                                      date1: date,
-                                                                      date2: afterDate,
-                                                                      verified: verifiedOnly)
-                                        //print("Found \(results.count) festivals")
-                                    }
-                                }
-                            }
+//                            .onTapGesture() {
+//                                if !searchText.isEmpty {
+//                                    Task {
+//                                        let results = await explore.searchAlgoliaDatabase(query: searchText,
+//                                                                      searchBy: searchBy,
+//                                                                      searchDate: searchDate,
+//                                                                      date1: date,
+//                                                                      date2: afterDate,
+//                                                                      verified: verifiedOnly)
+//                                        //print("Found \(results.count) festivals")
+//                                    }
+//                                }
+//                            }
                     }
                     .padding(10)
                     if filtering {
@@ -174,7 +174,7 @@ struct ExploreFestivalsPage: View {
                         Text("No search results found.")
                     }
                 }
-                .onChange(of: searchText) { newValue in
+                .onChange(of: searchText) { _, newValue in
                     explore.search(newValue)
                 }
             }

@@ -921,35 +921,7 @@ class DataSet: ObservableObject {
     }
     
     
-    func getRelatedArtists(currentArtist: Artist, currentList: Array<Artist>) -> Array<Artist> {
-//        let possibleList = getShuffleableArtists(currentArtistID: currentArtist.id, currentList: getFullList())
-        var dictionary = [Artist: Int]()
-        for a in currentList {
-            if a.id != currentArtist.id {
-                for g in currentArtist.genres {
-                    if a.genres.contains(where: { $0 == g }) {
-                        if let artistNum = dictionary[a] {
-                            dictionary[a] = artistNum + 1
-                        } else {
-                            dictionary[a] = 1
-                        }
-                    }
-                }
-            }
-        }
-        var keys = Array(dictionary.keys)
-        keys.sort {
-            if  dictionary[$0]! == dictionary[$1]! {
-                return $0.name.dropFirst() < $1.name.dropFirst()
-            }
-            return dictionary[$0]! > dictionary[$1]!
-        }
-        let MAXARTISTS = 6
-        if keys.count > MAXARTISTS {
-            return Array(keys[0..<MAXARTISTS])
-        }
-        return keys
-    }
+    
     
 //    func getAlbumList(artist: artist) -> Array<album> {
 //        var albums = artist.albums
@@ -1644,12 +1616,12 @@ class DataSet: ObservableObject {
                     "groups": FieldValue.arrayUnion([groupID])
                 ]) { error in
                     if let error = error {
-                        //print("❌ Error adding group to user: \(error.localizedDescription)")
+                        print("❌ Error adding group to user: \(error.localizedDescription)")
                         completion(nil)
                     } else {
                         //print("✅ Group successfully added to user’s document!")
                         let info = self.userInfo!
-                        let createdGroup = SocialGroup(id: groupID, name: groupName, photo: photoURL ?? nil, members: [FriendProfileOLD(id: info.id!, name: info.name, profilePic: info.profilePic, /*favorites: info.favorites*/)], inviteLink: inviteLink)
+                        let createdGroup = SocialGroup(id: groupID, name: groupName, photo: photoURL ?? nil, members: [FriendProfileOLD(id: info.id, name: info.name, profilePic: info.profilePic, /*favorites: info.favorites*/)], inviteLink: inviteLink)
                         completion(createdGroup)
                     }
                 }
@@ -2966,20 +2938,26 @@ extension UIImage {
 
 
 struct UserProfile: Hashable, Identifiable, Codable {
-
-    @DocumentID var id: String?
-
+    
+    @DocumentID private var documentID: String?
+    
+    private let fallbackID = UUID().uuidString
+    
+    var id: String {
+        documentID ?? fallbackID
+    }
+    
     var name: String
     var profilePic: String?
-
+    
     var following: [String]?
     var followers: [String]?
-//    var festivalFavorites: [String : [String]]?
+    //    var festivalFavorites: [String : [String]]?
     var favoriteArtistsList: [String]?
     var starredFestivalsList: [String]?
     
     var groups: [String]?
-
+    
 }
 
 extension UserProfile {
@@ -2991,7 +2969,7 @@ extension UserProfile {
     var safeGroups: [String] { groups ?? [] }
     
     init() {
-        self.id = nil
+        self.documentID = nil
         self.name = ""
         self.profilePic = nil
         self.following = []
@@ -3098,6 +3076,7 @@ struct Festival: Identifiable, Hashable, Codable {
     var artistList = Array<Artist>()
     var stageList = Array<String>()
     var website: String? = nil
+    var posterPath: String? = nil
     var published: Bool = false
     
     static func newFestival() -> Festival {

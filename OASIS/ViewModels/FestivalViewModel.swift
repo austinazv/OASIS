@@ -57,8 +57,9 @@ class FestivalViewModel: ObservableObject {
                    let trySettings = try? JSONDecoder().decode(FestivalSettings.self, from: settingsData) {
                     settings = trySettings
                 } else {
-                    let dayDictionary = makeFestivalDays(startDate: currFest.startDate, endDate: currFest.endDate)
-                    settings = FestivalSettings(festivalDays: dayDictionary)
+                    setSettings(currentFestival: currFest)
+//                    let dayDictionary = makeFestivalDays(startDate: currFest.startDate, endDate: currFest.endDate)
+//                    settings = FestivalSettings(festivalDays: dayDictionary)
                 }
             }
         }
@@ -130,6 +131,11 @@ class FestivalViewModel: ObservableObject {
             return dayCount + 1 // inclusive
         }
         return 0
+    }
+    
+    func setSettings(currentFestival: Festival) {
+        let dayDictionary = makeFestivalDays(startDate: currentFestival.startDate, endDate: currentFestival.endDate)
+        settings = FestivalSettings(festivalDays: dayDictionary)
     }
     
     func makeFestivalDays(startDate: Date, endDate: Date) -> [String: Bool] {
@@ -440,6 +446,33 @@ class FestivalViewModel: ObservableObject {
     
     
     
+    func getUserFavorites(userLikes: Array<String>, artistList: Array<Artist>) -> Array<Artist> {
+        let userFavorites = artistList.filter({ userLikes.contains($0.id) })
+        return userFavorites
+    }
+    
+    func getGroupFavorites(users: Array<UserProfile>, artistList: Array<Artist>) -> Array<Artist> {
+        return Array<Artist>()
+//        group.members
+//        let userFavorites = artistList.filter({ userLikes.contains($0.id) })
+//        return userFavorites
+    }
+    
+    func getGroupFavorites(from users: [UserProfile]) -> [UserFestivalFavorites] {
+        Dictionary(grouping: users.flatMap { user in
+            user.safeFavoriteArtistsList.map { artistID in
+                (artistID, user.id)
+            }
+        }, by: { $0.0 })
+        .map { artistID, values in
+            UserFestivalFavorites(
+                artistID: artistID,
+                userIDs: values.map(\.1)
+            )
+        }
+    }
+    
+    
 //    func saveImageForFestival(_ image: UIImage, festivalID: UUID) -> String? {
 //        // Convert UUID to string
 //        let festivalIDString = festivalID.uuidString
@@ -471,30 +504,53 @@ class FestivalViewModel: ObservableObject {
 //        }
 //    }
     
-    func saveImageForFestival(_ image: UIImage, festivalID: UUID) -> String? {
+    func saveImageForFestival(_ image: UIImage, festivalID: UUID, previousPath: String?) -> String? {
+
         let festivalIDString = festivalID.uuidString
-        let relativePath = "\(festivalIDString)/logo.jpg"
+        let relativePath = "\(festivalIDString)/logo_\(UUID().uuidString).jpg"
 
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let fileURL = documentsURL.appendingPathComponent(relativePath)
 
         do {
+            removeImageForFestival(previousPath: previousPath)
+
+            // Delete old image first
+            if let previousPath {
+                let oldURL = documentsURL.appendingPathComponent(previousPath)
+
+                try? FileManager.default.removeItem(at: oldURL)
+
+                ImageCache.shared.removeCachedImage(for: previousPath)
+            }
+
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
 
-            guard let data = image.jpegData(compressionQuality: 0.9) else { return nil }
+            guard let data = image.jpegData(compressionQuality: 0.9) else {
+                return nil
+            }
 
             try data.write(to: fileURL)
 
-            // ✅ RETURN RELATIVE PATH (CRITICAL)
             return relativePath
 
         } catch {
-            //print("Error saving image: \(error)")
             return nil
         }
+    }
+    
+    func removeImageForFestival(previousPath: String?) {
+        guard let previousPath else { return }
+
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let oldURL = documentsURL.appendingPathComponent(previousPath)
+
+        try? FileManager.default.removeItem(at: oldURL)
+
+        ImageCache.shared.removeCachedImage(for: previousPath)
     }
 
 
@@ -646,50 +702,87 @@ class FestivalViewModel: ObservableObject {
                             
                             festivalToUpload.logoPath = url?.absoluteString // Replace local path with download URL
                             
-                            // Step 3: Upload festival to Firestore (merge)
-                            do {
-                                var festivalData = try Firestore.Encoder().encode(festivalToUpload)
-                                festivalData["artistNames"] = artistNames
-                                festivalData["adjustedEndDate"] = adjustedEndDate
-                                festivalData["name_lowercase"] = festivalToUpload.name.lowercased()
-                                db.collection("festivals")
-                                    .document(festivalToUpload.id.uuidString)
-                                    .setData(festivalData, merge: true) { error in
-                                        if let error = error {
-                                            completion(.failure(error))
-                                        } else {
-                                            self.moveToPublished(festivalToUpload)
-                                            completion(.success(()))
-                                        }
-                                    }
-                            } catch {
-                                completion(.failure(error))
-                            }
+                            uploadPosterAndFestival()
                         }
                     }
                 }
             }
         } else {
-            do {
-                var festivalData = try Firestore.Encoder().encode(festivalToUpload)
-                festivalData["artistNames"] = artistNames
-                festivalData["adjustedEndDate"] = adjustedEndDate
-                festivalData["name_lowercase"] = festivalToUpload.name.lowercased()
-                db.collection("festivals")
-                    .document(festivalToUpload.id.uuidString)
-                    .setData(festivalData, merge: true) { error in
-                        if let error = error {
-                            completion(.failure(error))
-                        } else {
-                            self.moveToPublished(festivalToUpload)
-                            completion(.success(()))
+            uploadPosterAndFestival()
+        }
+        
+        func uploadPosterAndFestival() {
+
+            func uploadFestivalDocument() {
+                do {
+                    var festivalData = try Firestore.Encoder().encode(festivalToUpload)
+                    festivalData["artistNames"] = artistNames
+                    festivalData["adjustedEndDate"] = adjustedEndDate
+                    festivalData["name_lowercase"] = festivalToUpload.name.lowercased()
+
+                    db.collection("festivals")
+                        .document(festivalToUpload.id.uuidString)
+                        .setData(festivalData, merge: true) { error in
+                            if let error = error {
+                                completion(.failure(error))
+                            } else {
+                                self.moveToPublished(festivalToUpload)
+                                completion(.success(()))
+                            }
                         }
+
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+
+            // No poster or already uploaded
+            guard let posterPath = festivalToUpload.posterPath,
+                  !posterPath.hasPrefix("http")
+            else {
+                uploadFestivalDocument()
+                return
+            }
+
+            guard let posterURL = URL(string: posterPath) else {
+                uploadFestivalDocument()
+                return
+            }
+
+            guard let pdfData = try? Data(contentsOf: posterURL) else {
+                uploadFestivalDocument()
+                return
+            }
+
+            let storageRef = storage.reference()
+                .child("festival_posters/\(festivalToUpload.id.uuidString).pdf")
+
+            let metadata = StorageMetadata()
+            metadata.contentType = "application/pdf"
+
+            storageRef.putData(pdfData, metadata: metadata) { _, error in
+
+                if let error {
+                    completion(.failure(error))
+                    return
+                }
+
+                storageRef.downloadURL { url, error in
+
+                    if let error {
+                        completion(.failure(error))
+                        return
                     }
-            } catch {
-                completion(.failure(error))
+
+                    festivalToUpload.posterPath = url?.absoluteString
+
+                    uploadFestivalDocument()
+                }
             }
         }
     }
+    
+    
     
     func deleteFestival(_ festival: Festival, completion: @escaping (Result<Void, Error>) -> Void) {
         let db = Firestore.firestore()
@@ -844,6 +937,78 @@ class FestivalViewModel: ObservableObject {
 //            }
 //        }
 //    }
+    
+    func dayRangeToStringArray(start: Date, end: Date) -> [String] {
+        let calendar = Calendar.current
+        var days: [String] = []
+        var currentDate = calendar.startOfDay(for: start)
+        let endDate = calendar.startOfDay(for: end)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE" // "Monday", "Tuesday", etc.
+
+        while currentDate <= endDate {
+            let dayName = formatter.string(from: currentDate)
+            days.append(dayName)
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+        }
+
+        return days
+    }
+    
+    func attendingWeekendString(currentFestival: Festival) -> String {
+        guard settings.festivalWeekend != "Both" else { return "" }
+        return settings.festivalWeekend
+    }
+    
+    func attendingDaysString(currentFestival: Festival) -> String {
+        
+        let allDays = dayRangeToStringArray(
+            start: currentFestival.startDate,
+            end: currentFestival.endDate
+        )
+        
+        // Keep only days the user is attending
+        let attendingDays = allDays.filter {
+            settings.festivalDays[$0] == true
+        }
+        
+        // If attending all days (or no days configured), return empty string
+        guard attendingDays.count != allDays.count else {
+            return ""
+        }
+        
+        // Convert to abbreviated day names
+        let abbreviated = attendingDays.map { day -> String in
+            switch day {
+            case "Monday": return "Mon"
+            case "Tuesday": return "Tues"
+            case "Wednesday": return "Wed"
+            case "Thursday": return "Thur"
+            case "Friday": return "Fri"
+            case "Saturday": return "Sat"
+            case "Sunday": return "Sun"
+            default: return day
+            }
+        }
+        
+        // Format nicely
+        switch abbreviated.count {
+        case 0:
+            return ""
+            
+        case 1:
+            return "\(abbreviated[0]) Only"
+            
+        case 2:
+            return "\(abbreviated[0]) & \(abbreviated[1])"
+            
+        default:
+            let allButLast = abbreviated.dropLast().joined(separator: ", ")
+            let last = abbreviated.last!
+            return "\(allButLast), & \(last)"
+        }
+    }
 
     
     
@@ -1006,23 +1171,24 @@ class FestivalViewModel: ObservableObject {
 //        
 //    }
     
-    func getArtistDict(currList: Array<Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil) -> [String : Array<Artist>] {
-        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
+    func getArtistDict(currList: Array<Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil, checkSettingsBool: Bool = true) -> [String : Array<Artist>] {
+        var artistList = currList
+        if checkSettingsBool { artistList = checkSettings(currList: currList, secondWeekend: secondWeekend) }
         switch(sort) {
         case .alpha:
-            return(sortAlpha(currList: newList, secondWeekend: secondWeekend))
+            return(sortAlpha(currList: artistList))
         case .billing:
-            return(sortTier(currList: newList, secondWeekend: secondWeekend))
+            return(sortTier(currList: artistList))
         case .day:
-            return(sortDay(currList: newList, secondWeekend: secondWeekend))
+            return(sortDay(currList: artistList, secondWeekend: secondWeekend))
         case .stage:
-            return(sortStage(currList: newList, secondWeekend: secondWeekend))
+            return(sortStage(currList: artistList))
         case .genre:
-            return(sortGenre(currList: newList, secondWeekend: secondWeekend).allGenres)
+            return(sortGenre(currList: artistList).allGenres)
         case .addDate:
-            return(sortDateAdded(currList: newList))
+            return(sortDateAdded(currList: artistList))
         case .modifyDate:
-            return(sortDateModified(currList: newList))
+            return(sortDateModified(currList: artistList))
         case .group:
             return(sortByGroup(currList: currList, groupFavs: groupFavs!))
         }
@@ -1045,18 +1211,19 @@ class FestivalViewModel: ObservableObject {
         return newList
     }
     
-    func sortAlpha(currList: Array<Artist>, secondWeekend: Bool) -> [String : Array<Artist>] {
-        var listByAplha = checkSettings(currList: currList, secondWeekend: secondWeekend)
-        listByAplha.sort {
+    func sortAlpha(currList: Array<Artist>) -> [String : Array<Artist>] {
+//        var listByAplha = checkSettings(currList: currList, secondWeekend: secondWeekend)
+        var listByAlpha = currList
+        listByAlpha.sort {
             return removeArticles(str: $0.name) < removeArticles(str: $1.name)
         }
-        return ["All Artists" : listByAplha]
+        return ["All Artists" : listByAlpha]
     }
     
-    func sortTier(currList: Array<Artist>, secondWeekend: Bool) -> [String : Array<Artist>] {
+    func sortTier(currList: Array<Artist>/*, secondWeekend: Bool*/) -> [String : Array<Artist>] {
         var dictionary = [String  : Array<Artist>]()
-        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
-        for a in newList {
+//        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
+        for a in currList {
             if a.tier != NA_TITLE_BLOCK {
                 if var artistArray = dictionary[a.tier] {
                     artistArray.append(a)
@@ -1074,9 +1241,9 @@ class FestivalViewModel: ObservableObject {
     
     func sortDay(currList: Array<Artist>, secondWeekend: Bool) -> [String: Array<Artist>] {
         var dictionary = [String: [Artist]]()
-        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
+//        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
         
-        for artist in newList {
+        for artist in currList {
             guard artist.day != NA_TITLE_BLOCK else { continue }
             
             // figure out which keys this artist belongs to
@@ -1122,10 +1289,9 @@ class FestivalViewModel: ObservableObject {
     
     
     
-    func sortStage(currList: Array<Artist>, secondWeekend: Bool) -> [String : Array<Artist>] {
+    func sortStage(currList: Array<Artist>) -> [String : Array<Artist>] {
         var dictionary = [String  : Array<Artist>]()
-        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
-        for a in newList {
+        for a in currList {
             if a.stage != NA_TITLE_BLOCK {
                 if var artistArray = dictionary[a.stage] {
                     artistArray.append(a)
@@ -1144,12 +1310,11 @@ class FestivalViewModel: ObservableObject {
         return dictionary
     }
     
-    func sortGenre(currList: [Artist], secondWeekend: Bool) -> (allGenres: [String: [Artist]], topGenres: [String: [Artist]]) {
+    func sortGenre(currList: [Artist]) -> (allGenres: [String: [Artist]], topGenres: [String: [Artist]]) {
 
         // Build the unsorted dictionary
         var dictionary = [String: [Artist]]()
-        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
-        for artist in newList {
+        for artist in currList {
             for genre in Set(artist.genres) {
                 if !(dictionary[genre]?.contains(where: { $0.id == artist.id }) ?? false) {
                     dictionary[genre, default: []].append(artist)
@@ -1215,16 +1380,17 @@ class FestivalViewModel: ObservableObject {
         return !sortDay(currList: currList, secondWeekend: secondWeekend).isEmpty
     }
     
-    func listHasGenres(currList: Array<Artist>, secondWeekend: Bool) -> Bool {
-        return !sortGenre(currList: currList, secondWeekend: secondWeekend).allGenres.isEmpty
+    func listHasGenres(currList: Array<Artist>) -> Bool {
+        return !sortGenre(currList: currList).allGenres.isEmpty
     }
     
-    func listHasStages(currList: Array<Artist>, secondWeekend: Bool) -> Bool {
-        return !sortStage(currList: currList, secondWeekend: secondWeekend).isEmpty
+    func listHasStages(currList: Array<Artist>) -> Bool {
+        return !sortStage(currList: currList).isEmpty
     }
     
-    func listHasTiers(currList: Array<Artist>, secondWeekend: Bool) -> Bool {
-        return !sortTier(currList: currList, secondWeekend: secondWeekend).isEmpty
+    func listHasTiers(currList: Array<Artist>) -> Bool {
+//        let artistList = checkSettings(currList: currList, secondWeekend: secondWeekend)
+        return !sortTier(currList: currList).isEmpty
     }
     
     func getDayList(currArtist: Artist, currList: [Artist], secondWeekend: Bool) -> [Artist] {
@@ -1366,6 +1532,40 @@ class FestivalViewModel: ObservableObject {
             return shuffleList.randomElement()!
         }
         return nil
+    }
+    
+    func getRelatedArtists(currentArtist: Artist, currentList: Array<Artist>, secondWeekend: Bool, dislikedArtists: Set<String>) -> Array<Artist> {
+//        let possibleList = getShuffleableArtists(currentArtistID: currentArtist.id, currentList: getFullList())
+        var shuffleList = checkSettings(currList: currentList, secondWeekend: secondWeekend)
+        shuffleList = shuffleList.filter { $0 != currentArtist }
+        shuffleList = shuffleList.filter { !dislikedArtists.contains($0.id) }
+        
+        var dictionary = [Artist: Int]()
+        for a in shuffleList {
+            if a.id != currentArtist.id {
+                for g in currentArtist.genres {
+                    if a.genres.contains(where: { $0 == g }) {
+                        if let artistNum = dictionary[a] {
+                            dictionary[a] = artistNum + 1
+                        } else {
+                            dictionary[a] = 1
+                        }
+                    }
+                }
+            }
+        }
+        var keys = Array(dictionary.keys)
+        keys.sort {
+            if  dictionary[$0]! == dictionary[$1]! {
+                return $0.name.dropFirst() < $1.name.dropFirst()
+            }
+            return dictionary[$0]! > dictionary[$1]!
+        }
+        let MAXARTISTS = 6
+        if keys.count > MAXARTISTS {
+            return Array(keys[0..<MAXARTISTS])
+        }
+        return keys
     }
     
     
