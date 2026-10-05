@@ -13,6 +13,8 @@ import Firebase
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
+import SwiftUI
+import CoreImage
 
 
 class FestivalViewModel: ObservableObject {
@@ -24,14 +26,52 @@ class FestivalViewModel: ObservableObject {
     @Published var festivalDraftsID: Array<UUID> = []
     @Published var publishedFestivalsID: Array<UUID> = []
     
-    @Published var myFestivals = Array<Festival>() {
+//    @Published var myFestivals = Array<Festival>() {
+//        didSet {
+//            do {
+//                let encoder = JSONEncoder()
+//                let data = try encoder.encode(myFestivals)
+//                UserDefaults.standard.set(data, forKey: (saveName + "/myFestivals"))
+//            } catch {
+//                //print("Failed to save myFestival: \(myFestivals): ", error)
+//            }
+//        }
+//    }
+    
+    enum Shared {
+        static let appGroup = "group.com.austinzambitovalente.OASIS"
+    }
+    
+    @Published var myFestivals = [Festival]() {
         didSet {
             do {
                 let encoder = JSONEncoder()
-                let data = try encoder.encode(myFestivals)
-                UserDefaults.standard.set(data, forKey: (saveName + "/myFestivals"))
+
+                // Save full Festival models for the app
+                let festivalData = try encoder.encode(myFestivals)
+                UserDefaults.standard.set(
+                    festivalData,
+                    forKey: saveName + "/myFestivals"
+                )
+
+                // Save lightweight festival list for widgets/App Intents
+                let sharedFestivals = myFestivals.map {
+                    SharedFestival(id: $0.id,
+                                   name: $0.name,
+                                   logoPath: $0.logoPath,
+                                   artistList: $0.artistList,
+                                   startDate: $0.startDate,
+                                   endDate: $0.endDate
+                    )
+                }
+
+                let sharedData = try encoder.encode(sharedFestivals)
+
+                UserDefaults(suiteName: Shared.appGroup)?
+                    .set(sharedData, forKey: "SharedFestivals")
+
             } catch {
-                //print("Failed to save myFestival: \(myFestivals): ", error)
+                print("Failed to save festivals:", error)
             }
         }
     }
@@ -329,6 +369,11 @@ class FestivalViewModel: ObservableObject {
                 await cacheImageIfNeeded(url)
             }
 
+            // Cache festival poster
+            if let url = festival.posterPath {
+                await cacheImageIfNeeded(url)
+            }
+
             // Cache each artist image
             for artist in festival.artistList {
                 await cacheImageIfNeeded(artist.imageURL)
@@ -344,6 +389,17 @@ class FestivalViewModel: ObservableObject {
               let _ = UIImage(data: data) else { return }
 
         ImageCache.shared.cacheImage(data, for: urlString)
+    }
+    
+    func scheduleFestivalReminder(_ currentFestival: Festival) {
+        Task {
+//            defer { popupMessage = "" }
+            await NotificationManager.shared.scheduleFestivalReminder(
+                festivalID: currentFestival.id,
+                festivalName: currentFestival.name,
+                startDate: currentFestival.startDate
+            )
+        }
     }
     
     func silentlyRefreshFestivalsIfNeeded() {
@@ -442,6 +498,11 @@ class FestivalViewModel: ObservableObject {
         }
         
         return(getDates(startDate: shiftedStart, endDate: shiftedEnd))
+    }
+    
+    func getFestiTitleWithYear(name: String, startDate: Date) -> String {
+        let year = Calendar.current.component(.year, from: startDate)
+        return "\(name) \(year)"
     }
     
     
@@ -657,7 +718,7 @@ class FestivalViewModel: ObservableObject {
         festivalToUpload.published = true
         festivalToUpload.saveDate = Date()
         
-        festivalToUpload.verified = (userId == "zrayyA8BieWLLpuqgJo5g1sBGYw1")
+        festivalToUpload.verified = (userId == "bNPLj8lLhZYScTxjUb3HUJBmmtx2")
 //        if  { }
         
         if festivalToUpload.ownerName == "Unknown" {
@@ -1171,18 +1232,18 @@ class FestivalViewModel: ObservableObject {
 //        
 //    }
     
-    func getArtistDict(currList: Array<Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil, checkSettingsBool: Bool = true) -> [String : Array<Artist>] {
+    func getArtistDict(currList: Array<Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil, checkSettingsBool: Bool = true, showNABool: Bool = false) -> [String : Array<Artist>] {
         var artistList = currList
         if checkSettingsBool { artistList = checkSettings(currList: currList, secondWeekend: secondWeekend) }
         switch(sort) {
         case .alpha:
             return(sortAlpha(currList: artistList))
         case .billing:
-            return(sortTier(currList: artistList))
+            return(sortTier(currList: artistList, showNABool: showNABool))
         case .day:
-            return(sortDay(currList: artistList, secondWeekend: secondWeekend))
+            return(sortDay(currList: artistList, secondWeekend: secondWeekend, showNABool: showNABool))
         case .stage:
-            return(sortStage(currList: artistList))
+            return(sortStage(currList: artistList, showNABool: showNABool))
         case .genre:
             return(sortGenre(currList: artistList).allGenres)
         case .addDate:
@@ -1220,52 +1281,69 @@ class FestivalViewModel: ObservableObject {
         return ["All Artists" : listByAlpha]
     }
     
-    func sortTier(currList: Array<Artist>/*, secondWeekend: Bool*/) -> [String : Array<Artist>] {
+    func sortTier(currList: Array<Artist>, showNABool: Bool = false) -> [String : Array<Artist>] {
         var dictionary = [String  : Array<Artist>]()
 //        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
-        for a in currList {
-            if a.tier != NA_TITLE_BLOCK {
-                if var artistArray = dictionary[a.tier] {
-                    artistArray.append(a)
-                    artistArray.sort {
-                        return removeArticles(str: $0.name) < removeArticles(str: $1.name)
-                    }
-                    dictionary[a.tier] = artistArray
-                } else {
-                    dictionary[a.tier] = [a]
-                }
+        for artist in currList {
+            if artist.tier != NA_TITLE_BLOCK || showNABool {
+                dictionary[artist.tier, default: []].append(artist)
+//                if var artistArray = dictionary[artist.tier] {
+//                    artistArray.append(artist)
+//                    artistArray.sort {
+//                        return removeArticles(str: $0.name) < removeArticles(str: $1.name)
+//                    }
+//                    dictionary[artist.tier] = artistArray
+//                } else {
+//                    dictionary[artist.tier] = [artist]
+//                }
             }
+//            else if showNABool {
+//                dictionary[NA_TITLE_BLOCK, default: []].append(artist)
+//            }
         }
+        for (tier, list) in dictionary {
+            var artistArray = list
+            artistArray.sort {
+                return removeArticles(str: $0.name) < removeArticles(str: $1.name)
+            }
+            dictionary[tier] = artistArray
+        }
+        
+        
         return dictionary
     }
     
-    func sortDay(currList: Array<Artist>, secondWeekend: Bool) -> [String: Array<Artist>] {
+    func sortDay(currList: Array<Artist>, secondWeekend: Bool, showNABool: Bool = false) -> [String: Array<Artist>] {
         var dictionary = [String: [Artist]]()
 //        let newList = checkSettings(currList: currList, secondWeekend: secondWeekend)
         
         for artist in currList {
-            guard artist.day != NA_TITLE_BLOCK else { continue }
-            
-            // figure out which keys this artist belongs to
-            let dayKeys: [String]
-            if secondWeekend && settings.festivalWeekend == "Both" {
-                switch artist.weekend {
-                case "Weekend 1":
-                    dayKeys = ["\(artist.day) (Weekend 1)"]
-                case "Weekend 2":
-                    dayKeys = ["\(artist.day) (Weekend 2)"]
-                case "Both":
-                    dayKeys = ["\(artist.day) (Weekend 1)", "\(artist.day) (Weekend 2)"]
-                default:
-                    dayKeys = []
+            if artist.day != NA_TITLE_BLOCK {
+                //            guard artist.day != NA_TITLE_BLOCK else { continue }
+                
+                // figure out which keys this artist belongs to
+                let dayKeys: [String]
+                if secondWeekend && settings.festivalWeekend == "Both" {
+                    switch artist.weekend {
+                    case "Weekend 1":
+                        dayKeys = ["\(artist.day) (Weekend 1)"]
+                    case "Weekend 2":
+                        dayKeys = ["\(artist.day) (Weekend 2)"]
+                    case "Both":
+                        dayKeys = ["\(artist.day) (Weekend 1)", "\(artist.day) (Weekend 2)"]
+                    default:
+                        dayKeys = []
+                    }
+                } else {
+                    dayKeys = [artist.day]
                 }
-            } else {
-                dayKeys = [artist.day]
-            }
-            
-            // group into dictionary without sorting yet
-            for key in dayKeys {
-                dictionary[key, default: []].append(artist)
+                
+                // group into dictionary without sorting yet
+                for key in dayKeys {
+                    dictionary[key, default: []].append(artist)
+                }
+            } else if showNABool {
+                dictionary[NA_TITLE_BLOCK, default: []].append(artist)
             }
         }
         
@@ -1289,29 +1367,42 @@ class FestivalViewModel: ObservableObject {
     
     
     
-    func sortStage(currList: Array<Artist>) -> [String : Array<Artist>] {
+    func sortStage(currList: Array<Artist>, showNABool: Bool = false) -> [String : Array<Artist>] {
         var dictionary = [String  : Array<Artist>]()
-        for a in currList {
-            if a.stage != NA_TITLE_BLOCK {
-                if var artistArray = dictionary[a.stage] {
-                    artistArray.append(a)
-                    artistArray.sort {
-                        if $0.tier == $1.tier {
-                            return removeArticles(str: $0.name) < removeArticles(str: $1.name)
-                        }
-                        return $0.tier < $0.tier
-                    }
-                    dictionary[a.stage] = artistArray
-                } else {
-                    dictionary[a.stage] = [a]
-                }
+        for artist in currList {
+            if artist.stage != NA_TITLE_BLOCK || showNABool {
+                dictionary[artist.stage, default: []].append(artist)
+                
+//                if var artistArray = dictionary[artist.stage] {
+//                    artistArray.append(artist)
+//                    artistArray.sort {
+//                        if $0.tier == $1.tier {
+//                            return removeArticles(str: $0.name) < removeArticles(str: $1.name)
+//                        }
+//                        return $0.tier < $0.tier
+//                    }
+//                    dictionary[artist.stage] = artistArray
+//                } else {
+//                    dictionary[artist.stage] = [artist]
+//                }
             }
+//            else if showNABool {
+//                dictionary[NA_TITLE_BLOCK, default: []].append(artist)
+//            }
         }
+        
+        for (stage, list) in dictionary {
+            var artistArray = list
+            artistArray.sort {
+                return removeArticles(str: $0.name) < removeArticles(str: $1.name)
+            }
+            dictionary[stage] = artistArray
+        }
+        
         return dictionary
     }
     
     func sortGenre(currList: [Artist]) -> (allGenres: [String: [Artist]], topGenres: [String: [Artist]]) {
-
         // Build the unsorted dictionary
         var dictionary = [String: [Artist]]()
         for artist in currList {
@@ -1341,6 +1432,19 @@ class FestivalViewModel: ObservableObject {
         return (allGenres: sortedDictionary, topGenres: topFive)
     }
     
+    func getTopGenresSorted(_ dictionary: [String: [Artist]]) -> [String] {
+        var topGenres = Array(dictionary.keys)
+        topGenres.sort(by: {
+            let genre_one_count = dictionary[$0]?.count ?? 0
+            let genre_two_count = dictionary[$1]?.count ?? 0
+            if genre_one_count == genre_two_count {
+                return $0.lowercased() < $1.lowercased()
+            }
+            return genre_one_count > genre_two_count
+        })
+        return topGenres
+    }
+    
     func sortDateAdded(currList: Array<Artist>) -> [String : Array<Artist>] {
         let returnList = currList.sorted(by: {
             $0.addDate > $1.addDate
@@ -1365,7 +1469,13 @@ class FestivalViewModel: ObservableObject {
             }
         )
         let returnList = currList.sorted(by: {
-            (favDict[$0.id]?.count ?? 0) > (favDict[$1.id]?.count ?? 0)
+            let favCountOne = favDict[$0.id]?.count ?? 0
+            let favCountTwo = favDict[$1.id]?.count ?? 0
+            if favCountOne == favCountTwo {
+                return removeArticles(str: $0.name) < removeArticles(str: $1.name)
+            }
+            
+            return favCountOne > favCountTwo
         })
         return ["" : returnList]
     }
@@ -1590,6 +1700,8 @@ class FestivalViewModel: ObservableObject {
         
         return (attended: attendedFestivals, upcoming: upcomingFestivals)
     }
+    
+    
 
     
     
@@ -1603,6 +1715,22 @@ class FestivalViewModel: ObservableObject {
         let festival: Festival
         let draftView: Bool
         var previewView: Bool = false
+        var selectedTab: Binding<Int>
+
+        static func == (
+            lhs: FestivalNavTarget,
+            rhs: FestivalNavTarget
+        ) -> Bool {
+            lhs.festival == rhs.festival &&
+            lhs.draftView == rhs.draftView &&
+            lhs.previewView == rhs.previewView
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(festival)
+            hasher.combine(draftView)
+            hasher.combine(previewView)
+        }
     }
     
     
@@ -1621,4 +1749,137 @@ struct UserFestivalFavorites: Equatable, Hashable {
     let userIDs: [String]
 //    let user: UserProfile
 //    let artistIDs: [String]
+}
+
+
+
+
+
+func extractColorPalette(from image: UIImage, maxColors: Int = 4) -> [Color] {
+    guard let cgImage = image.cgImage else { return [.blue] }
+    
+    // Resize image down for faster processing
+    let width = 80
+    let height = 80
+    
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let bytesPerPixel = 4
+    let bytesPerRow = bytesPerPixel * width
+    let bitsPerComponent = 8
+    
+    var rawData = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+    
+    guard let context = CGContext(
+        data: &rawData,
+        width: width,
+        height: height,
+        bitsPerComponent: bitsPerComponent,
+        bytesPerRow: bytesPerRow,
+        space: colorSpace,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else {
+        return [.blue]
+    }
+    
+    context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+    
+    // Bucket colors together
+    var colorBuckets: [String: Int] = [:]
+    var bucketToColor: [String: UIColor] = [:]
+    
+    for y in 0..<height {
+        for x in 0..<width {
+            let index = (y * width + x) * bytesPerPixel
+            
+            let r = Int(rawData[index])
+            let g = Int(rawData[index + 1])
+            let b = Int(rawData[index + 2])
+            let a = Int(rawData[index + 3])
+            
+            guard a > 0 else { continue }
+            
+            // Quantize colors to reduce near-duplicates
+            let qr = (r / 32) * 32
+            let qg = (g / 32) * 32
+            let qb = (b / 32) * 32
+            
+            let uiColor = UIColor(
+                red: CGFloat(qr) / 255,
+                green: CGFloat(qg) / 255,
+                blue: CGFloat(qb) / 255,
+                alpha: 1
+            )
+            
+            // Filter out white-ish / black-ish / grey-ish
+            let brightness = (CGFloat(qr) + CGFloat(qg) + CGFloat(qb)) / 3.0
+            
+            let maxRGB = max(qr, max(qg, qb))
+            let minRGB = min(qr, min(qg, qb))
+            let saturation = maxRGB - minRGB
+            
+            let isBlackish = brightness < 45
+            let isWhiteish = brightness > 215
+            let isGreyish = saturation < 25
+            
+            let shouldIgnore = isBlackish || isWhiteish || isGreyish
+            
+            let key = "\(qr)-\(qg)-\(qb)"
+            
+            if !shouldIgnore {
+                colorBuckets[key, default: 0] += 1
+                bucketToColor[key] = uiColor
+            }
+        }
+    }
+    
+    // If all colors were filtered out, allow greyscale colors
+    if colorBuckets.isEmpty {
+        for y in 0..<height {
+            for x in 0..<width {
+                let index = (y * width + x) * bytesPerPixel
+                
+                let r = Int(rawData[index])
+                let g = Int(rawData[index + 1])
+                let b = Int(rawData[index + 2])
+                let a = Int(rawData[index + 3])
+                
+                guard a > 0 else { continue }
+                
+                let qr = (r / 32) * 32
+                let qg = (g / 32) * 32
+                let qb = (b / 32) * 32
+                
+                let key = "\(qr)-\(qg)-\(qb)"
+                
+                colorBuckets[key, default: 0] += 1
+                
+                bucketToColor[key] = UIColor(
+                    red: CGFloat(qr) / 255,
+                    green: CGFloat(qg) / 255,
+                    blue: CGFloat(qb) / 255,
+                    alpha: 1
+                )
+            }
+        }
+    }
+    
+    // Sort by frequency
+    let sortedKeys = colorBuckets
+        .sorted { $0.value > $1.value }
+        .map { $0.key }
+    
+    var finalColors: [Color] = []
+    
+    for key in sortedKeys.prefix(maxColors) {
+        if let uiColor = bucketToColor[key] {
+            finalColors.append(Color(uiColor))
+        }
+    }
+    
+    // Guarantee at least one color
+    if finalColors.isEmpty {
+        finalColors.append(.blue)
+    }
+    
+    return finalColors
 }

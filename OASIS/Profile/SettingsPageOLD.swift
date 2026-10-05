@@ -58,11 +58,11 @@ struct SettingsPageOLD: View {
                 .frame(width: 190, height: 50, alignment: .center)
                 .overlay(
                     RoundedRectangle(cornerRadius: 25)
-                        .stroke(Color.black, lineWidth: 2) // black border
+                        .stroke(Color.oasisDarkPurple, lineWidth: 2) // black border
                 )
             HStack {
                 Text("Log Out")
-                    .foregroundColor(.black)
+                    .foregroundColor(.oasisDarkPurple)
                 OASISTitle(fontSize: 18, kerning: 2)
             }
         }
@@ -93,7 +93,7 @@ struct SettingsPageOLD: View {
                 .frame(width: 175, height: 50, alignment: .center)
                 .overlay(
                     RoundedRectangle(cornerRadius: 25)
-                        .stroke(Color.black, lineWidth: 2) // black border
+                        .stroke(Color.oasisDarkPurple, lineWidth: 2) // black border
                 )
             HStack {
                 Text("Disconnect")
@@ -102,7 +102,7 @@ struct SettingsPageOLD: View {
                     .scaledToFit()
                     .frame(width: 30)
             }
-            .foregroundColor(.black)
+            .foregroundColor(.oasisDarkPurple)
         }
         .shadow(radius: 5)
         .padding(10)

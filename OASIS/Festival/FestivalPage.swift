@@ -26,6 +26,11 @@ struct FestivalPage: View {
     var previewView: Bool = false
     
     @State var popupMessage: String?
+    @State private var popupAction: () -> Void = {}
+    
+
+//    var selectedTab: Binding<Int>?
+    @Binding var selectedTab: Int
     
 //    var friendFavorites: FriendFavorites? = nil
     
@@ -68,6 +73,7 @@ struct FestivalPage: View {
                                 InfoSection
                                 Spacer()
                             }
+                            
                         }
                         .refreshable {
                             print("REFRESHED")
@@ -106,7 +112,7 @@ struct FestivalPage: View {
                             .padding(8)
                             Spacer()
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurple)
                     } else {
                         VStack {
                             Spacer()
@@ -114,6 +120,7 @@ struct FestivalPage: View {
                                 .italic()
                             Spacer()
                         }
+                        .foregroundStyle(.oasisDarkPurple)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -126,9 +133,12 @@ struct FestivalPage: View {
 //                }
             }
         }
+        
+        .toolbar(.hidden, for: .tabBar)
+        .foregroundStyle(.oasisDarkPurple)
         .overlay(alignment: .bottom) {
             if let message = popupMessage {
-                MessagePopUp(message: message)
+                MessagePopUp(message: message, action: popupAction)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
 //                    .padding(.bottom, 20)
             }
@@ -140,6 +150,7 @@ struct FestivalPage: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 withAnimation {
                     popupMessage = nil
+                    popupAction = {}
                 }
             }
         }
@@ -164,7 +175,7 @@ struct FestivalPage: View {
                             }
                         })
                         Button (action: {
-                            navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: currentFestival, draftView: true))
+                            navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: currentFestival, draftView: true, selectedTab: $selectedTab))
                         }, label: {
                             HStack {
                                 Text("Edit Festival")
@@ -204,9 +215,11 @@ struct FestivalPage: View {
 //                }
             }
         }
-        .toolbar(.visible, for: .tabBar)
+//        .toolbar(.visible, for: .tabBar)
         .toolbarBackground(Color.white, for: .navigationBar)
         .onAppear() {
+            festivalVM.currentFestival = currentFestival
+            
             let artistList = festivalVM.checkSettings(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
             
             let genres = festivalVM.sortGenre(currList: artistList)
@@ -215,6 +228,13 @@ struct FestivalPage: View {
             dayDict = festivalVM.sortDay(currList: artistList, secondWeekend: currentFestival.secondWeekend)
             stageDict = festivalVM.sortStage(currList: artistList)
             tierDict = festivalVM.sortTier(currList: artistList)
+            
+            festivalSettingsWeekendText = festivalVM.attendingWeekendString(currentFestival: currentFestival)
+            festivalSettingsDayText = festivalVM.attendingDaysString(currentFestival: currentFestival)
+            
+            withAnimation {
+                showSettingsBar = (!festivalSettingsWeekendText.isEmpty || !festivalSettingsDayText.isEmpty)
+            }
         }
 //        .onAppear() {
 //            if let festival = festivalVM.currentFestival {
@@ -235,12 +255,17 @@ struct FestivalPage: View {
 //        festivalVM.festivalStarPressed(festival: currentFestival)
 //    }
     
+    @State var festivalSettingsWeekendText = ""
+    @State var festivalSettingsDayText = ""
+    
+    @State var showSettingsBar = false
+    
     var EditingBar: some View {
         Group {
-            let festivalSettingsWeekendText = festivalVM.attendingWeekendString(currentFestival: currentFestival)
-            let festivalSettingsDayText = festivalVM.attendingDaysString(currentFestival: currentFestival)
+            
 //            if festivalVM.settings.festivalDays
-            if !festivalSettingsWeekendText.isEmpty || !festivalSettingsDayText.isEmpty {
+//            if !festivalSettingsWeekendText.isEmpty || !festivalSettingsDayText.isEmpty {
+            if showSettingsBar {
                 Button (action: {
                     navigationPath.append("Festival Settings")
                 }, label: {
@@ -256,10 +281,10 @@ struct FestivalPage: View {
 //                        Image(systemName: "chevron.right").imageScale(.medium)
                         Spacer()
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.oasisDarkPurple)
                 })
                 .padding(5)
-                .background(.blue)
+                .background(.oasisGrey)
                 .clipped()
                 .edgesIgnoringSafeArea([.leading, .trailing])
                 .contentShape(Rectangle())
@@ -520,6 +545,7 @@ struct FestivalPage: View {
     }
     
     @State var showAddFestivalToGroupSheet = false
+    @State var showNotificationAlert = false
     
     var FestivalOptionsBar: some View {
         Group {
@@ -533,77 +559,171 @@ struct FestivalPage: View {
                                 .shadow(radius: SHADOW)
                             Image(systemName: "square.and.arrow.up")
                                 .imageScale(.large)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.oasisBlue)
                                 .offset(y: -3)
                         }
                     }
                     .frame(height: LARGE_BUTTON_HEIGHT/1.3)
                 } else {
+                    Button (action: {
+                        popupMessage = "Make this festival public to share."
+                    }, label: {
+                        ZStack {
+                            Circle()
+                                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                .shadow(radius: SHADOW)
+                            Image(systemName: "square.and.arrow.up")
+                                .imageScale(.large)
+                                .foregroundStyle(.oasisBlue)
+                                .offset(y: -3)
+                        }
+                    })
+                    .frame(height: LARGE_BUTTON_HEIGHT/1.3)
+                    .opacity(0.5)
+                }
+                    
+                
+                Button (action: starPressed, label: {
                     ZStack {
                         Circle()
                             .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                             .shadow(radius: SHADOW)
-                        Image(systemName: "square.and.arrow.up")
-                            .imageScale(.large)
-                            .foregroundStyle(.blue)
-                            .offset(y: -3)
+                        Image(systemName: festivalVM.festivalIsFavorited(festivalID: currentFestival.id) ? "star.fill" : "star")
+//                            .foregroundStyle(.yellow)
+                            .foregroundStyle(.oasisLightOrange)
+                            .font(.system(size: 34))
                     }
-                    .frame(height: LARGE_BUTTON_HEIGHT/1.3)
-                    .opacity(0.5)
-                    .onTapGesture {
-                        popupMessage = "Make this festival public to share."
-                    }
-                }
-                    
-                
-                ZStack {
-                    Circle()
-                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                        .shadow(radius: SHADOW)
-                    Image(systemName: festivalVM.festivalIsFavorited(festivalID: currentFestival.id) ? "star.fill" : "star")
-                        .foregroundStyle(.yellow)
-//                        .imageScale(.large)
-                        .font(.system(size: 34))
-                        .onTapGesture() {
-//                            let _ = festivalVM.isStarNowPressed(festival: currentFestival)
-                            festivalVM.starPressed(festival: currentFestival)
-                            firestore.myUserProfile.starredFestivalsList = festivalVM.myFestivals.map { $0.id.uuidString }
-//                            festivalVM.isStarNowPressed(festival: <#T##Festival#>)
-//                            firestore.festivalStarPressed(festivalID: currentFestival.id.uuidString, currentStar: currentStar)
-                        }
-                }
+                })
                 .frame(height: LARGE_BUTTON_HEIGHT/1.05)
                 
                 
-                ZStack {
-                    Circle()
-                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                        .shadow(radius: SHADOW)
-                    Image(systemName: "person.2.badge.plus.fill")
-                        .foregroundStyle(.blue)
-                        .font(.system(size: 20))
-                        .onTapGesture() {
-                            if currentFestival.published {
-                                showAddFestivalToGroupSheet = true
-                            } else {
-                                popupMessage = "Make this festival public to add to groups."
-                            }
+                
+                
+                Button (action: {
+                    if !currentFestival.published {
+                        popupMessage = "Make this festival public to add to groups."
+                    } else if !firestore.phoneConnected {
+                        popupMessage = "Connect your phone number to create groups."
+                        popupAction = {
+                            print("Doing something")
+//                            if let selectedTab {
+                                print("selectedTab is active")
+                                selectedTab = 2
+//                            }
                         }
-                }
+                    } else {
+                        showAddFestivalToGroupSheet = true
+                    }
+                }, label: {
+                    ZStack {
+                        Circle()
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                            .shadow(radius: SHADOW)
+                        Image(systemName: "person.2.badge.plus.fill")
+                            .foregroundStyle(.oasisBlue)
+                            .font(.system(size: 20))
+                    }
+                })
                 .frame(height: LARGE_BUTTON_HEIGHT/1.3)
-                .opacity(currentFestival.published ? 1 : 0.5)
+                .opacity((currentFestival.published && firestore.phoneConnected) ? 1 : 0.5)
             }
-            .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//            .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
             .padding(5)
         }
         .padding(.top, 10)
         .sheet(isPresented: $showAddFestivalToGroupSheet) {
             AddFestivalToGroupsSheet(festival: currentFestival, showAddFestivalToGroupSheet: $showAddFestivalToGroupSheet)
         }
+        .alert("Never Miss a Festival!", isPresented: $showNotificationAlert) {
+            Button("Not Now", role: .cancel) { }
+
+            Button("Enable") {
+                requestPermissionAction()
+            }
+        } message: {
+            Text("Enable notifications to get festival reminders, see new followers, and more.")
+//            Text("Oasis can remind you one week before your saved festivals begin. You'll only receive reminders for festivals you choose to save, and you can change this anytime in Settings.")
+        }
     }
+    
+    func starPressed() {
+        let wasFavorited = festivalVM.festivalIsFavorited(festivalID: currentFestival.id)
+
+        festivalVM.starPressed(festival: currentFestival)
+        firestore.myUserProfile.starredFestivalsList = festivalVM.myFestivals.map { $0.id.uuidString }
+
+        if !wasFavorited {
+            //                            if !wasFavorited {
+            Task {
+                let status = await NotificationManager.shared.notificationStatus()
+                
+                print("statusing...")
+                switch(status) {
+                case .authorized: print("authorized")
+                case .denied: print("denied")
+                case .notDetermined: print("ND")
+                case .ephemeral: print("ephemeral")
+                case .provisional: print("provisional")
+                @unknown default: print("idk bro")
+                }
+                
+                if !NotificationManager.shared.festivalNotificationsRequested {
+                    NotificationManager.shared.festivalNotificationsRequested = true
+                    showNotificationAlert = true
+                } else if status == .notDetermined {
+                    popupAction = requestPermissionAction
+                    popupMessage = "Enable notifications to get festival reminders."
+                } else if status == .denied {
+                    popupAction = openSettingsAction
+                    popupMessage = "Enable notifications to get festival reminders."
+                } else {
+                    festivalVM.scheduleFestivalReminder(currentFestival)
+                }
+                
+                
+                
+                //                                else if status == .notDetermined || status == .denied {
+                //                                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                //                                        popupLink = url
+                //                                    }
+                //                                    popupMessage = "Enable notifications to get festival reminders"
+                //                                }
+                
+            }
+        } else {
+            removeFestivalReminder()
+        }
+    }
+    
     
     func getFestivalLink() -> String {
         "https://oasis-austinzv.web.app/share/festival/\(currentFestival.id)"
+    }
+    
+    
+    
+    func requestPermissionAction() {
+        Task {
+            let granted = await NotificationManager.shared.requestPermission()
+            if granted {
+                festivalVM.scheduleFestivalReminder(currentFestival)
+            }
+        }
+    }
+    
+    func openSettingsAction() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+    }
+    
+    
+    
+    func removeFestivalReminder() {
+        Task {
+//            defer { popupMessage = "" }
+            await NotificationManager.shared.removeFestivalReminder(festivalID: currentFestival.id)
+        }
     }
 
     
@@ -708,7 +828,8 @@ struct FestivalPage: View {
                                 .foregroundStyle(.red)
                             Spacer()
                         }
-                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                        .foregroundStyle(.oasisDarkPurple)
+//                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                     }
                     .frame(height: LARGE_BUTTON_HEIGHT)
                 }
@@ -729,7 +850,8 @@ struct FestivalPage: View {
                             .foregroundStyle(.red)
                         Spacer()
                     }
-                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                    .foregroundStyle(.oasisDarkPurple)
+//                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                 }
                 .frame(height: SMALL_BUTTON_HEIGHT)
             }
@@ -768,11 +890,25 @@ struct FestivalPage: View {
             
             let currArtistIDs = Set(currentFestival.artistList.map(\.id))
             
+//            let newFriendFavs: [UserProfile: [String]] = Dictionary(
+//                uniqueKeysWithValues: following.compactMap { user in
+//                    let fav = user.safeFavoriteArtistsList.filter {
+//                        currArtistIDs.contains($0)
+//                    }
+//                    return fav.isEmpty ? nil : (user, fav)
+//                }
+//            )
+            
             let newFriendFavs: [UserProfile: [String]] = Dictionary(
                 uniqueKeysWithValues: following.compactMap { user in
+                    guard user.safeStarredFestivalsList.contains(currentFestival.id.uuidString) else {
+                        return nil
+                    }
+
                     let fav = user.safeFavoriteArtistsList.filter {
                         currArtistIDs.contains($0)
                     }
+
                     return fav.isEmpty ? nil : (user, fav)
                 }
             )
@@ -854,17 +990,17 @@ struct FestivalPage: View {
                             Image(systemName: "chevron.down").rotationEffect(showFriendList ? Angle(degrees: 180) : Angle(degrees: 0))
                             if !showGroupList {
                                 Spacer()
-                                Text("Friends").bold()
+                                Text("Friends").bold()/*.font(.subheadline)*/
                                 Image(systemName: "person.2.fill")
                                 Spacer()
                             } else {
                                 Image(systemName: "person.2.fill")
                             }
-                            Image(systemName: "chevron.down").rotationEffect(showFriendList ? Angle(degrees: 180) : Angle(degrees: 0))
+//                            Image(systemName: "chevron.down").rotationEffect(showFriendList ? Angle(degrees: -180) : Angle(degrees: 0))
                         }
                         .padding(.horizontal, 15)
                     }
-                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
 //                    .transaction { $0.animation = nil }
                     .frame(height: SMALL_BUTTON_HEIGHT)
                     .contentShape(Rectangle())
@@ -877,7 +1013,7 @@ struct FestivalPage: View {
                             showMyPlaylists = false
                         }
                     }
-//                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
 //                    if showGroupList {
 //                        Divider().padding(.leading, 40)
 //                    }
@@ -965,10 +1101,10 @@ struct FestivalPage: View {
                         .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                        .shadow(radius: showGroupList ? 5 : 0)
                         HStack {
-                            Image(systemName: "chevron.down").rotationEffect(showGroupList ? Angle(degrees: 180) : Angle(degrees: 0))
+//                            Image(systemName: "chevron.down").rotationEffect(showGroupList ? Angle(degrees: 180) : Angle(degrees: 0))
                             if !showFriendList {
                                 Spacer()
-                                Text("Groups").bold()
+                                Text("Groups").bold()/*.font(.subheadline)*/
                                 Image(systemName: "person.3.fill")
                                 Spacer()
                             } else {
@@ -990,7 +1126,7 @@ struct FestivalPage: View {
                             showMyPlaylists = false
                         }
                     }
-                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
 //                    if showGroupList {
 ////                        Divider()
 //                        Rectangle()
@@ -1065,16 +1201,23 @@ struct FestivalPage: View {
                                 //                                .shadow(radius: showFriendList ? 5 : 0)
                                 HStack {
                                     Spacer()
-                                    SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 30)
+                                    SocialImage(imageURL: profile.profilePic, name: profile.name, id: profile.id, frame: 30)
                                     Text(profile.name)
-                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                                     Image(systemName: "chevron.right")
                                     Spacer()
                                 }
                             }
-                            
                             .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                             .buttonStyle(PlainButtonStyle())
+                            .contextMenu {
+                                Button(action: {
+                                    navigationPath.append(profile)
+                                }, label: {
+                                    Image(systemName: "person.fill")
+                                    Text("Go to Profile")
+                                })
+                            }
                             
                         }
                         if index < friendsFavs.count - 1 {
@@ -1120,16 +1263,23 @@ struct FestivalPage: View {
                                 //                                .shadow(radius: showGroupList ? 5 : 0)
                                 HStack {
                                     Spacer()
-                                    SocialImage(imageURL: groupFestFav.group.photo, name: groupFestFav.group.name, frame: 30)
+                                    SocialImage(imageURL: groupFestFav.group.photo, name: groupFestFav.group.name, id: groupFestFav.group.id ?? "No ID", frame: 30)
                                     Text(groupFestFav.group.name)
-                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                                     Image(systemName: "chevron.right")
                                     Spacer()
                                 }
                             }
-                            
                             .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                             .buttonStyle(PlainButtonStyle())
+                            .contextMenu {
+                                Button(action: {
+                                    navigationPath.append(groupFestFav.group)
+                                }, label: {
+                                    Image(systemName: "person.3.fill")
+                                    Text("Go to Group")
+                                })
+                            }
                             
                         }
                         if index < groupFavorites.count - 1 {
@@ -1148,7 +1298,7 @@ struct FestivalPage: View {
 //                .animation(.easeInOut(duration: 0.3), value: showGroupList)
             }
         }
-        .foregroundStyle(.black)
+//        .foregroundStyle(.oasisDarkPurple)
     }
     
     func closeInfoSection() {
@@ -1180,7 +1330,8 @@ struct FestivalPage: View {
                                 .imageScale(.large)
                             Spacer()
                         }
-                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                        .foregroundStyle(.oasisDarkPurple)
+//                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                     }
                 }
                 .frame(height: LARGE_BUTTON_HEIGHT)
@@ -1193,32 +1344,40 @@ struct FestivalPage: View {
     var ShuffleAllButton: some View {
         Group {
             if !festivalVM.checkSettings(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend).isEmpty {
-                //            NavigationLink(value: data.shuffleArtistNEW(currentList: currentFestival.artistList)!) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: CORNER_RADIUS)
-                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                        .shadow(radius: SHADOW)
-                    HStack{
-                        Spacer()
-                        Text("Random").bold()
-                        Image(systemName: "shuffle")
-                            .imageScale(.large)
-                        Spacer()
-                    }
-                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
-                }
-                //            }
-                .frame(height: LARGE_BUTTON_HEIGHT)
-                .padding(10)
-                .onTapGesture {
-//                    let dislikedArtists = /*tags.getDNSTArtists(currList: currentFestival.artistList)*/Set<String>()
+                Button(action: {
                     let dislikedArtists = tags.getDNSIDSet(currList: currentFestival.artistList)
                     if let randomArtist = festivalVM.shuffleArtist(currentList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend, dislikedArtists: dislikedArtists) {
                         navigationPath.append(ArtistPageStruct(artist: randomArtist, festival: currentFestival,
-                                                                       shuffleTitle: "All Artists",
-                                                                       shuffleList: currentFestival.artistList))
+                                                               shuffleTitle: "All Artists",
+                                                               shuffleList: currentFestival.artistList))
                     }
-                }
+                }, label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: CORNER_RADIUS)
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                            .shadow(radius: SHADOW)
+                        HStack{
+                            Spacer()
+                            Text("Random").bold()
+                            Image(systemName: "shuffle")
+                                .imageScale(.large)
+                            Spacer()
+                        }
+//                        .foregroundStyle(.oasisDarkPurple)
+//                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
+                    }
+                })
+                .frame(height: LARGE_BUTTON_HEIGHT)
+                .padding(10)
+//                .onTapGesture {
+////                    let dislikedArtists = /*tags.getDNSTArtists(currList: currentFestival.artistList)*/Set<String>()
+//                    let dislikedArtists = tags.getDNSIDSet(currList: currentFestival.artistList)
+//                    if let randomArtist = festivalVM.shuffleArtist(currentList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend, dislikedArtists: dislikedArtists) {
+//                        navigationPath.append(ArtistPageStruct(artist: randomArtist, festival: currentFestival,
+//                                                                       shuffleTitle: "All Artists",
+//                                                                       shuffleList: currentFestival.artistList))
+//                    }
+//                }
             }
         }
     }
@@ -1267,30 +1426,9 @@ struct FestivalPage: View {
                     if showMyTags {
                         VStack (spacing: 0) {
                             Divider()
-                            if !DNSTList.isEmpty {
-                                NavigationLink(value: ArtistListStruct(titleText: tags.DONOTSUGGESTTAG.name, festival: currentFestival, list: DNSTList)) {
-                                    ZStack {
-                                        //                                if genres.keys.sorted().last!
-                                        UnevenRoundedRectangle(topLeadingRadius: 0,
-                                                               bottomLeadingRadius: 0,
-                                                               bottomTrailingRadius: 0,
-                                                               topTrailingRadius: 0,
-                                                               style: .continuous)
-                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                                        HStack {
-                                            Spacer()
-                                            Image(systemName: tags.DONOTSUGGESTTAG.symbol)
-                                            Text(tags.DONOTSUGGESTTAG.name)
-                                            Image(systemName: "chevron.right")
-                                            Spacer()
-                                        }
-                                        .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
-                                    }
-                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
-                                    .buttonStyle(PlainButtonStyle())
-                                }
-                                if !tagDictionary.isEmpty { Divider() }
-                            }
+                            
+                            
+                            
                             
                             let sortedTags = tags.sortTags(Array(tagDictionary.keys))
                             ForEach(sortedTags, id: \.id) { tag in
@@ -1346,9 +1484,40 @@ struct FestivalPage: View {
                                     .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
                                     .buttonStyle(PlainButtonStyle())
                                 }
-                                if !finalTagBool { Divider() }
+//                                if !finalTagBool { Divider() }
+                                Divider()
                             }
+                            
+//                            Spacer().frame(height: 3)
+                            
+                            
+                            if !DNSTList.isEmpty {
+                                NavigationLink(value: ArtistListStruct(titleText: tags.DONOTSUGGESTTAG.name, festival: currentFestival, list: DNSTList)) {
+                                    ZStack {
+                                        //                                if genres.keys.sorted().last!
+                                        UnevenRoundedRectangle(topLeadingRadius: 0,
+                                                               bottomLeadingRadius: 0,
+                                                               bottomTrailingRadius: 0,
+                                                               topTrailingRadius: 0,
+                                                               style: .continuous)
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                        HStack {
+                                            Spacer()
+                                            Image(systemName: tags.DONOTSUGGESTTAG.symbol)
+                                            Text(tags.DONOTSUGGESTTAG.name)
+                                            Image(systemName: "chevron.right")
+                                            Spacer()
+                                        }
+                                        .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
+                                    }
+                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                if !tagDictionary.isEmpty { Divider() }
+                            }
+                            
                             Spacer().frame(height: 3)
+                            
                             Button {
                                 editingTag = ArtistTag()
 //                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -1414,7 +1583,7 @@ struct FestivalPage: View {
 //                })
 //            }
         }
-        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
         .compositingGroup()
         .shadow(radius: SHADOW)
         .padding(10)
@@ -1523,7 +1692,7 @@ struct FestivalPage: View {
             }
             if genreAccordian {
                 VStack (spacing: 0) {
-                    let topGenres = Array(topGenresDict.keys)
+                    let topGenres = festivalVM.getTopGenresSorted(topGenresDict)
                     if !topGenres.isEmpty {
                         Divider()
                         ForEach(topGenres, id: \.self) { genre in
@@ -1582,7 +1751,7 @@ struct FestivalPage: View {
 //                .animation(.spring(), value: genreAccordian)
             }
         }
-        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
         .shadow(radius: 0)
     }
     
@@ -1673,7 +1842,7 @@ struct FestivalPage: View {
             }
             
         }
-        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
 //        .transition(.opacity.combined(with: .move(edge: .top)))
         .shadow(radius: 0)
 //        .padding(10)
@@ -1764,7 +1933,7 @@ struct FestivalPage: View {
 //                .animation(.spring(), value: stageAccordian)
             }
         }
-        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
 //        .transition(.opacity.combined(with: .move(edge: .top)))
         .shadow(radius: 0)
 //        .padding(10)
@@ -1812,7 +1981,7 @@ struct FestivalPage: View {
                         ForEach(tiersSorted, id: \.self) { tier in
                             NavigationLink(value: ArtistListStruct(titleText: tier, festival: currentFestival, list: tierDict[tier]!)) {
                                 ZStack {
-                                    let finalCategoryBool: Bool = (tierAccordian && tier == tierDict.keys.sorted().last!)
+                                    let finalCategoryBool: Bool = (tierAccordian && tier == tiersSorted.last!)
                                     UnevenRoundedRectangle(bottomLeadingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                            bottomTrailingRadius: finalCategoryBool ? CORNER_RADIUS : 0,
                                                            style: .continuous)
@@ -1842,7 +2011,7 @@ struct FestivalPage: View {
 //                .animation(.spring(), value: tierAccordian)
             }
         }
-        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
         .shadow(radius: 0)
 //        .transition(.opacity.combined(with: .move(edge: .top)))
 //        .padding(10)
@@ -1978,7 +2147,7 @@ struct FestivalPage: View {
                             .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                         HStack {
                             Spacer()
-                            Image(systemName: "plus.circle")
+//                            Image(systemName: "plus.circle")
                             Text("Create Playlist").bold()
                             Image(.spotifyImageGreen)
                                 .resizable()
@@ -1992,7 +2161,7 @@ struct FestivalPage: View {
                 })
             }
         }
-        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
         .compositingGroup()
         .shadow(radius: SHADOW)
         .padding(10)
@@ -2042,23 +2211,14 @@ struct FestivalPage: View {
     }
     
     @State private var posterURL: URL?
+    @State var posterLoading = false
+    @State var posterError = false
     
     var PosterSection: some View {
         Group {
             if currentFestival.posterPath != nil {
                 Button {
-                    //                    .onTapGesture {
-                    firestore.loadPoster(festivalID: currentFestival.id, festivalName: currentFestival.name) { result in
-                        switch result {
-                        case .success(let url):
-                            DispatchQueue.main.async {
-                                posterURL = url
-                            }
-
-                        case .failure(let error):
-                            print(error)
-                        }
-                    }
+                    loadPoster()
                 } label: {
                     ZStack {
                         RoundedRectangle(cornerRadius: CORNER_RADIUS)
@@ -2066,50 +2226,103 @@ struct FestivalPage: View {
                             .shadow(radius: SHADOW)
                         HStack{
                             Spacer()
-                            Text("Poster").bold()
-                            Image(systemName: "list.bullet.rectangle.portrait")
-                                .imageScale(.large)
+                            if posterLoading {
+                                ProgressView()
+                            } else {
+                                Text("Poster").bold()
+                                Image(systemName: "list.bullet.rectangle.portrait")
+                                    .imageScale(.large)
+                            }
                             Spacer()
                         }
-                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                     }
                 }
+                .disabled(posterLoading)
 //                .transaction { $0.animation = nil }
                 .frame(height: SMALL_BUTTON_HEIGHT)
                 .contentShape(Rectangle())
 //                .onTapGesture {
 //                    UIApplication.shared.open(URL)
 //                }
-                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                 .padding(10)
                 .quickLookPreview($posterURL)
             }
         }
+        .alert(isPresented: $posterError) {
+            Alert(
+                title: Text("Something went wrong"),
+                message: Text("Please try again later"),
+                dismissButton: .default(Text("Ok"))
+            )
+        }
     }
+    
+    func loadPoster() {
+        posterLoading = true
+        
+        Task {
+            if let posterPath = currentFestival.posterPath,
+               let cachedURL = ImageCache.shared.cachedFileURL(
+                   for: posterPath,
+                   displayName: currentFestival.name
+               ) {
+                
+                await MainActor.run {
+                    posterURL = cachedURL
+                    posterLoading = false
+                }
+                
+                return
+            }
+            
+            // Fallback to Firebase if it wasn't cached
+            firestore.loadPoster(
+                festivalID: currentFestival.id,
+                festivalName: currentFestival.name
+            ) { result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success(let url):
+                        posterLoading = false
+                        posterURL = url
+                        
+                    case .failure(let error):
+                        posterLoading = false
+                        posterError = true
+                        print(error)
+                    }
+                }
+            }
+        }
+    }
+    
+    
     
     var WebsiteSection: some View {
         Group {
             if let urlString = currentFestival.website, let URL = URL(string: toHttpWww(urlString)) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: CORNER_RADIUS)
-                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                    .shadow(radius: SHADOW)
-                    HStack{
-                        Spacer()
-                        Text("Website").bold()
-                        Image(systemName: "network")
-                            .imageScale(.large)
-                        Spacer()
+                Button (action: {
+                    UIApplication.shared.open(URL)
+                }, label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: CORNER_RADIUS)
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                        .shadow(radius: SHADOW)
+                        HStack{
+                            Spacer()
+                            Text("Website").bold()
+                            Image(systemName: "network")
+                                .imageScale(.large)
+                            Spacer()
+                        }
+//                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                     }
-                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
-                }
-//                .transaction { $0.animation = nil }
+                })
                 .frame(height: SMALL_BUTTON_HEIGHT)
                 .contentShape(Rectangle())
-                .onTapGesture {
-                    UIApplication.shared.open(URL)
-                }
-                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
                 .padding(10)
                 
             }
@@ -2218,9 +2431,9 @@ struct AddFestivalToGroupsSheet: View {
                             ForEach(unaddedGroups.indices, id: \.self) { index in
                                 let group = unaddedGroups[index]
                                 HStack {
-                                    SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+                                    SocialImage(imageURL: group.photo, name: group.name, id: group.id ?? "No ID", frame: 50)
                                     Text(group.name)
-                                        .foregroundStyle(.black)
+//                                        .foregroundStyle(.oasisDarkPurple)
                                     Spacer()
                                     GroupMemberPhotos(memberIDs: group.members)
                                     Image(systemName: selectedGroups.contains(group.id!) ? "checkmark.square.fill" : "square")
@@ -2229,7 +2442,7 @@ struct AddFestivalToGroupsSheet: View {
                                         .padding(.leading, 20)
                                     //                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
                                     //                            Image(systemName: "chevron.right")
-                                    //                                .foregroundStyle(.black)
+                                    //                                .foregroundStyle(.oasisDarkPurple)
                                     //                        } else {
                                     //                            FollowButtonShort(profile: profile)
                                     //                        }
@@ -2300,9 +2513,9 @@ struct AddFestivalToGroupsSheet: View {
                                 ForEach(alreadyAddedGroups.indices, id: \.self) { index in
                                     let group = alreadyAddedGroups[index]
                                     HStack {
-                                        SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+                                        SocialImage(imageURL: group.photo, name: group.name, id: group.id ?? "No ID", frame: 50)
                                         Text(group.name)
-                                            .foregroundStyle(.black)
+//                                            .foregroundStyle(.oasisDarkPurple)
                                         Spacer()
                                         GroupMemberPhotos(memberIDs: group.members)
                                         //                                Image(systemName:  "checkmark.square.fill")
@@ -2311,7 +2524,7 @@ struct AddFestivalToGroupsSheet: View {
                                         //                                    .padding(.leading, 20)
                                         //                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
                                         //                            Image(systemName: "chevron.right")
-                                        //                                .foregroundStyle(.black)
+                                        //                                .foregroundStyle(.oasisDarkPurple)
                                         //                        } else {
                                         //                            FollowButtonShort(profile: profile)
                                         //                        }
@@ -2429,7 +2642,7 @@ struct NewGroupSheet: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(6)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(Color.oasisDarkPurple.opacity(0.7))
                                     .clipShape(Circle())
                             }
                             .offset(x: 6, y: -6)
@@ -2439,7 +2652,7 @@ struct NewGroupSheet: View {
                             .resizable()
                             .frame(width: 130, height: 130, alignment: .center)
                             .clipShape(Circle())
-                        Text("Upload Image").foregroundStyle(Color.black)
+                        Text("Upload Image").foregroundStyle(Color.oasisDarkPurple)
                     }
                 }
                 .shadow(radius: 4)
@@ -2554,11 +2767,12 @@ struct NewGroupSheet: View {
 
 struct MessagePopUp: View {
     let message: String
+    var action: () -> Void = {}
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 15)
-                .fill(.black)
+                .fill(.oasisDarkPurple)
                 .frame(height: 50)
                 .opacity(0.9)
 
@@ -2566,6 +2780,13 @@ struct MessagePopUp: View {
                 .foregroundStyle(.white)
         }
         .padding(10)
+        .onTapGesture {
+            action()
+            //DO FUNCTION HERE
+//            if let url = link {
+//                UIApplication.shared.open(url)
+//            }
+        }
     }
 }
 
@@ -2590,7 +2811,7 @@ struct MessagePopUp: View {
 //                            Text(group.name)
 ////                                .bold()
 ////                                .font(.title)
-//                                .foregroundStyle(.black)
+//                                .foregroundStyle(.oasisDarkPurple)
 ////                                .padding(.leading, 10)
 //                            
 ////                        }
@@ -2598,7 +2819,7 @@ struct MessagePopUp: View {
 //                        GroupMemberPhotos(memberIDs: group.members)
 ////                        if firestore.myUserProfile.safeFollowing.contains(profile.id!) {
 //                            Image(systemName: "chevron.right")
-//                                .foregroundStyle(.black)
+//                                .foregroundStyle(.oasisDarkPurple)
 ////                        } else {
 ////                            FollowButtonShort(profile: profile)
 ////                        }

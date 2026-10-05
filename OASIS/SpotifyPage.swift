@@ -24,7 +24,7 @@ struct SpotifyPage: View {
                     Text("Log In")
                         .frame(width: 100, height: 40)
                         .background(Color("Spotify Color Green"))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurple)
                         .cornerRadius(30)
                         .shadow(radius: 5)
                     

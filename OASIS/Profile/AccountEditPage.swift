@@ -173,7 +173,7 @@ struct AccountEditPage: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(6)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(Color.oasisDarkPurple.opacity(0.7))
                                     .clipShape(Circle())
                             }
                             .offset(x: 6, y: -6)
@@ -207,7 +207,7 @@ struct AccountEditPage: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(6)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(Color.oasisDarkPurple.opacity(0.7))
                                     .clipShape(Circle())
                             }
                             .offset(x: 6, y: -6)
@@ -221,7 +221,7 @@ struct AccountEditPage: View {
                                 .clipShape(Circle())
 
                             Text("Upload Image")
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(Color.oasisDarkPurple)
                         }
                     }
                 }
@@ -254,7 +254,7 @@ struct AccountEditPage: View {
 //                            .resizable()
 //                            .frame(width: 130, height: 130, alignment: .center)
 //                            .clipShape(Circle())
-//                        Text("Upload Image").foregroundStyle(Color.black)
+//                        Text("Upload Image").foregroundStyle(Color.oasisDarkPurple)
 //                    }
 //                }
 //                
@@ -270,7 +270,7 @@ struct AccountEditPage: View {
 //                            .font(.system(size: 10, weight: .bold))
 //                            .foregroundColor(.white)
 //                            .padding(6)
-//                            .background(Color.black.opacity(0.85))
+//                            .background(Color.oasisDarkPurple.opacity(0.85))
 //                            .clipShape(Circle())
 //                            .overlay(
 //                                Circle().stroke(Color.white, lineWidth: 1)

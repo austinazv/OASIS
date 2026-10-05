@@ -114,6 +114,55 @@ class ExploreViewModel: ObservableObject {
             }
     }
     
+    func getRecommendedFestivals(
+        myFavoriteArtists: [String],
+        favoritedFestivals: [String]
+    ) -> (recommended: [Festival], verified: [Festival]) {
+        
+        let favoriteArtistIDs = Set(myFavoriteArtists)
+        let favoritedFestivalIDs = Set(favoritedFestivals)
+        
+        // Calculate the number of favorite-artist matches for each festival
+        let sortedFestivals = festivals
+            .map { festival in
+                let matchCount = festival.artistList.filter {
+                    favoriteArtistIDs.contains($0.id)
+                }.count
+                
+                return (festival: festival, matchCount: matchCount)
+            }
+            .sorted {
+                $0.matchCount > $1.matchCount
+            }
+        
+        // Only verified, non-favorited festivals with at least
+        // one matching artist are eligible for recommendations.
+        let recommended = Array(
+            sortedFestivals
+                .filter { festival in
+                    festival.matchCount > 0 &&
+                    festival.festival.verified &&
+                    !favoritedFestivalIDs.contains(festival.festival.id.uuidString)
+                }
+                .prefix(3)
+                .map(\.festival)
+        )
+        
+        // Everything not recommended goes into verified.
+        let recommendedIDs = Set(recommended.map(\.id))
+        
+        let verified = festivals.filter {
+            !recommendedIDs.contains($0.id)
+        }
+        
+        return (recommended, verified)
+    }
+
+    
+    func getRecommendedFestivalsDict(upcomingFestivals: Array<Festival>, favorites: Array<String>) -> [UUID : Int] {
+        return [UUID() : 0]
+    }
+    
     func saveImageForFestival(_ image: UIImage, festivalID: UUID) -> String? {
         // Convert UUID to string
         let festivalIDString = festivalID.uuidString

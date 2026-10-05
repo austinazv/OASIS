@@ -14,16 +14,20 @@ struct MyProfile: View {
     
     @Binding var navigationPath: NavigationPath
     
+    @Binding var selectedTab: Int
+    
     var body: some View {
-        if firestore.phoneConnected {
+        if firestore.socialLoading {
+            ProgressView()
+        } else if firestore.phoneConnected {
             NavigationStack(path: $navigationPath) {
-                ProfilePage(navigationPath: $navigationPath, profile: firestore.myUserProfile)
-                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
+                ProfilePage(navigationPath: $navigationPath, profile: firestore.myUserProfile, selectedTab: $selectedTab)
+                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM, selectedTab: $selectedTab)
             }
         } else {
             NavigationStack(path: $navigationPath) {
                 SettingsHomePage(navigationPath: $navigationPath)
-                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
+                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM, selectedTab: $selectedTab)
             }
         }
     }

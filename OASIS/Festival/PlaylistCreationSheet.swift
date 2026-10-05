@@ -53,7 +53,7 @@ struct PlaylistCreationSheet: View {
             }
             .disabled(isLoading)
             if isLoading {
-                Color.black.opacity(0.2)
+                Color.oasisDarkPurple.opacity(0.2)
                     .ignoresSafeArea()
                 Group {
                     ProgressView()
@@ -173,7 +173,8 @@ struct PlaylistCreationSheet: View {
     var PlaylistNameSection: some View {
         Section(header: Text("Playlist Name")) {
             HStack {
-                let promptText = titleText == nil ? "My \(currentFestival.name) Playlist" : "My \(currentFestival.name) \(titleText!) Playlist"
+                let festNameAndYear = festivalVM.getFestiTitleWithYear(name: currentFestival.name, startDate: currentFestival.startDate)
+                let promptText = titleText == nil ? "My \(festNameAndYear) Playlist" : "My \(festNameAndYear) \(titleText!) Playlist"
                 TextField(promptText, text: $playlistName)
                     .autocapitalization(.words)
                     .textFieldStyle(PlainTextFieldStyle())
@@ -381,10 +382,14 @@ struct PlaylistCreationSheet: View {
                 playlistList.append(artistID)
             }
         }
-//        var name = self.playlistName
-//        if name == "" {
+        
+        
+        var name = self.playlistName
+        if name == "" {
+            name = titleText == nil ? "My \(currentFestival.name) Playlist" : "My \(currentFestival.name) \(titleText!) Playlist"
 //            name = "My Coachella 2025 Playlist"
-//        }
+        }
+        
         Task {
             defer {
                 self.isLoading = false
@@ -392,7 +397,7 @@ struct PlaylistCreationSheet: View {
             }
             do {
                 let result = try await spotify.createSpotifyPlaylist(
-                    playlistName: playlistName,
+                    playlistName: name,
                     artistIDs: playlistList
                 )
                 
@@ -400,7 +405,7 @@ struct PlaylistCreationSheet: View {
 //                print(result.playlistUrl ?? "No URL")
                 if let urlString = result.playlistUrl, let url = URL(string: urlString) {
                     spotify.addFestivalPlaylist(festivalID: currentFestival.id,
-                                                playlistName: playlistName,
+                                                playlistName: name,
                                                 playlistURL: url)
                     playlistURL = url
                 }

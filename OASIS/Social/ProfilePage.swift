@@ -32,11 +32,11 @@ struct ProfilePage: View {
     
     @State private var photoExpanded = false
     
+    @Binding var selectedTab: Int
+    
     var body: some View {
-//        NavigationStack(path: $navigationPath) {
-//        ScrollView {
         ZStack(alignment: photoExpanded ? .center : .topLeading) {
-            SocialImage(imageURL: profile.profilePic, name: profile.name, frame: photoExpanded ? 320 : 110)
+            SocialImage(imageURL: profile.profilePic, name: profile.name, id: profile.id, frame: photoExpanded ? 320 : 110)
                 .shadow(radius: photoExpanded ? 20 : 0)
                 .padding(.leading, photoExpanded ? 0 : 40)
                 .onTapGesture {
@@ -48,42 +48,45 @@ struct ProfilePage: View {
             VStack(spacing: 0) {
                 UserHeaderSection
                 UserInfoSection
-                if isLoading {
-                    Spacer()
-                    ProgressView()
-                        .foregroundStyle(.black)
-                    Spacer()
-                } else {
-                    
-                    ZStack {
-                        switch selectedSection {
-                        case .festivals:
-                            FestivalsView
-                                .transition(pageSlideTransition)
-                            
-                        case .followers:
-                            FollowersView
-                                .id(profile.safeFollowers.count)
-                                .transition(pageSlideTransition)
-                            
-                        case .following:
-                            FollowingView
-                                .id(profile.safeFollowing.count)
-                                .transition(pageSlideTransition)
+                ZStack {
+                    Color(.oasisBackgroundProfile)
+                        .frame(maxWidth: .infinity)
+                        .ignoresSafeArea(edges: .bottom)
+                    if isLoading {
+                        Spacer()
+                        ProgressView()
+                            .foregroundStyle(.oasisDarkPurpleUninverted)
+                        Spacer()
+                    } else {
+                        ZStack {
+                            switch selectedSection {
+                            case .festivals:
+                                FestivalsView
+                                    .transition(pageSlideTransition)
+                                
+                            case .followers:
+                                FollowersView
+                                    .id(profile.safeFollowers.count)
+                                    .transition(pageSlideTransition)
+                                
+                            case .following:
+                                FollowingView
+                                    .id(profile.safeFollowing.count)
+                                    .transition(pageSlideTransition)
+                            }
                         }
+                        .padding(.top, 4)
+                        .animation(.easeInOut(duration: 0.25), value: selectedSection)
+                        
+                        //                    FestivalsView
                     }
-                    .animation(.easeInOut(duration: 0.25), value: selectedSection)
-                    
-                    //                    FestivalsView
+//                    Spacer()
                 }
-                Spacer()
+//                .offset(y: -4)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
             }
-//        }
-//        .refreshable {
-//            print("REFRESHED")
-////            explore.fetchVerifiedFestivals()
-//        }
-            .background(Color(.white))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onAppear() {
                 Task { @MainActor in
                     isLoading = true
@@ -126,7 +129,7 @@ struct ProfilePage: View {
                                 OASISTitle(fontSize: 30, kerning: 2)
                             }
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurple)
                     }
 //                }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -196,7 +199,7 @@ struct ProfilePage: View {
                 )
             }
             if photoExpanded {
-                Color.black.opacity(0.45)
+                Color.oasisDarkPurple.opacity(0.45)
                     .ignoresSafeArea()
                     .transition(.opacity)
                     .zIndex(1)
@@ -311,7 +314,7 @@ struct ProfilePage: View {
             Spacer()
             VStack {
                 Text(profile.name)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.oasisDarkPurple)
                     .multilineTextAlignment(.center)
                     .font(Font.system(size: 25))
                 ProfileButton(profile: $profile)
@@ -338,10 +341,10 @@ struct ProfilePage: View {
         ZStack(alignment: .bottom){
             
             Rectangle()
-                .fill(Color.black.opacity(0.25))
-//                .fill(.black)
+                .fill(Color.oasisDarkPurple.opacity(0.25))
+//                .fill(.oasisDarkPurple)
                 .frame(height: 1)
-                .offset(y: -4)
+//                .offset(y: -4)
 
             HStack(spacing: 8) {
                 Button {
@@ -370,11 +373,9 @@ struct ProfilePage: View {
                 }
             }
             .frame(height: 65)
-//
-            /// The continuous line you want
-//
+            .offset(y: 5)
         }
-        .padding(.top, 5)
+//        .padding(.top, 5)
         
     }
     
@@ -439,6 +440,7 @@ struct ProfilePage: View {
     }
     
     let LIST_PADDING: CGFloat = 8
+    let EMPTY_LIST_PADDING: CGFloat = 30
     
     
     var FestivalsView: some View {
@@ -454,13 +456,24 @@ struct ProfilePage: View {
                             
                         }
                     }
-                    .foregroundStyle(.black)
+                    .padding(.top, EMPTY_LIST_PADDING)
+                    .foregroundStyle(.oasisDarkPurpleUninverted)
                     Spacer()
                 } else {
 //                    let userArtistDict = getUserArtistDict(festivals: (upcomingFestivals + attendedFestivals))
                     ScrollView {
-                        FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", largeText: true, collapsable: true, profile: profile.id == firestore.getUserID() ? nil : profile)
-                        FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true, showList: upcomingFestivals.isEmpty, profile: profile.id == firestore.getUserID() ? nil : profile)
+                        FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", largeText: true, collapsable: true, profile: profile.id == firestore.getUserID() ? nil : profile, color: .oasisBorderProfile, selectedTab: $selectedTab)
+                            .padding(.horizontal, 10)
+                        FestivalWall(navigationPath: $navigationPath,
+                                     festivalList: attendedFestivals,
+                                     title:  profile.id == firestore.getUserID() ? "My Festival Wall" : "\(profile.name)'s Festival Wall",
+                                     collapsable: true,
+                                     reversed: true,
+                                     color: .oasisBorderProfile,
+                                     selectedTab: $selectedTab
+                        )
+//                        FestivalPosterGrid(festivals: attendedFestivals, color: .oasisBorderProfile, navigationPath: $navigationPath)
+//                        FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true, showList: upcomingFestivals.isEmpty, profile: profile.id == firestore.getUserID() ? nil : profile, color: .oasisBorderProfile)
                     }
                     .padding(.top, LIST_PADDING)
                 }
@@ -496,10 +509,11 @@ struct ProfilePage: View {
                             Text("\(profile.name) is not following anyone yet.")
                         }
                     }
-                    .foregroundStyle(.black)
+                    .padding(.top, EMPTY_LIST_PADDING)
+                    .foregroundStyle(.oasisDarkPurpleUninverted)
                     Spacer()
                 } else {
-                    ProfilesListed(navigationPath: $navigationPath, profiles: following, maxHeight: 370)
+                    ProfilesListed(navigationPath: $navigationPath, profiles: following, maxHeight: 370, color: .oasisBorderProfile)
                         .padding(.top, LIST_PADDING)
                         .fixedSize(horizontal: false, vertical: true)
                     
@@ -523,12 +537,14 @@ struct ProfilePage: View {
                             Text("\(profile.name) has no followers yet.")
                         }
                     }
-                    .foregroundStyle(.black)
+                    .padding(.top, EMPTY_LIST_PADDING)
+                    .foregroundStyle(.oasisDarkPurpleUninverted)
                     Spacer()
                 } else {
-                    ProfilesListed(navigationPath: $navigationPath, profiles: followers)
+                    ProfilesListed(navigationPath: $navigationPath, profiles: followers, color: .oasisBorderProfile)
                         .padding(.top, LIST_PADDING)
                         .fixedSize(horizontal: false, vertical: true)
+                    
                 }
             }
         }
@@ -563,7 +579,7 @@ struct UserNumber: View {
             }
             .padding(.vertical, 10)
             .frame(width: width, height: 57)
-            .foregroundColor(isSelected ? .oasisDarkOrange : .black)
+            .foregroundColor(isSelected ? .oasisDarkOrange : .oasisDarkPurple)
             .background(
                 ZStack {
                     if isSelected {
@@ -571,22 +587,22 @@ struct UserNumber: View {
                         RoundedCorners(topLeft: 12, topRight: 12)
                             .fill(
                                 LinearGradient(
-                                    colors: [.gray.opacity(0.2), .white],
+                                    colors: [/*.gray.opacity(0.2)*/.white, .oasisBackgroundProfile],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
                             )
                     }/* else {*/
                     RoundedCorners(topLeft: 12, topRight: 12)
-                        .stroke(Color.black.opacity(0.25), lineWidth: 1)
+                        .stroke(Color.oasisDarkPurple.opacity(0.25), lineWidth: 1)
                     //                }
                 }
             )
             if isSelected {
                 SideStrokedRect()
-                    .stroke(Color.black.opacity(0.25), lineWidth: 1)
+                    .stroke(Color.oasisDarkPurple.opacity(0.25), lineWidth: 1)
                     .frame(width: width, height: 8)
-                    .background(.white)
+                    .background(.oasisBackgroundProfile)
                     .offset(y: -8)
             }
         }

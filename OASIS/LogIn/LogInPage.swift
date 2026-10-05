@@ -20,18 +20,22 @@ struct LogInPage: View {
     @State private var showError = false
     @State private var errorMessage = ""
     
+    @State var showNoSignInAlert = false
+    
+    var signInText: Bool = false
+    
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
                 
-                Text("Welcome to")
+                Text(signInText ? "Sign In To" : "Welcome to")
                     .font(Font.system(size: 20))
                     .padding(10)
                 OASISTitle(fontSize: 75.0)
                 
                 
                 Spacer()
-                    .frame(height: 90)
+                    .frame(height: 70)
                 
                 // Apple Sign-In Button
                 SignInWithAppleButton(.signIn) { request in
@@ -61,20 +65,45 @@ struct LogInPage: View {
                             .frame(width: 18, height: 18)
                         Text("Sign in with Google")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.black)
+                            .foregroundColor(.oasisDarkPurple)
                     }
                     .frame(maxWidth: .infinity, alignment: .center) // center the whole [logo + text]
                     .frame(height: 50)
                     .background(Color.white)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.black, lineWidth: 1)
+                            .stroke(Color.oasisDarkPurple, lineWidth: 1)
                     )
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
                 .padding()
                 .shadow(radius: 5)
+//                .alert(isPresented: $showError) {
+//                    Alert(title: Text("Login Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
+//                }
+                
+                if !signInText {
+                    Button(action: {
+                        showNoSignInAlert = true
+                    }) {
+                        HStack {
+                            Text("Continue Without Sign-In")
+                                .foregroundStyle(.oasisBlue)
+                                .underline()
+                        }
+                    }
+                    .padding(20)
+                    .alert("Continue Without Signing In?", isPresented: $showNoSignInAlert) {
+                        Button("Continue") {
+                            firestore.userWithoutSignIn = true
+                            print("continue")
+                        }
+                        Button("Cancel", role: .cancel) { }
+                    } message: {
+                        Text("You will not be able to save your favorites or preferences.")
+                    }
+                }
                 
                 Spacer()
                     .frame(height: 130)
@@ -95,9 +124,7 @@ struct LogInPage: View {
                 }
             }
         }
-        .alert(isPresented: $showError) {
-            Alert(title: Text("Login Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
-        }
+        
     }
     
     

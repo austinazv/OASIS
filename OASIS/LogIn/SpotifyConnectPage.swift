@@ -69,7 +69,7 @@ struct SpotifyConnectPage: View {
                         .frame(width: 145, height: 50, alignment: .center)
                         .overlay(
                             RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.black, lineWidth: 2) // black border
+                                .stroke(Color.oasisDarkPurple, lineWidth: 2) // black border
                         )
                         .shadow(radius: 5) // Shadow on the pressable area only
                     HStack {
@@ -79,7 +79,7 @@ struct SpotifyConnectPage: View {
                             .scaledToFit()
                             .frame(width: 30)
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(.oasisDarkPurple)
                 }
             }
         }

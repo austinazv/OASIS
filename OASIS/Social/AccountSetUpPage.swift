@@ -29,6 +29,12 @@ struct AccountSetUpPage: View {
     
     @State private var navigationPath = NavigationPath()
     
+    //Countdown & Resend State
+    @State private var timeRemaining: Int = 0
+    @State private var timer: Timer?
+    @State private var resendToken: AuthDataResult?
+    
+    var showSheet: Binding<Bool>?
 
     var body: some View {
         ZStack {
@@ -51,6 +57,7 @@ struct AccountSetUpPage: View {
                     VStack(spacing: 15) {
                         CodeTextField
                         VerifyButton
+                        ResendButton
                     }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 } else {
@@ -62,12 +69,20 @@ struct AccountSetUpPage: View {
                     }
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 }
+                if let errorMessage = errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding()
+                }
                 Spacer()
             }
             .animation(.easeInOut, value: isCodeSent) // Animate only when isCodeSent changes
             .padding()
             if isLoading {
-                Color.black.opacity(0.4)
+                Color.oasisDarkPurple.opacity(0.4)
                             .ignoresSafeArea()
                 ProgressView()
             }
@@ -86,7 +101,7 @@ struct AccountSetUpPage: View {
     
     var BackButton: some View {
         HStack {
-            Button(action: { isCodeSent = false }) {
+            Button(action: resetVerificationState) {
                 Image(systemName: "chevron.left")
                 Text("Back")
             }
@@ -99,7 +114,7 @@ struct AccountSetUpPage: View {
     
     var TitleField: some View {
         VStack {
-            Text("Find Friends on")
+            Text("Log In To")
                 .font(Font.system(size: 20))
             OASISTitle(fontSize: 65.0)
                
@@ -125,7 +140,7 @@ struct AccountSetUpPage: View {
                             .resizable()
                             .frame(width: 130, height: 130, alignment: .center)
                             .clipShape(Circle())
-                        Text("Upload Image").foregroundStyle(Color.black)
+                        Text("Upload Image").foregroundStyle(Color.oasisDarkPurple)
                     }
                 }
                 
@@ -141,7 +156,7 @@ struct AccountSetUpPage: View {
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white)
                             .padding(6)
-                            .background(Color.black.opacity(0.85))
+                            .background(Color.oasisDarkPurple.opacity(0.85))
                             .clipShape(Circle())
                             .overlay(
                                 Circle().stroke(Color.white, lineWidth: 1)
@@ -190,11 +205,11 @@ struct AccountSetUpPage: View {
                     }, alignment: .leading
                 )
                 .autocapitalization(.words)
-                .onSubmit {
-                    if allowContinue() {
-                        sendCode()
-                    }
-                }
+//                .onSubmit {
+//                    if allowContinue() {
+//                        sendCode()
+//                    }
+//                }
 //            Spacer().frame(width: 26)
         }
         .padding(.horizontal, 10)
@@ -228,11 +243,11 @@ struct AccountSetUpPage: View {
                 .onChange(of: phoneNumber) { _, newValue in
                     updatePhoneNumber(newValue)
                 }
-                .onSubmit {
-                    if allowContinue() {
-                        sendCode()
-                    }
-                }
+//                .onSubmit {
+//                    if allowContinue() {
+//                        sendCode()
+//                    }
+//                }
 //            Spacer().frame(width: 26)
         }
         .padding(.horizontal, 10)
@@ -284,14 +299,15 @@ struct AccountSetUpPage: View {
             
             
             
-            if let errorMessage = errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .padding()
-            }
+//            if let errorMessage = errorMessage {
+//                Text(errorMessage)
+//                    .foregroundStyle(.red)
+//                    .multilineTextAlignment(.center)
+//                    .padding()
+//            }
         }
-        .padding(.vertical, 30)
+        .padding(.top, 30)
+        .padding(.horizontal, 10)
     }
     
     private func allowContinue() -> Bool {
@@ -299,20 +315,25 @@ struct AccountSetUpPage: View {
     }
     
     private func sendCode() {
-        let formattedNumber = "+1" + phoneNumber.filter { $0.isNumber }
-        isLoading = true
-        
-        PhoneAuthProvider.provider().verifyPhoneNumber(formattedNumber, uiDelegate: nil) { verificationID, error in
-            isLoading = false
-            if let error = error {
-                errorMessage = "Error: \(error.localizedDescription)"
-                return
+            let formattedNumber = "+1" + phoneNumber.filter { $0.isNumber }
+            isLoading = true
+            errorMessage = nil
+            
+            PhoneAuthProvider.provider().verifyPhoneNumber(formattedNumber, uiDelegate: nil) { vID, error in
+                isLoading = false
+                if let error = error {
+                    errorMessage = "Error: \(error.localizedDescription)"
+                    return
+                }
+                
+                self.verificationID = vID
+                UserDefaults.standard.set(vID, forKey: "authVerificationID")
+                isCodeSent = true
+                
+                // Start 30-second cooldown timer
+                startResendTimer(seconds: 30)
             }
-            self.verificationID = verificationID
-            UserDefaults.standard.set(verificationID, forKey: "authVerificationID")
-            isCodeSent = true
         }
-    }
     
     @State var codeText = ""
     
@@ -353,7 +374,6 @@ struct AccountSetUpPage: View {
                 Text("Verify Code")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .keyboardType(.numbersAndPunctuation)
                     .padding()
                     .foregroundStyle(.white)
                     .background(codeText.count == 6 ? .oasisDarkBlue : Color.gray)
@@ -361,14 +381,51 @@ struct AccountSetUpPage: View {
             }
             .disabled(codeText.count != 6)
             
-            if let errorMessage = errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .padding()
+            
+        }
+        .padding(.top, 30)
+        .padding(.horizontal, 10)
+    }
+    
+    var ResendButton: some View {
+//        Text("B")
+        Button(action: resendCode) {
+            Text(timeRemaining > 0 ? "Resend code in \(timeRemaining)s" : "Resend Code")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .foregroundStyle(.white)
+                .background(timeRemaining > 0 ? .gray : .oasisDarkBlue)
+                .cornerRadius(10)
+        }
+        .padding(.horizontal, 10)
+        .disabled(timeRemaining > 0 || isLoading)
+//        .padding(.top, 10)
+    }
+    
+    private func resendCode() {
+            guard timeRemaining == 0 else { return }
+            sendCode()
+        }
+
+    private func startResendTimer(seconds: Int) {
+        timeRemaining = seconds
+        timer?.invalidate() // Stop any running timer
+        
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            if timeRemaining > 0 {
+                timeRemaining -= 1
+            } else {
+                timer?.invalidate()
             }
         }
-        .padding(.vertical, 30)
+    }
+    
+    private func resetVerificationState() {
+        timer?.invalidate()
+        timeRemaining = 0
+        isCodeSent = false
+        codeText = ""
     }
     
     
@@ -483,6 +540,80 @@ struct AccountSetUpPage: View {
 //    }
 
     
+//    private func verifyCodeAndSaveUserInfo() {
+//        guard let verificationID = UserDefaults.standard.string(forKey: "authVerificationID") else {
+//            errorMessage = "No verification ID found"
+//            return
+//        }
+//        
+//        isLoading = true
+//        
+//        // Create the phone credential
+//        let credential = PhoneAuthProvider.provider().credential(
+//            withVerificationID: verificationID,
+//            verificationCode: codeText
+//        )
+//        
+//        // Completion handler shared between linking and signing in
+//        let handleAuthResult: (AuthDataResult?, Error?) -> Void = { authResult, error in
+//            self.isLoading = false
+//            
+//            if let error = error as NSError? {
+//                if error.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
+//                    self.errorMessage = "This phone number is already linked to another account."
+//                } else {
+//                    self.errorMessage = "Verification failed: \(error.localizedDescription)"
+//                }
+//                return
+//            }
+//            
+//            guard let user = authResult?.user else {
+//                self.errorMessage = "Failed to retrieve user information."
+//                return
+//            }
+//            
+//            // Save user info to Firestore using the authenticated user
+//            self.saveUserInfo(for: user)
+//        }
+//        
+//        if let currentUser = Auth.auth().currentUser {
+//            // User is signed in via Apple/Google -> Link phone credential
+//            currentUser.link(with: credential, completion: handleAuthResult)
+//        } else {
+//            // User is not signed in -> Sign in directly with phone credential
+//            Auth.auth().signIn(with: credential, completion: handleAuthResult)
+//        }
+        
+        
+        
+        //        // ✅ Link phone credential to the currently signed-in user
+        //        guard let currentUser = Auth.auth().currentUser else {
+        //            isLoading = false
+        //            errorMessage = "No signed-in user found."
+        //            return
+        //        }
+        //
+        //        currentUser.link(with: credential) { authResult, error in
+        //            isLoading = false
+        //
+        //            if let error = error as NSError? {
+        //                // Handle already-in-use error (user might already have linked this phone to another account)
+        //                if error.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
+        //                    errorMessage = "This phone number is already linked to another account."
+        //                } else {
+        //                    errorMessage = "Verification failed: \(error.localizedDescription)"
+        //                }
+        //                return
+        //            }
+        //
+        //            // ✅ Phone linked successfully, `authResult.user.uid` is same as currentUser.uid
+        ////            print("Phone number linked successfully!")
+        //
+        //            // Step 2: Save user info to Firestore
+        //            saveUserInfo(for: currentUser)
+        //        }
+//    }
+    
     private func verifyCodeAndSaveUserInfo() {
         guard let verificationID = UserDefaults.standard.string(forKey: "authVerificationID") else {
             errorMessage = "No verification ID found"
@@ -491,37 +622,55 @@ struct AccountSetUpPage: View {
 
         isLoading = true
 
-        // Create the phone credential
         let credential = PhoneAuthProvider.provider().credential(
             withVerificationID: verificationID,
             verificationCode: codeText
         )
 
-        // ✅ Link phone credential to the currently signed-in user
-        guard let currentUser = Auth.auth().currentUser else {
-            isLoading = false
-            errorMessage = "No signed-in user found."
-            return
-        }
-
-        currentUser.link(with: credential) { authResult, error in
-            isLoading = false
+        let handleAuthResult: (AuthDataResult?, Error?) -> Void = { authResult, error in
+            self.isLoading = false
 
             if let error = error as NSError? {
-                // Handle already-in-use error (user might already have linked this phone to another account)
                 if error.code == AuthErrorCode.credentialAlreadyInUse.rawValue {
-                    errorMessage = "This phone number is already linked to another account."
+                    self.errorMessage = "This phone number is already linked to another account."
+                } else if error.code == AuthErrorCode.providerAlreadyLinked.rawValue {
+                    self.errorMessage = "Your account is already linked to a phone number."
                 } else {
-                    errorMessage = "Verification failed: \(error.localizedDescription)"
+                    self.errorMessage = "Verification failed: \(error.localizedDescription)"
                 }
                 return
             }
 
-            // ✅ Phone linked successfully, `authResult.user.uid` is same as currentUser.uid
-//            print("Phone number linked successfully!")
+            guard let user = authResult?.user else {
+                self.errorMessage = "Failed to retrieve user information."
+                return
+            }
 
-            // Step 2: Save user info to Firestore
-            saveUserInfo(for: currentUser)
+            self.saveUserInfo(for: user)
+            if showSheet != nil {
+                showSheet?.wrappedValue = false
+            }
+        }
+
+        if let currentUser = Auth.auth().currentUser {
+            // Check if current signed-in user already has a phone provider attached
+            let isPhoneAlreadyLinked = currentUser.providerData.contains { $0.providerID == PhoneAuthProviderID }
+            
+            if isPhoneAlreadyLinked {
+                // Already linked to phone -> update credential/re-authenticate or use current user
+                self.isLoading = false
+                self.saveUserInfo(for: currentUser)
+                if showSheet != nil {
+                    showSheet?.wrappedValue = false
+                }
+            } else {
+                // Link new phone credential
+                currentUser.link(with: credential, completion: handleAuthResult)
+                
+            }
+        } else {
+            // No signed-in user -> Sign in directly
+            Auth.auth().signIn(with: credential, completion: handleAuthResult)
         }
     }
 

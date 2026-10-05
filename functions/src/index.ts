@@ -11,6 +11,15 @@ import {setGlobalOptions} from "firebase-functions";
 import {onRequest} from "firebase-functions/https";
 import {defineSecret} from "firebase-functions/params";
 
+import {initializeApp} from "firebase-admin/app";
+
+initializeApp();
+
+import {onCall, HttpsError} from "firebase-functions/v2/https";
+import {getMessaging} from "firebase-admin/messaging";
+import type {Message} from "firebase-admin/messaging";
+import {getFirestore} from "firebase-admin/firestore";
+
 const spotifyClientId = defineSecret("SPOTIFY_CLIENT_ID");
 const spotifyClientSecret = defineSecret("SPOTIFY_CLIENT_SECRET");
 const spotifyRefreshToken = defineSecret("SPOTIFY_REFRESH_TOKEN");
@@ -18,6 +27,189 @@ const spotifyRefreshToken = defineSecret("SPOTIFY_REFRESH_TOKEN");
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
+
+export const testPushNotification = onCall(async (request) => {
+  // Require the caller to be signed in.
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be signed in to send a test notification."
+    );
+  }
+
+  const userID = request.auth.uid;
+
+  const userSnapshot = await getFirestore()
+    .collection("users")
+    .doc(userID)
+    .get();
+
+  if (!userSnapshot.exists) {
+    throw new HttpsError(
+      "not-found",
+      "User document not found."
+    );
+  }
+
+  const data = userSnapshot.data();
+  const fcmTokens = data?.fcmTokens;
+
+  if (!Array.isArray(fcmTokens) || fcmTokens.length === 0) {
+    throw new HttpsError(
+      "failed-precondition",
+      "No FCM tokens found for this user."
+    );
+  }
+
+  // Remove duplicates just in case.
+  const tokens = [...new Set(
+    fcmTokens.filter(
+      (token): token is string => typeof token === "string" && token.length > 0
+    )
+  )];
+
+  if (tokens.length === 0) {
+    throw new HttpsError(
+      "failed-precondition",
+      "No valid FCM tokens found."
+    );
+  }
+
+  const message = {
+    notification: {
+      title: "OASIS Test 🎵",
+      body: "Your OASIS push notifications are working!",
+    },
+    tokens,
+  };
+
+  const response = await getMessaging().sendEachForMulticast(message);
+
+  console.log(
+    `${response.successCount} succeeded ${response.failureCount} failed`
+  );
+
+  return {
+    successCount: response.successCount,
+    failureCount: response.failureCount,
+  };
+});
+
+export const sendFestivalNotification = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be signed in to send a festival notification."
+    );
+  }
+
+  const {festivalID, title, body, festivalsToNotify} = request.data;
+
+  if (
+    typeof festivalID !== "string" ||
+    typeof title !== "string" ||
+    typeof body !== "string"
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "festivalID, title, and body are required."
+    );
+  }
+
+  if (
+    !Array.isArray(festivalsToNotify) ||
+    !festivalsToNotify.every((id) => typeof id === "string")
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "festivalsToNotify must be an array of UUID strings."
+    );
+  }
+
+  // Always include the festival being announced.
+  const festivalIDs = [
+    ...new Set([
+      ...festivalsToNotify,
+      festivalID,
+    ]),
+  ];
+
+  const db = getFirestore();
+
+  // Key by user ID so each user is only processed once,
+  // even if they have multiple matching festivals.
+  const users = new Map<string, FirebaseFirestore.DocumentData>();
+
+  for (const id of festivalIDs) {
+    const snapshot = await db
+      .collection("users")
+      .where("festivalNotificationIDs", "array-contains", id)
+      .get();
+
+    for (const userDoc of snapshot.docs) {
+      users.set(userDoc.id, userDoc.data());
+    }
+  }
+
+  let successCount = 0;
+  let failureCount = 0;
+
+  /*
+   * Each user gets one notification, but a user can have
+   * multiple FCM tokens (for multiple devices).
+   */
+  const messages: Message[] = [];
+
+  for (const user of users.values()) {
+    if (!Array.isArray(user.fcmTokens)) {
+      continue;
+    }
+
+    const tokens = [
+      ...new Set(
+        user.fcmTokens.filter(
+          (token: unknown): token is string =>
+            typeof token === "string" && token.length > 0
+        )
+      ),
+    ];
+
+    for (const token of tokens) {
+      messages.push({
+        token,
+        notification: {
+          title,
+          body,
+        },
+        data: {
+          url: `https://oasis-austinzv.web.app/share/festival/${festivalID}`,
+        },
+      });
+    }
+  }
+
+  // FCM allows up to 500 messages per sendEach call.
+  for (let i = 0; i < messages.length; i += 500) {
+    const batch = messages.slice(i, i + 500);
+
+    const response = await getMessaging().sendEach(batch);
+
+    successCount += response.successCount;
+    failureCount += response.failureCount;
+  }
+
+  console.log(
+    `Festival notification: ${successCount} succeeded, ` +
+    `${failureCount} failed, ${users.size} users matched.`
+  );
+
+  return {
+    success: true,
+    usersFound: users.size,
+    notificationsSent: successCount,
+    failureCount,
+  };
+});
 
 export const testSpotifyAuth = onRequest(
   {

@@ -20,6 +20,8 @@ struct CreatePage: View {
     @State var festivalDrafts: Array<Festival> = []
 //    @State var festivalsPublished: Array<Festival>
     
+    @Binding var selectedTab: Int
+    
     var body: some View {
         VStack {
             NavigationStack(path: $navigationPath) {
@@ -29,11 +31,12 @@ struct CreatePage: View {
                             Text("Create")
                                 .font(.title)
                                 .bold()
+                                .foregroundStyle(.oasisDarkPurple)
                             Spacer()
 //                            NavigationLink(value: "New Event") {
                                 Image(systemName: "plus.circle.fill")
                                     .imageScale(.large)
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(.oasisBlue)
 //                                    .foregroundStyle(LinearGradient(gradient: Gradient(colors: [Color("OASIS Dark Orange"), Color("OASIS Light Orange"), Color("OASIS Light Blue"), Color("OASIS Dark Blue")]), startPoint: .topLeading, endPoint: .bottomTrailing))
                                     .contentShape(Rectangle())
                                     .onTapGesture {
@@ -53,17 +56,18 @@ struct CreatePage: View {
                         Divider()
                         ZStack {
 //                            Color(.oasisLightBlue)
-                            Color(red: 230/255, green: 240/255, blue: 255/255)
+                            Color(.oasisBackgroundCreate)
+//                            Color(red: 230/255, green: 240/255, blue: 255/255)
                                 .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
                             Group {
                                 if !(festivalVM.festivalDrafts.isEmpty && festivalVM.publishedFestivals.isEmpty) {
                                     ScrollView {
-                                        FestivalsListed(navigationPath: $navigationPath, festivalList: festivalVM.festivalDrafts, title: "Drafts", collapsable: true, draftView: true)
-                                        FestivalsListed(navigationPath: $navigationPath, festivalList: festivalVM.publishedFestivals, title: "Published", collapsable: true)
+                                        FestivalsListed(navigationPath: $navigationPath, festivalList: festivalVM.festivalDrafts, title: "Drafts", collapsable: true, draftView: true, color: .oasisBorderCreate, warningMessage: "Uninstalling OASIS will discard all drafts.", selectedTab: $selectedTab)
+                                        FestivalsListed(navigationPath: $navigationPath, festivalList: festivalVM.publishedFestivals, title: "Published", collapsable: true, color: .oasisBorderCreate, selectedTab: $selectedTab)
                                     }
                                 } else {
                                     VStack {
-                                        Text("No Created Festivals Yet!")
+                                        Text("No Created Festivals Yet!").foregroundStyle(.oasisDarkPurple)
                                         Button(action: {
                                             navigationPath.append("New Event")
 //                                            let newFestival = DataSet.festival()
@@ -83,7 +87,7 @@ struct CreatePage: View {
                             .padding(.top, 5)
                         }
                     }
-                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
+                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM, selectedTab: $selectedTab)
                     .onAppear() {
 //                        if let id = firestore.getUserID() {
 //                            for i in 0..<festivalVM.festivalDrafts.count {
@@ -128,9 +132,9 @@ struct CreatePage: View {
 //                }
 //            }
 //        }
-        .onAppear {
-
-        }
+//        .onAppear {
+//
+//        }
     }
     
     

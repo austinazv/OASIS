@@ -34,12 +34,14 @@ struct MyFestivalsPage: View {
             NavigationStack(path: $navigationPath) {
                 VStack(spacing: 0) {
                     // Use the composable with the same matchedGeometry ids as the loading screen
-                    OASISTitle(fontSize: 40, kerning: 10)
+//                    OASISTitle(fontSize: 40, kerning: 10)
+                    OASISTitleComposable(fontSize: 40, showSpinnerO: false)
                     .padding(.bottom, 5)
                     
                     Divider()
                     ZStack {
-                        Color(red: 245/255, green: 235/255, blue: 215/255)
+                        Color(.oasisBackgroundMyFestivals)
+//                        Color(red: 245/255, green: 235/255, blue: 215/255)
                             .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
                         Group {
                             if !festivalVM.myFestivals.isEmpty {
@@ -57,7 +59,7 @@ struct MyFestivalsPage: View {
                                             // Top Half (Empty Upcoming)
                                             VStack {
                                                 Text("No Upcoming Festivals!")
-                                                    .foregroundStyle(.black)
+                                                    .foregroundStyle(.oasisDarkPurpleUninverted)
                                                 
                                                 Button(action: {
                                                     selectedTab = 1
@@ -68,6 +70,8 @@ struct MyFestivalsPage: View {
                                                     }
                                                 }
                                                 .italic()
+                                                .bold()
+                                                .foregroundStyle(.oasisBlue)
                                                 .padding(.top, 8)
                                             }
                                             .padding(.vertical, 40)
@@ -77,13 +81,14 @@ struct MyFestivalsPage: View {
                                                 .padding(.bottom, 8)
                                             
                                             // Bottom Half (Attended)
-                                            FestivalsListed(
-                                                navigationPath: $navigationPath,
-                                                festivalList: split.attended,
-                                                title: "Attended",
-                                                collapsable: true,
-                                                showList: true,
-                                                reversed: true
+                                            FestivalWall(navigationPath: $navigationPath,
+                                                         festivalList: split.attended,
+//                                                             festivalList: festivalVM.myFestivals,
+                                                         title: "My Festival Wall",
+                                                         collapsable: true,
+                                                         reversed: true,
+                                                         color: .oasisBorderMyFestivals,
+                                                         selectedTab: $selectedTab
                                             )
                                             //                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                             Spacer()
@@ -96,7 +101,7 @@ struct MyFestivalsPage: View {
                                             // Upcoming Section
                                             if noUpcoming {
                                                 Text("No Upcoming Festivals!")
-                                                    .foregroundStyle(.black)
+                                                    .foregroundStyle(.oasisDarkPurple)
                                                     .padding(.top, 75)
                                             } else {
                                                 FestivalsListed(
@@ -104,7 +109,9 @@ struct MyFestivalsPage: View {
                                                     festivalList: split.upcoming,
                                                     title: "My Festivals",
                                                     largeText: true,
-                                                    collapsable: false
+                                                    collapsable: false,
+                                                    color: .oasisBorderMyFestivals,
+                                                    selectedTab: $selectedTab
                                                 )
                                             }
                                             
@@ -116,20 +123,32 @@ struct MyFestivalsPage: View {
                                                     Image(systemName: "chevron.right")
                                                 }
                                             }
+                                            .foregroundStyle(.oasisBlue)
+                                            .bold()
                                             .italic()
                                             .padding(8)
                                             .padding(.bottom, noUpcoming ? 75 : 0)
                                             
                                             // Attended Section
                                             if hasAttended {
-                                                FestivalsListed(
-                                                    navigationPath: $navigationPath,
-                                                    festivalList: split.attended,
-                                                    title: "Attended",
-                                                    collapsable: true,
-                                                    showList: false,
-                                                    reversed: true
+                                                FestivalWall(navigationPath: $navigationPath,
+                                                             festivalList: split.attended,
+//                                                             festivalList: festivalVM.myFestivals,
+                                                             title: "My Festival Wall",
+                                                             collapsable: true,
+                                                             reversed: true,
+                                                             color: .oasisBorderMyFestivals,
+                                                             selectedTab: $selectedTab
                                                 )
+                                                //                                                FestivalsListed(
+                                                //                                                    navigationPath: $navigationPath,
+                                                //                                                    festivalList: split.attended,
+                                                //                                                    title: "Attended",
+                                                //                                                    collapsable: true,
+                                                //                                                    showList: false,
+                                                //                                                    reversed: true,
+                                                //                                                    color: .oasisBorderMyFestivals
+                                                //                                                )
                                                 .padding(.top, 5)
                                             }
                                         }
@@ -140,7 +159,7 @@ struct MyFestivalsPage: View {
                                 VStack {
 //                                    if split.a
                                     Text("No Saved Festivals Yet!")
-                                        .foregroundStyle(.black)
+                                        .foregroundStyle(.oasisDarkPurple)
                                     Button(action: {
                                         selectedTab = 1
                                     }) {
@@ -150,13 +169,15 @@ struct MyFestivalsPage: View {
                                         }
                                     }
                                     .italic()
+                                    .bold()
+                                    .foregroundStyle(.oasisBlue)
                                     .padding(8)
                                 }
                             }
                         }
                         .padding(.top, 10)
                     }
-                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
+                    .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM, selectedTab: $selectedTab)
                 }
             }
         }
@@ -291,6 +312,16 @@ struct MyFestivalsPage: View {
 //        var groupInfoToPopup: [UUID : [Artist]]?
         var socialGroup: SocialGroup?
         
+        var color: Color = Color.oasisLightBlue
+        
+        var warningMessage: String?
+        
+        var dontSort: Bool = false
+        
+        var showStar: Bool = false
+        
+//        var selectedTab: Binding<Int>?
+        @Binding var selectedTab: Int
         
         var body: some View {
             ZStack {
@@ -300,6 +331,7 @@ struct MyFestivalsPage: View {
                             Text(title)
                                 .padding(10)
                                 .font(largeText ? .title3 : .body)
+                                
                             if collapsable {
                                 Image(systemName: "chevron.down").rotationEffect(showList ? Angle(degrees: -180) : Angle(degrees: 0))
 //                                Image(systemName: showList ? "chevron.up" : "chevron.down")
@@ -307,7 +339,7 @@ struct MyFestivalsPage: View {
                             Spacer()
                         }
                         .padding(.leading, 2)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
                         .bold()
                         .onTapGesture {
                             if collapsable {
@@ -317,75 +349,97 @@ struct MyFestivalsPage: View {
                             }
                         }
                         if showList {
-                            VStack {
-                                let sortedList = sortFestivals(festivalList, reversed: reversed)
-                                ForEach(sortedList) { festival in
-                                    //                                NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView)) {
-                                    //                                NavigationLink(value: festival) {
-                                    HStack {
-                                        VStack(alignment: .leading) {
-                                            HStack {
-                                                FestivalLogoView(
-                                                    logoPath: festival.logoPath,
-                                                    title: festival.name,
-                                                    frame: 40.0
-                                                )
-                                                if festival.verified {
-                                                    Image(systemName: "checkmark.seal.fill")
-                                                        .foregroundStyle(.blue)
-                                                }
-                                            }
-                                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(spacing: 8) {
+                                VStack {
+                                    let sortedList = sortFestivals(festivalList, reversed: reversed)
+                                    ForEach(sortedList) { festival in
+                                        //                                NavigationLink(value: FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView)) {
+                                        //                                NavigationLink(value: festival) {
+                                        HStack {
+                                            VStack(alignment: .leading) {
                                                 HStack {
-                                                    Image(systemName: "calendar")
-                                                    Text(festivalVM.getDates(startDate: festival.startDate, endDate: festival.endDate))
-                                                    
-                                                    if festival.secondWeekend {
-                                                        Text(" | ")
-                                                        Text(festivalVM.getSecondWeekendText(startDate: festival.startDate, endDate: festival.endDate))
+                                                    FestivalLogoView(
+                                                        logoPath: festival.logoPath,
+                                                        title: festival.name,
+                                                        frame: 40.0
+                                                    )
+                                                    if festival.verified {
+                                                        Image(systemName: "checkmark.seal.fill")
+                                                        //                                                        .foregroundStyle(.blue)
+                                                            .foregroundStyle(.oasisBlue)
                                                     }
-                                                    Text("(\(festival.startDate.formatted(.dateTime.year())))")
                                                 }
-                                                if let festivalLocation = festival.location {
+                                                VStack(alignment: .leading, spacing: 2) {
                                                     HStack {
-                                                        Image(systemName: "map")
-                                                        Text(festivalLocation)
+                                                        Image(systemName: "calendar")
+                                                        Text(festivalVM.getDates(startDate: festival.startDate, endDate: festival.endDate))
+                                                        
+                                                        if festival.secondWeekend {
+                                                            Text(" | ")
+                                                            Text(festivalVM.getSecondWeekendText(startDate: festival.startDate, endDate: festival.endDate))
+                                                        }
+                                                        Text("(\(festival.startDate.formatted(.dateTime.year())))")
                                                     }
+                                                    if let festivalLocation = festival.location {
+                                                        HStack {
+                                                            Image(systemName: "map")
+                                                            Text(festivalLocation)
+                                                        }
+                                                    }
+                                                }
+                                                .foregroundStyle(.gray)
+                                                .font(.subheadline)
+                                            }
+                                            .padding(.vertical, 10)
+                                            Spacer()
+                                            if showStar {
+                                                if festivalVM.festivalIsFavorited(festivalID: festival.id) {
+                                                    Image(systemName: "star.fill")
+                                                        .foregroundStyle(.oasisLightOrange)
+                                                        .font(.system(size: 25))
                                                 }
                                             }
-                                            .foregroundStyle(.gray)
-                                            .font(.subheadline)
+                                            Image(systemName: "chevron.right")
                                         }
-                                        .padding(.vertical, 10)
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                    }
-                                    .contentShape(Rectangle())
-                                    .padding(.horizontal, 10)
-                                    .onTapGesture() {
-                                        if profile != nil || socialGroup != nil {
-                                            selectedFestival = festival
-                                            
-                                        } else if draftView {
-                                            navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView))
-                                        } else {
-                                            festivalVM.currentFestival = festival
-                                            navigationPath.append(festival)
+                                        .contentShape(Rectangle())
+                                        .padding(.horizontal, 10)
+                                        .onTapGesture() {
+                                            if profile != nil || socialGroup != nil {
+                                                selectedFestival = festival
+                                            } else if draftView {
+                                                navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: festival, draftView: draftView, selectedTab: $selectedTab))
+                                            } else {
+                                                festivalVM.currentFestival = festival
+                                                navigationPath.append(festival)
+                                            }
                                         }
+                                        
+                                        //                                }
+                                        Divider()
+                                            .foregroundStyle(.bwColorSwitch)
                                     }
                                     
-                                    //                                }
-                                    Divider()
-                                        .foregroundStyle(.bwColorSwitch)
                                 }
-                                
+                                .background(Color.bwColorSwitchReverse)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(color, lineWidth: 2)
+                                    //                                    .stroke(Color.gray, lineWidth: 2)
+                                )
+                                if let string = warningMessage {
+                                    HStack {
+//                                        Spacer()
+                                        Image(systemName: "exclamationmark.triangle")
+                                        Text(string)
+                                        Spacer()
+                                    }
+                                    //                                .padding(.horizontal, 12)
+                                    .font(.footnote)
+                                    .foregroundStyle(.oasisDarkGrey)
+                                    .padding(.horizontal, 4)
+                                }
                             }
-                            .background(Color.bwColorSwitchReverse)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.gray, lineWidth: 2)
-                            )
                             .padding([.leading, .trailing, .bottom], 10)
                             
                         }
@@ -566,11 +620,14 @@ struct MyFestivalsPage: View {
                                     //                                    .foregroundStyle(.blue)
                                 }
                             }
-                            .withAppNavigationDestinations(navigationPath: $newNavigationPath, festivalVM: festivalVM)
+                            .withAppNavigationDestinations(navigationPath: $newNavigationPath, festivalVM: festivalVM, selectedTab: $selectedTab)
                         }
                     }
                 }
             }
+//            .onAppear() {
+//                print("FESTIVALS LISTED: \(selectedTab?.wrappedValue)")
+//            }
             
         }
         
@@ -584,6 +641,7 @@ struct MyFestivalsPage: View {
     //    }
         
         func sortFestivals(_ festivalList: Array<Festival>, reversed: Bool) -> Array<Festival> {
+            if dontSort { return festivalList }
             var sortedFestivals = festivalList.sorted {
                 if $0.startDate == $1.startDate {
                     if $0.endDate == $1.endDate {
@@ -601,133 +659,211 @@ struct MyFestivalsPage: View {
         
     }
 
-struct FestivalLogoView: View {
-    let logoPath: String?
-    let title: String
-    let frame: CGFloat
-    @State private var image: UIImage?
+
+struct SelectedFestivals: View {
+    @EnvironmentObject var festivalVM: FestivalViewModel
+    
+    var festivalList: Array<Festival>
+    @Binding var selectedFestivals: Set<UUID>
+    var title: String
+    
+    var fontSize: CGFloat
+    
+    var isLoading: Bool
     
     var body: some View {
-        Group {
-            if let image = image {
-                InvertInDarkModeImage(image: image, frame: frame)
-                //            Image(uiImage: image)
-                //                .resizable()
-                ////                .aspectRatio(contentMode: .fit)
-                //                .scaledToFit()
-                //                .frame(maxHeight: frame, alignment: .center)
-            } else {
-                Text(title)
-                    .font(.title)
-                    .frame(height: frame)
-                    .foregroundStyle(.bwColorSwitch)
-//                    .onAppear {
-//                        loadImage()
-//                    }
-            }
-        }
-        .onAppear {
-            loadImage()
-        }
-        .onChange(of: logoPath) {
-            image = nil
-            loadImage()
-        }
-    }
-    
-    private func loadImage() {
-        guard let path = logoPath else { return }
-
-        // 1️⃣ Check cache first
-        if let cached = ImageCache.shared.getCachedImage(for: path) {
-            self.image = cached
-            return
-        }
-
-        let url: URL
-
-        // 2️⃣ Determine if remote or local
-        if path.hasPrefix("http://") ||
-           path.hasPrefix("https://") ||
-           path.hasPrefix("gs://") {
-
-            // Remote (Firebase / web)
-            guard let remoteURL = URL(string: path) else { return }
-            url = remoteURL
-
-        } else {
-
-            // Local file (relative path stored)
-            let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            url = documentsURL.appendingPathComponent(path)
-        }
-
-        // 3️⃣ Load local file directly
-        if url.isFileURL {
-            if let data = try? Data(contentsOf: url),
-               let img = UIImage(data: data) {
-
-                ImageCache.shared.cacheImage(data, for: path)
-
-                DispatchQueue.main.async {
-                    self.image = img
+        VStack {
+            if !festivalList.isEmpty || isLoading {
+                VStack(spacing: 4) {
+                    HStack {
+                        Text(title)
+                            .font(.system(size: fontSize))
+                            .bold()
+                        Spacer()
+                        Image(systemName: festivalList.count == selectedFestivals.count ? "checkmark.square.fill" : "square")
+                            .imageScale(.large)
+                            .foregroundColor(.oasisDarkOrange)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if festivalList.count == selectedFestivals.count {
+                                    selectedFestivals.removeAll()
+                                } else {
+                                    selectedFestivals.formUnion(festivalList.map { $0.id })
+                                }
+                            }
+                    }
+                    .padding(.horizontal, 4)
+                    
+                    VStack(spacing: 0) {
+                        if !isLoading {
+                            ForEach(Array(festivalList.enumerated()), id: \.element.id) { index, festival in
+                                //                                let festival = unconnectedFestivals[index]
+                                HStack {
+                                    VStack(alignment: .leading) {
+                                        FestivalLogoView(logoPath: festival.logoPath, title: festival.name, frame: 35.0)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack {
+                                                Image(systemName: "calendar")
+                                                Text(festivalVM.getDates(startDate: festival.startDate, endDate: festival.endDate))
+                                                
+                                                if festival.secondWeekend {
+                                                    Text(" | ")
+                                                    Text(festivalVM.getSecondWeekendText(startDate: festival.startDate, endDate: festival.endDate))
+                                                }
+                                                Text("(\(festival.startDate.formatted(.dateTime.year())))")
+                                            }
+                                            if let festivalLocation = festival.location {
+                                                HStack {
+                                                    Image(systemName: "map")
+                                                    Text(festivalLocation)
+                                                }
+                                            }
+                                        }
+                                        .foregroundStyle(.gray)
+                                        .font(.subheadline)
+                                    }
+                                    //                                    SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+                                    //                                    Text(festival.name)
+                                    //                                        .foregroundStyle(.oasisDarkPurple)
+                                    Spacer()
+                                    //                                    GroupMemberPhotos(memberIDs: group.members)
+                                    //                                Text(festival.startDate.formatted(.dateTime.year()))
+                                    //                                    .foregroundStyle(.gray)
+                                    //                                    .font(.subheadline)
+                                    //                                Text(festivalVM.getDates(startDate: festival.startDate, endDate: festival.endDate))
+                                    Image(systemName: selectedFestivals.contains(festival.id) ? "checkmark.square.fill" : "square")
+                                        .foregroundColor(.oasisLightOrange)
+                                        .imageScale(.large)
+                                        .padding(.leading, 20)
+                                    
+                                    
+                                }
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                                .padding(.horizontal, 10)
+                                .onTapGesture {
+                                    if selectedFestivals.contains(festival.id) {
+                                        selectedFestivals.remove(festival.id)
+                                    } else {
+                                        selectedFestivals.insert(festival.id)
+                                    }
+                                }
+                                if index < festivalList.count - 1 {
+                                    Divider()
+                                }
+                            }
+                        } else {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                        }
+                    }
+                    .background(Color.bwColorSwitchReverse)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.gray, lineWidth: 2)
+                    )
+                    
+                    .padding(.top, 2)
                 }
+                .padding(.horizontal, 10)
             }
-            return
         }
-
-        // 4️⃣ Load remote image
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            guard let data = data,
-                  let img = UIImage(data: data) else { return }
-
-            ImageCache.shared.cacheImage(data, for: path)
-
-            DispatchQueue.main.async {
-                self.image = img
-            }
-        }.resume()
     }
-
 }
 
-struct InvertInDarkModeImage: View {
-    let image: UIImage
-    let frame: CGFloat
+//struct FestivalLogoView: View {
+//    let logoPath: String?
+//    let title: String
+//    let frame: CGFloat
+//    @State private var image: UIImage?
+//    
+//    var body: some View {
+//        Group {
+//            if let image = image {
+//                InvertInDarkModeImage(image: image, frame: frame)
+//                //            Image(uiImage: image)
+//                //                .resizable()
+//                ////                .aspectRatio(contentMode: .fit)
+//                //                .scaledToFit()
+//                //                .frame(maxHeight: frame, alignment: .center)
+//            } else {
+//                Text(title)
+//                    .font(.title)
+//                    .frame(height: frame)
+//                    .foregroundStyle(.bwColorSwitch)
+////                    .onAppear {
+////                        loadImage()
+////                    }
+//            }
+//        }
+//        .onAppear {
+//            loadImage()
+//        }
+//        .onChange(of: logoPath) {
+//            image = nil
+//            loadImage()
+//        }
+//    }
+//    
+//    private func loadImage() {
+//        guard let path = logoPath else { return }
+//
+//        // 1️⃣ Check cache first
+//        if let cached = ImageCache.shared.getCachedImage(for: path) {
+//            self.image = cached
+//            return
+//        }
+//
+//        let url: URL
+//
+//        // 2️⃣ Determine if remote or local
+//        if path.hasPrefix("http://") ||
+//           path.hasPrefix("https://") ||
+//           path.hasPrefix("gs://") {
+//
+//            // Remote (Firebase / web)
+//            guard let remoteURL = URL(string: path) else { return }
+//            url = remoteURL
+//
+//        } else {
+//
+//            // Local file (relative path stored)
+//            let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+//            url = documentsURL.appendingPathComponent(path)
+//        }
+//
+//        // 3️⃣ Load local file directly
+//        if url.isFileURL {
+//            if let data = try? Data(contentsOf: url),
+//               let img = UIImage(data: data) {
+//
+//                ImageCache.shared.cacheImage(data, for: path)
+//
+//                DispatchQueue.main.async {
+//                    self.image = img
+//                }
+//            }
+//            return
+//        }
+//
+//        // 4️⃣ Load remote image
+//        URLSession.shared.dataTask(with: url) { data, _, _ in
+//            guard let data = data,
+//                  let img = UIImage(data: data) else { return }
+//
+//            ImageCache.shared.cacheImage(data, for: path)
+//
+//            DispatchQueue.main.async {
+//                self.image = img
+//            }
+//        }.resume()
+//    }
+//
+//}
 
-    @Environment(\.colorScheme) var colorScheme
 
-    var body: some View {
-        Image(uiImage: processedImage)
-            .resizable()
-            .scaledToFit()
-            .frame(maxHeight: frame, alignment: .center)
-    }
-
-    private var processedImage: UIImage {
-        if colorScheme == .dark {
-            return invertImage(image) ?? image
-        } else {
-            return image
-        }
-    }
-    
-    func invertImage(_ image: UIImage) -> UIImage? {
-        guard let ciImage = CIImage(image: image) else { return nil }
-
-        let filter = CIFilter.colorInvert()
-        filter.inputImage = ciImage
-
-        guard let outputImage = filter.outputImage else { return nil }
-
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
-            return nil
-        }
-
-        return UIImage(cgImage: cgImage)
-    }
-}
 
 
 

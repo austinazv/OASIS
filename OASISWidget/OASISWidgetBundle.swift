@@ -12,7 +12,7 @@ import SwiftUI
 struct OASISWidgetBundle: WidgetBundle {
     var body: some Widget {
         OASISWidget()
-        OASISWidgetControl()
+//        OASISWidgetControl()
         OASISWidgetLiveActivity()
     }
 }

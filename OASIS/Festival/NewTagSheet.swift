@@ -18,6 +18,7 @@ struct NewTagSheet: View {
     @Binding var binding: ArtistTag?
     
     let currentFestival: Festival
+    var currentArtist: Artist?
     
     @Binding var selectedTags: Set<UUID>
     
@@ -69,7 +70,7 @@ struct NewTagSheet: View {
                 .navigationDestination(for: String.self) { value in
                     switch value {
                     default:
-                        AddArtistsToTagSheet(navigationPath: $navigationPath, currentFestival: currentFestival, currentTag: editingTag, binding: $binding)
+                        AddArtistsToTagSheet(navigationPath: $navigationPath, currentFestival: currentFestival, currentArtist: currentArtist, currentTag: editingTag, binding: $binding, selectedTags: $selectedTags)
                     }
                 }
             }
@@ -287,7 +288,7 @@ struct NewTagSheet: View {
                     .frame(height: 65)
                     .background(
                         Capsule()
-                            .stroke(.black, lineWidth: 2)
+                            .stroke(.oasisDarkPurple, lineWidth: 2)
                     )
                     
                     Spacer()
@@ -297,7 +298,7 @@ struct NewTagSheet: View {
                 if showSymbolPicker {
                     
                     // dismiss layer
-                    //                    Color.black.opacity(0.001)
+                    //                    Color.oasisDarkPurple.opacity(0.001)
                     //                        .ignoresSafeArea()
                     //                        .onTapGesture {
                     //                            withAnimation(.spring()) {
@@ -318,14 +319,14 @@ struct NewTagSheet: View {
                             } label: {
                                 Image(systemName: symbol)
                                     .font(.system(size: 20))
-                                    .foregroundStyle(editingTag.symbol == symbol ? .blue : .black)
+                                    .foregroundStyle(editingTag.symbol == symbol ? .blue : .oasisDarkPurpleUninverted)
                                     .frame(width: SYMBOLGRIDSIZE, height: SYMBOLGRIDSIZE)
                             }
                             .buttonStyle(.plain)
                             .background(Color.white)
                             .overlay(
                                 Rectangle()
-                                    .stroke(.black, lineWidth: 1)
+                                    .stroke(.oasisDarkPurple, lineWidth: 1)
                             )
                         }
                     }
@@ -333,7 +334,7 @@ struct NewTagSheet: View {
                     .background(Color.white)
                     //                        .overlay(
                     //                            Rectangle()
-                    //                                .stroke(.black, lineWidth: 2)
+                    //                                .stroke(.oasisDarkPurple, lineWidth: 2)
                     //                        )
                     .position(
                         x: 175,
@@ -344,7 +345,7 @@ struct NewTagSheet: View {
                 } else if showColorPicker {
                     
                     // dismiss layer
-                    //                    Color.black.opacity(0.001)
+                    //                    Color.oasisDarkPurple.opacity(0.001)
                     //                        .ignoresSafeArea()
                     //                        .onTapGesture {
                     //                            withAnimation(.spring()) {
@@ -365,7 +366,7 @@ struct NewTagSheet: View {
                             } label: {
                                 if index == editingTag.color {
                                     Circle()
-                                        .stroke(Color.black, lineWidth: 2)
+                                        .stroke(Color.oasisDarkPurpleUninverted, lineWidth: 2)
                                         .frame(width: 30, height: 30)
                                         .overlay(
                                             Circle()
@@ -380,14 +381,14 @@ struct NewTagSheet: View {
                                 
                                 //                                Image(systemName: symbol)
                                 //                                    .font(.system(size: 20))
-                                //                                    .foregroundStyle(selectedSymbol == symbol ? .blue : .black)
+                                //                                    .foregroundStyle(selectedSymbol == symbol ? .blue : .oasisDarkPurple)
                                 //                                    .frame(width: SYMBOLGRIDSIZE, height: SYMBOLGRIDSIZE)
                             }
                             .buttonStyle(.plain)
                             .background(Color.white)
                             //                            .overlay(
                             //                                Rectangle()
-                            //                                    .stroke(.black, lineWidth: 1)
+                            //                                    .stroke(.oasisDarkPurple, lineWidth: 1)
                             //                            )
                         }
                     }
@@ -396,7 +397,7 @@ struct NewTagSheet: View {
                     .background(Color.white)
                     .overlay(
                         Rectangle()
-                            .stroke(.black, lineWidth: 2)
+                            .stroke(.oasisDarkPurple, lineWidth: 2)
                         
                     )
                     .position(
@@ -440,6 +441,7 @@ struct AddArtistsToTagSheet: View {
     @Binding var navigationPath: NavigationPath
     
     let currentFestival: Festival
+    var currentArtist: Artist?
     
     @State var artistDict: [String : Array<Artist>] = [:]
 //    @State var viewSubsection = Array<Bool>()
@@ -467,6 +469,8 @@ struct AddArtistsToTagSheet: View {
 //    @Environment(\.dismiss) private var dismiss
     var currentTag: ArtistTag
     @Binding var binding: ArtistTag?
+    
+    @Binding var selectedTags: Set<UUID>
     
     var body: some View {
         Group {
@@ -558,6 +562,7 @@ struct AddArtistsToTagSheet: View {
                             Button {
                                 tags.addTag(tag: currentTag, festivalID: currentFestival.id)
                                 tags.addArtistsToTag(tagID: currentTag.id, artistIDs: selectedArtists)
+                                selectedTags.insert(currentTag.id)
 //                                dismiss()
                                 binding = nil
                             } label: {
@@ -716,6 +721,9 @@ struct AddArtistsToTagSheet: View {
 //            sectionBools[key] = false
             showSections[key]  = true
             selectedArtists = Set<String>()
+            if let currentArtist {
+                selectedArtists.insert(currentArtist.id)
+            }
 //            for artist in list {
 //                artistBools[artist.id] = false
 //            }

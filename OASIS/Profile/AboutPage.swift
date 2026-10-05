@@ -26,6 +26,10 @@ struct AboutPage: View {
                 AboutMe
                 ContactMeOptions
                 PrivacyPolicySection
+                Text("OASIS Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"))")
+                    .padding(.bottom)
+                    .italic()
+                    .foregroundStyle(.oasisDarkPurpleUninverted)
             }
         }
     }
@@ -38,7 +42,7 @@ struct AboutPage: View {
             .clipShape(Circle())
             .overlay(
                 Circle()
-                    .stroke(.black, lineWidth: 2) // change color and width as needed
+                    .stroke(.oasisDarkPurpleUninverted, lineWidth: 2) // change color and width as needed
             )
             .shadow(radius: SHADOW)
     }
@@ -48,10 +52,10 @@ struct AboutPage: View {
             .multilineTextAlignment(.center)
             .padding()
             .font(.callout)
-            .foregroundStyle(.black)
+            .foregroundStyle(.oasisDarkPurpleUninverted)
     }
     
-    let aboutMeText = "Hello & welcome to OASIS!\nMy name is Austin Zambito-Valente, and I am the sole developer of OASIS. I started creating OASIS as a personal way to discover new artists and new events around me, but it blossomed to become the best way to connect with friends and community before and during music festivals. Please feel free to reach out with any questions, comments, bugs, or collaboration requests.\nMost importantly, enjoy OASIS!"
+    let aboutMeText = "Hello & welcome to OASIS!\nMy name is Austin Zambito-Valente, and I am the sole developer of OASIS. I started creating this app as a personal way to discover new artists and new events around me, but it blossomed to become the best way to connect with friends and community before and during music festivals. Please feel free to reach out with any questions, comments, bugs, or collaboration requests.\nMost importantly, enjoy OASIS!"
     
     var ContactMeOptions: some View {
         Group {
@@ -77,7 +81,7 @@ struct AboutPage: View {
                         .foregroundStyle(.white)
                         .shadow(radius: SHADOW)
                     Image(systemName: "envelope")
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
                         .font(.system(size: 34))
                         .onTapGesture() {
                             if let url = URL(string: "mailto:oasis.festivals.info@gmail.com") {
@@ -92,7 +96,7 @@ struct AboutPage: View {
                         .foregroundStyle(.white)
                         .shadow(radius: SHADOW)
                     Image(systemName: "network")
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
                         .font(.system(size: 24))
                         .onTapGesture() {
                             if let url = URL(string: "https://www.austinzv.com/") {
@@ -114,7 +118,7 @@ struct AboutPage: View {
 //            if let urlString = currentFestival.website, let URL = URL(string: toHttpWww(urlString)) {
                 ZStack {
                     RoundedRectangle(cornerRadius: CORNER_RADIUS)
-                        .foregroundStyle(Color("BW Color Switch Reverse"))
+                        .foregroundStyle(.white)
                         .shadow(radius: SHADOW)
                     HStack{
 //                        Spacer()
@@ -125,7 +129,7 @@ struct AboutPage: View {
 //                        Spacer()
                     }
                     .padding(.horizontal, 20)
-                    .foregroundStyle(.bwColorSwitch)
+                    .foregroundStyle(.oasisDarkPurpleUninverted)
                 }
                 .frame(height: SMALL_BUTTON_HEIGHT)
                 .contentShape(Rectangle())

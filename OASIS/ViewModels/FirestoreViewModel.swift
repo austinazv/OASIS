@@ -14,13 +14,15 @@ import Firebase
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
-//import FirebaseFunctions
+import FirebaseFunctions
 import CryptoKit
 
 class FirestoreViewModel: ObservableObject {
     @Published var isLoggedIn: Bool = false
     @Published var hasAcctName: Bool = false
     @Published var phoneConnected: Bool = false
+    
+    @Published var userWithoutSignIn: Bool = false
     
     @Published var myUserProfile = UserProfile() {
         didSet {
@@ -289,8 +291,10 @@ class FirestoreViewModel: ObservableObject {
 
             return user
         }
-
-        userFetchTasks[id] = task
+        
+        if userFetchTasks[id] != nil {
+            userFetchTasks[id] = task
+        }
 
         defer { userFetchTasks[id] = nil }
 
@@ -1035,7 +1039,7 @@ class FirestoreViewModel: ObservableObject {
         do {
             // Fetch current user data
             let snapshot = try await userRef.getDocument()
-            let oldURL = snapshot.data()?["profileImageURL"] as? String
+            let oldURL = snapshot.data()?["profilePic"] as? String
             
             // CASE 1:
             // No new photo + no delete → just update name
@@ -1053,9 +1057,10 @@ class FirestoreViewModel: ObservableObject {
             // No new photo + did delete → delete old (if exists), clear URL
             if newPhoto == nil && didDeletePhoto {
                 
-                if let oldURL = oldURL {
-                    _ = await deleteImageAsync(imageURL: oldURL)
-                }
+                if let oldURL = oldURL,
+                      oldURL.contains("firebasestorage.googleapis.com") {
+                       _ = await deleteImageAsync(imageURL: oldURL)
+                   }
                 
                 try await userRef.updateData([
                     "name": name,
@@ -1076,7 +1081,8 @@ class FirestoreViewModel: ObservableObject {
                     return false
                 }
                 
-                if let oldURL = oldURL {
+                if let oldURL = oldURL,
+                   oldURL.contains("firebasestorage.googleapis.com") {
                     _ = await deleteImageAsync(imageURL: oldURL)
                 }
                 
@@ -1149,7 +1155,9 @@ class FirestoreViewModel: ObservableObject {
         cancelPreviousUpload()
         
         // Start the new upload task
-        isUploading = true
+        DispatchQueue.main.async {
+            self.isUploading = true
+        }
         currentUploadTask = imageRef.putData(imageData, metadata: nil) { metadata, error in
             if let error = error {
                 //print("Error uploading image: \(error.localizedDescription)")
@@ -1629,6 +1637,44 @@ class FirestoreViewModel: ObservableObject {
 
             completion(.success(url))
         }
+    }
+    
+    func getMyFestivals() async throws -> [Festival] {
+        let snapshot = try await db.collection("festivals")
+            .whereField("ownerID", isEqualTo: myUserProfile.id)
+            .getDocuments()
+
+        return try snapshot.documents.map { document in
+            try document.data(as: Festival.self)
+        }
+    }
+    
+    func sendFestivalNotification(
+        festivalID: UUID,
+        title: String,
+        body: String,
+        festivalsToNotify: Set<UUID>
+    ) {
+        var festivalIDs = festivalsToNotify
+        festivalIDs.insert(festivalID)
+
+        let data: [String: Any] = [
+            "festivalID": festivalID.uuidString,
+            "title": title,
+            "body": body,
+            "festivalsToNotify": festivalIDs.map { $0.uuidString }
+        ]
+
+        Functions.functions()
+            .httpsCallable("sendFestivalNotification")
+            .call(data) { result, error in
+                if let error {
+                    print("❌ Festival notification failed:", error.localizedDescription)
+                    return
+                }
+
+                print("✅ Festival notification sent:", result?.data ?? "nil")
+            }
     }
 
 

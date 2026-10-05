@@ -25,7 +25,7 @@ struct SpotifyAccount: View {
                 .frame(width: 175, height: 50, alignment: .center)
                 .overlay(
                     RoundedRectangle(cornerRadius: 25)
-                        .stroke(Color.black, lineWidth: 2) // black border
+                        .stroke(Color.oasisDarkPurple, lineWidth: 2) // black border
                 )
             HStack {
                 Text("Disconnect")
@@ -34,7 +34,7 @@ struct SpotifyAccount: View {
                     .scaledToFit()
                     .frame(width: 30)
             }
-            .foregroundColor(.black)
+            .foregroundColor(.oasisDarkPurple)
         }
         .shadow(radius: 5)
         .padding(10)

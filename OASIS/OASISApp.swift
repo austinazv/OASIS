@@ -11,6 +11,7 @@ import FirebaseCore
 import UserNotifications
 import FirebaseAuth
 import FirebaseAppCheck
+import FirebaseMessaging
 
 
 @main
@@ -25,6 +26,8 @@ struct OASISApp: App {
     
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
+    @StateObject private var deepLinkManager = DeepLinkManager.shared
+    
     @State private var userLoggedIn: Bool = false
     @State private var userHasName: Bool = false
     @State private var userSelectedFestivals: Bool = false
@@ -38,7 +41,7 @@ struct OASISApp: App {
     @State private var groupRequest = false
 
     // Shared namespace for morphing the “O” and the title between screens
-    @Namespace private var oasisNamespace
+//    @Namespace private var oasisNamespace
     
     @State var explorePath = NavigationPath()
     @State var socialPath = NavigationPath()
@@ -56,7 +59,7 @@ struct OASISApp: App {
                 // Main app content (behind while loading)
                 Group {
                     
-                    if firestore.isLoggedIn {
+//                    if firestore.isLoggedIn || firestore.userWithoutSignIn {
 //                        if spotify.isLoggedIn {
                             NavigationBottomBarView(explorePath: $explorePath, socialPath: $socialPath, myFestivalsPath: $myFestivalsPath, createPath: $createPath, myProfilePath: $myProfilePath, selectedTab: $selectedTab)
                                 .environmentObject(data)
@@ -75,37 +78,37 @@ struct OASISApp: App {
 //                                .environmentObject(social)
 //                                .environmentObject(explore)
 //                        }
-                    } else {
-                        LogInPage()
-                            .environmentObject(data)
-                            .environmentObject(spotify)
-                            .environmentObject(firestore)
-                            .environmentObject(festivalVM)
-                            .environmentObject(social)
-                            .environmentObject(explore)
-                            .environmentObject(tags)
-                    }
+//                    } else {
+//                        LogInPage()
+//                            .environmentObject(data)
+//                            .environmentObject(spotify)
+//                            .environmentObject(firestore)
+//                            .environmentObject(festivalVM)
+//                            .environmentObject(social)
+//                            .environmentObject(explore)
+//                            .environmentObject(tags)
+//                    }
                     if URLLoading {
                         ProgressView()
                     }
                 }
                 // Provide the shared namespace to all children so titles can match geometry
-                .environment(\.oasisNamespace, oasisNamespace)
+//                .environment(\.oasisNamespace, oasisNamespace)
                 .opacity(spotify.isLoading ? 0 : 1)
                 .animation(.easeInOut(duration: 0.45), value: spotify.isLoading)
                 
                 // Loading layer on top
                 if spotify.isLoading {
-                    GeometryReader { geo in
-                        VStack {
-                            Spacer().frame(height: geo.size.height * 0.28)
-                            OASISLoadingScreen(namespace: oasisNamespace)
-                            // No custom slide transition; matchedGeometryEffect will move from loading to destination.
-                            //                        .transition(.opacity) // optional fade for the overlay itself
-                                .animation(.easeInOut(duration: 1.35), value: spotify.isLoading) // 3× slower
-                            Spacer().frame(height: geo.size.height * 0.72)
+//                    GeometryReader { geo in
+                        VStack(alignment: .center, spacing: 0) {
+                            Spacer().frame(height: 170)
+                            OASISLoadingScreen(/*namespace: oasisNamespace*/).fixedSize()/*.border(.green)*/
+                            Text("EXPLORE THE LINE-UP").kerning(6).font(.system(size: 12)).offset(y: -8).foregroundStyle(.oasisDarkPurple)
+                            Spacer()/*.frame(height: geo.size.height * 0.72)*/
+                            Text("By Austin Zambito-Valente").padding(20).italic().font(.system(size: 12)).foregroundStyle(.oasisDarkPurple)
                         }
-                    }
+                        .animation(.easeInOut(duration: 1.35), value: spotify.isLoading)
+//                    }
                     
                 }
             }
@@ -132,69 +135,115 @@ struct OASISApp: App {
                     }
                 }
             })
-            .onChange(of: pendingRequest) { newValue in
+            .onChange(of: pendingRequest) { _ , newValue in
                 if newValue != nil {
                     self.showRequestSheet = true
                 }
             }
             .onOpenURL { url in
-                print("Received URL: \(url.absoluteString)")
+                handleURL(url)
+            }
+            .onReceive(deepLinkManager.$pendingURL.compactMap { $0 }) { url in
+                print("URL DEEPLINK RECIEVED")
+                handleURL(url)
+            }
+            .alert(isPresented: $logInSuccess) {
+                Alert(title: Text("Successfully Signed In to Spotify"),
+                             dismissButton: .default(Text("OK")))
+            }
+//            .onAppear {
+//                try? Auth.auth().signOut()
+//            }
+        }
+    }
+    
+    func handleURL(_ url: URL) {
+        print("Received URL: \(url.absoluteString)")
+        
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+            self.errorAlert = true
+            return
+        }
+        
+        let pathComponents = url.pathComponents
+        
+        if url.absoluteString.contains("spotify") {
+            print("Spotify URL: \(url)")
+            handleSpotifyURL(components)
+            return
+        }
+        
+        // Handle: /share/festival/{festivalID}
+        if pathComponents.count >= 4,
+           pathComponents[1] == "share",
+           pathComponents[2] == "festival" {
+            print(url)
+            let festivalID = pathComponents[3]
+            let makePlaylist = pathComponents.count >= 5 &&
+                               pathComponents[4] == "makePlaylist"
+            
+            URLLoading = true
+            Task { @MainActor in
+                defer { URLLoading = false }
                 
-                guard let components = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
-                    self.errorAlert = true
-                    return
+                while spotify.isLoading {
+                    try? await Task.sleep(for: .milliseconds(100))
                 }
                 
-                let pathComponents = url.pathComponents
-                
-                if url.absoluteString.contains("spotify") {
-                    print("Spotify URL: \(url)")
-                    handleSpotifyURL(components)
-                    return
-                }
-                
-                // Handle: /share/festival/{festivalID}
-                if pathComponents.count >= 4,
-                   pathComponents[1] == "share",
-                   pathComponents[2] == "festival" {
-                    
-                    let festivalID = pathComponents[3]
-
-                    
-                    URLLoading = true
-                    Task {
-                        defer { URLLoading = false }
-                        do {
-                            let festival = try await explore.fetchFestival(with: festivalID)
-                            festivalVM.currentFestival = festival
-                            explorePath = NavigationPath()
-                            selectedTab = 1
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                explorePath.append(festival)
+                do {
+                    var festival = Festival.newFestival()
+                    if let myFestival = festivalVM.myFestivals.first(where:  { $0.id.uuidString == festivalID }) {
+                        festival = myFestival
+//                                if !myFestivals.contains(festival)
+                        myFestivalsPath = NavigationPath()
+                        selectedTab = 0
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            if makePlaylist {
+                                myFestivalsPath.append(FestivalPlaylistLink(festival: festival))
+                            } else {
+                                myFestivalsPath.append(festival)
                             }
-                            
-                            if pathComponents.count >= 6,
-                               pathComponents[4] == "artist" {
-                                let artistID = pathComponents[5]
-                                if let artist = festivalVM.getArtistFromID(artistID: artistID, festival: festival) {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                        
-                                        explorePath.append(ArtistPageStruct(artist: artist, festival: festival,
-                                                                                    shuffleTitle: "All Artists",
-                                                                                    shuffleList: festival.artistList))
-                                    }
-                                }
-                            }
-                            
-                            
-                        } catch {
-//                            print("Failed to fetch festival:", error.localizedDescription)
+                        }
+                    } else {
+                        //                            if festivalVM.myFestivals.contains(where: { $0.id == festivalID }) {
+                        festival = try await explore.fetchFestival(with: festivalID)
+                        festivalVM.currentFestival = festival
+                        
+                        explorePath = NavigationPath()
+                        selectedTab = 1
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            explorePath.append(festival)
                         }
                     }
                     
+                    if pathComponents.count >= 6,
+                       pathComponents[4] == "artist" {
+                        let artistID = pathComponents[5]
+                        if let artist = festivalVM.getArtistFromID(artistID: artistID, festival: festival) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                if festivalVM.myFestivals.contains(where:  { $0.id.uuidString == festivalID }) {
+                                    myFestivalsPath.append(ArtistPageStruct(artist: artist, festival: festival,
+                                                                                shuffleTitle: "All Artists",
+                                                                                shuffleList: festival.artistList))
+                                } else {
+                                    explorePath.append(ArtistPageStruct(artist: artist, festival: festival,
+                                                                        shuffleTitle: "All Artists",
+                                                                        shuffleList: festival.artistList))
+                                }
+                            }
+                        }
+                    }
+                    
+                    
+                } catch {
+//                            print("Failed to fetch festival:", error.localizedDescription)
+                }
+            }
+            
 //                    if pathComponents.count >= 6,
 //                       pathComponents[4] == "artist" {
-//                        
+//
 //                        let artistID = pathComponents[5]
 //                        Task {
 //                            do {
@@ -207,34 +256,23 @@ struct OASISApp: App {
 //                                print("Failed to fetch festival:", error.localizedDescription)
 //                            }
 //                        }
-//                        
-//                        
-//                        
+//
+//
+//
 //                        print("Artist ID: \(artistID)")
 //                    }
-                    
-                    return
-                }
-                
-                if pathComponents.count >= 2, pathComponents[1] == "share" {
-                    if firestore.phoneConnected {
-                        showRequestSheet = true
-                        handleInviteLink(url)
-                        return
-                    } else {
-                        socialPath = NavigationPath()
-                        selectedTab = 2
-                    }
-                }
-                
-//                print("Unhandled URL")
-            }
-
-
-
-            .alert(isPresented: $logInSuccess) {
-                Alert(title: Text("Successfully Signed In to Spotify"),
-                             dismissButton: .default(Text("OK")))
+            
+            return
+        }
+        
+        if pathComponents.count >= 2, pathComponents[1] == "share" {
+            if firestore.phoneConnected {
+                showRequestSheet = true
+                handleInviteLink(url)
+                return
+            } else {
+                socialPath = NavigationPath()
+                selectedTab = 2
             }
         }
     }
@@ -363,26 +401,67 @@ struct OASISApp: App {
     }
 }
 
-class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: NSObject,
+                   UIApplicationDelegate,
+                   UNUserNotificationCenterDelegate,
+                   MessagingDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         FirebaseApp.configure()
         AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
-
+        
         UNUserNotificationCenter.current().delegate = self
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
-            if granted {
-                DispatchQueue.main.async {
-                    application.registerForRemoteNotifications()
-                }
-            } else {
-                print("❌ Push notifications permission not granted")
-            }
-        }
+        
+        Messaging.messaging().delegate = self
+
+
+        //        UNUserNotificationCenter.current().delegate = self
+//        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+//            if granted {
+//                DispatchQueue.main.async {
+//                    application.registerForRemoteNotifications()
+//                }
+//            } else {
+//                print("❌ Push notifications permission not granted")
+//            }
+//        }
         
         return true
     }
+    
+    // APNs registration succeeded
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        // Existing Firebase Auth APNs handling
+        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+
+        // Firebase Messaging APNs handling
+        Messaging.messaging().apnsToken = deviceToken
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        print("❌ Failed to register for remote notifications: \(error.localizedDescription)")
+    }
+
+        // FCM token received or refreshed
+        func messaging(
+            _ messaging: Messaging,
+            didReceiveRegistrationToken fcmToken: String?
+        ) {
+            guard let fcmToken else { return }
+
+            print("FCM token:", fcmToken)
+            
+            NotificationManager.shared.saveFCMToken(fcmToken)
+
+            // Next: save this token to the signed-in user's Firestore document.
+        }
     
     func application(_ application: UIApplication,
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
@@ -391,17 +470,33 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             completionHandler(.noData)
             return
         }
+        
         completionHandler(.newData)
     }
 
-    func application(_ application: UIApplication,
-                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
-    }
-
-    func application(_ application: UIApplication,
-                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("❌ Failed to register for remote notifications: \(error.localizedDescription)")
+//    func application(_ application: UIApplication,
+//                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+//        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+//    }
+//
+//    func application(_ application: UIApplication,
+//                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+//        print("❌ Failed to register for remote notifications: \(error.localizedDescription)")
+//    }
+    
+    func userNotificationCenter(
+            _ center: UNUserNotificationCenter,
+            didReceive response: UNNotificationResponse,
+            withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        
+        if let urlString = response.notification.request.content.userInfo["url"] as? String,
+           let url = URL(string: urlString) {
+            DispatchQueue.main.async {
+                DeepLinkManager.shared.pendingURL = url
+            }
+        }
+        completionHandler()
     }
 }
 
@@ -433,7 +528,7 @@ struct FriendRequestSheet:  View {
                         .font(Font.system(size: 30))
                         .multilineTextAlignment(.center)
                         .padding()
-                    SocialImage(imageURL: request.photo, name: request.name, frame: 140)
+                    SocialImage(imageURL: request.photo, name: request.name, id: request.id, frame: 140)
                     //                    .padding(.bottom, 10)
                     HStack {
                         Button(action: {
@@ -506,7 +601,7 @@ struct GroupRequestSheet:  View {
                         .multilineTextAlignment(.center)
                         .padding(.top)
                     //                Group {
-                    SocialImage(imageURL: request.photo, name: request.name, frame: 130)
+                    SocialImage(imageURL: request.photo, name: request.name, id: request.id, frame: 130)
                         .padding(5)
                     
                     //                }
@@ -649,21 +744,27 @@ struct GroupRequestSheet:  View {
 
 extension View {
     func withAppNavigationDestinations(navigationPath: Binding<NavigationPath>,
-                                       festivalVM: FestivalViewModel) -> some View {
+                                       festivalVM: FestivalViewModel,
+                                       selectedTab: Binding<Int>
+    ) -> some View {
         self
             .navigationDestination(for: UserProfile.self) { profile in
-                ProfilePage(navigationPath: navigationPath, profile: profile)
+                ProfilePage(navigationPath: navigationPath, profile: profile, selectedTab: selectedTab)
             }
             .navigationDestination(for: Festival.self) { festival in
-                FestivalPage(navigationPath: navigationPath, currentFestival: festival)
+                FestivalPage(navigationPath: navigationPath, currentFestival: festival, selectedTab: selectedTab)
+                    .environmentObject(festivalVM)
+            }
+            .navigationDestination(for: FestivalPlaylistLink.self) { festivalPlaylistLink in
+                FestivalPage(navigationPath: navigationPath, currentFestival: festivalPlaylistLink.festival, selectedTab: selectedTab, createPlaylistSheet: true)
                     .environmentObject(festivalVM)
             }
             .navigationDestination(for: FestivalViewModel.FestivalNavTarget.self) { navTarget in
                 if navTarget.draftView {
-                    NewEventPage(festival: navTarget.festival, navigationPath: navigationPath)
+                    NewEventPage(festival: navTarget.festival, navigationPath: navigationPath, selectedTab: selectedTab)
                         .environmentObject(festivalVM)
                 } else {
-                    FestivalPage(navigationPath: navigationPath, currentFestival: navTarget.festival, previewView: navTarget.previewView)
+                    FestivalPage(navigationPath: navigationPath, currentFestival: navTarget.festival, previewView: navTarget.previewView, selectedTab: navTarget.selectedTab)
                         .environmentObject(festivalVM)
                 }
             }
@@ -686,7 +787,7 @@ extension View {
                     .environmentObject(festivalVM)
             }
             .navigationDestination(for: SocialGroup.self) { group in
-                GroupPage(navigationPath: navigationPath, group: group)
+                GroupPage(navigationPath: navigationPath, group: group, selectedTab: selectedTab)
 //                ProfilePage(navigationPath: navigationPath, profile: profile)
             }
             .navigationDestination(for: String.self) { value in
@@ -708,12 +809,19 @@ extension View {
 //                    FestivalPage(navigationPath: navigationPath)
 //                        .environmentObject(festivalVM)
                 case "New Event":
-                    NewEventPage(festival: Festival.newFestival(), navigationPath: navigationPath)
+                    NewEventPage(festival: Festival.newFestival(), navigationPath: navigationPath, selectedTab: selectedTab)
                         .environmentObject(festivalVM)
                 default:
                     SettingsPageOLD()
                 }
             }
     }
+}
+
+
+final class DeepLinkManager: ObservableObject {
+    static let shared = DeepLinkManager()
+
+    @Published var pendingURL: URL?
 }
 

@@ -27,6 +27,8 @@ struct SocialPage: View {
     @State var following = Array<UserProfile>()
     
     @State var isLoadingGroups = false
+    
+    @Binding var selectedTab: Int
 //    @State var groups = Array<SocialGroup>()
     
 //    @State var profile: DataSet.UserProfile?
@@ -54,6 +56,7 @@ struct SocialPage: View {
                         Text("Social")
                             .font(.title)
                             .bold()
+                            .foregroundStyle(.oasisDarkPurple)
                         Spacer()
                         SocialButton
                     }
@@ -62,7 +65,8 @@ struct SocialPage: View {
                     .padding(.bottom, 5)
                     Divider()
                     ZStack {
-                        Color(red: 235/255, green: 230/255, blue: 245/255)
+                        Color(.oasisBackgroundSocial)
+//                        Color(red: 235/255, green: 230/255, blue: 245/255)
                             .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
                             ScrollView {
                                 GroupsListed
@@ -77,7 +81,7 @@ struct SocialPage: View {
                     }
                     
                 }
-                .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
+                .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM, selectedTab: $selectedTab)
             }
         }
     }
@@ -104,7 +108,7 @@ struct SocialPage: View {
             }, label: {
                 Image(systemName: "person.2.badge.plus.fill")
                     .imageScale(.large)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.oasisBlue)
             })
         }
         
@@ -119,22 +123,24 @@ struct SocialPage: View {
             VStack {
                 HStack {
                     Text("Following")
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
                     Button(action: {
                         withAnimation {
                             showFriends.toggle()
                         }
                     }) {
                         Image(systemName: "chevron.down").rotationEffect(showFriends ? Angle(degrees: -180) : Angle(degrees: 0))
+                            .foregroundStyle(.oasisDarkPurpleUninverted)
 //                        Image(systemName: showFriends ? "chevron.up" : "chevron.down")
                     }
                     Spacer()
                     Button(action: { showAddFriendsSheet = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.oasisBlue)
                     }
                 }
                 .padding([.horizontal, .top], 15)
-                .foregroundStyle(.black)
+                .foregroundStyle(.oasisDarkPurple)
                 .bold()
                 if showFriends {
                     VStack {
@@ -163,7 +169,7 @@ struct SocialPage: View {
                                     Text("You are not following anyone yet.")
                                     Spacer()
                                 }
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.oasisDarkPurple)
                                 .frame(height: 60)
                                 .background(Color.white)
                                 .contentShape(Rectangle())
@@ -258,15 +264,16 @@ struct SocialPage: View {
                                 .fontWeight(.bold)
                                 OASISTitle(fontSize: 28, kerning: 4)
                         }
-                        .padding(5)
+                        .padding(10)
                         ShareLink(item: social.getInviteLink()) {
                             HStack {
                                 Image(systemName: "square.and.arrow.up")
                                 Text("Send My Invite Link")
                             }
                             .frame(height: 60)
+                            .font(.headline)
                             .frame(maxWidth: .infinity)
-                            .background(.blue)
+                            .background(.oasisBlue)
                             .foregroundStyle(.white)
                             .cornerRadius(10)
                             .shadow(radius: 5)
@@ -284,8 +291,9 @@ struct SocialPage: View {
                                     Text("Connect Contacts")
                                 }
                                 .frame(height: 60)
+                                .font(.headline)
                                 .frame(maxWidth: .infinity)
-                                .background(.blue)
+                                .background(.oasisBlue)
                                 .foregroundStyle(.white)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
@@ -295,7 +303,7 @@ struct SocialPage: View {
                     }
                     .padding()
                 }
-                .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
+                .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM, selectedTab: $selectedTab)
                 .alert("Contacts Access Denied",
                        isPresented: $showingDeniedAlert) {
                     Button("OK", role: .cancel) { }
@@ -351,7 +359,7 @@ struct SocialPage: View {
                             Spacer()
                             Text("No new contacts found.")
                                 .padding(10)
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.oasisDarkPurple)
                             Spacer()
                         }
                         .background(Color.white)
@@ -442,7 +450,7 @@ struct SocialPage: View {
             VStack {
                 HStack {
                     Text("Groups")
-                    
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
                     
                     Button(action: {
                         withAnimation {
@@ -450,16 +458,17 @@ struct SocialPage: View {
                         }
                     }) {
                         Image(systemName: "chevron.down").rotationEffect(showGroups ? Angle(degrees: -180) : Angle(degrees: 0))
+                            .foregroundStyle(.oasisDarkPurpleUninverted)
 //                        Image(systemName: showGroups ? "chevron.up" : "chevron.down")
                     }
                     Spacer()
                     Button(action: { showGroupSheet = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.oasisBlue)
                     }
                 }
                 .padding([.horizontal, .top], 15)
-                .foregroundStyle(.black)
+                .foregroundStyle(.oasisDarkPurple)
                 .bold()
                 if showGroups {
                     VStack {
@@ -502,7 +511,7 @@ struct SocialPage: View {
                                     Text("You do not have any groups yet.")
                                     Spacer()
                                 }
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.oasisDarkPurple)
                                 .frame(height: 60)
                                 .background(Color.white)
                                 .contentShape(Rectangle())
@@ -570,7 +579,7 @@ struct SocialPage: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(6)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(Color.oasisDarkPurple.opacity(0.7))
                                     .clipShape(Circle())
                             }
                             .offset(x: 6, y: -6)
@@ -580,7 +589,7 @@ struct SocialPage: View {
                             .resizable()
                             .frame(width: 130, height: 130, alignment: .center)
                             .clipShape(Circle())
-                        Text("Upload Image").foregroundStyle(Color.black)
+                        Text("Upload Image").foregroundStyle(Color.oasisDarkPurple)
                     }
                 }
                 .shadow(radius: 4)
@@ -614,7 +623,7 @@ struct SocialPage: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(groupName.isEmpty ? Color.gray : .blue)
+                        .background(groupName.isEmpty ? Color.gray : .oasisBlue)
                         .foregroundStyle(.white)
                         .cornerRadius(10)
                 }
@@ -854,19 +863,21 @@ struct SocialPage: View {
 struct SocialImage: View {
     let imageURL: String?
     let name: String
+    let id: String
     let frame: CGFloat
 
     @StateObject private var loader: ImageLoader
 
-    init(imageURL: String?, name: String, frame: CGFloat) {
+    init(imageURL: String?, name: String, id: String, frame: CGFloat) {
         self.imageURL = imageURL
         self.name = name
+        self.id = id
         self.frame = frame
         _loader = StateObject(wrappedValue: ImageLoader(urlString: imageURL))
     }
 
     var fallback: some View {
-        BlankProfileImage(name: name, frame: frame)
+        BlankProfileImage(name: name, id: id, frame: frame)
     }
 
     var body: some View {
@@ -883,7 +894,7 @@ struct SocialImage: View {
         .clipShape(Circle())
         .contentShape(Circle())
         .overlay(
-            Circle().stroke(.black, lineWidth: 1)
+            Circle().stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
         )
         .onAppear {
             loader.load()
@@ -894,14 +905,14 @@ struct SocialImage: View {
 
 struct BlankProfileImage: View {
     let name: String
-//    let id: String
+    let id: String
     let frame: CGFloat
     
     var body: some View {
         ZStack {
             Circle()
                 .frame(width: frame, height: frame)
-                .foregroundStyle(colorFromString(name))
+                .foregroundStyle(colorFromString(id))
             Group {
                 if let letter = name.first {
                     Text(String(letter))
@@ -910,7 +921,7 @@ struct BlankProfileImage: View {
                 }
             }
             .font(.system(size: frame * 0.5))
-            .foregroundStyle(.black)
+            .foregroundStyle(.oasisDarkPurpleUninverted)
         }
     }
     
@@ -979,6 +990,8 @@ struct ProfilesListed: View {
     
     var topUser: String?
     
+    var color: Color = Color.oasisBorderSocial
+    
     var sortedProfiles: [UserProfile] {
         profiles.sorted { a, b in
             if a.id == topUser { return true }
@@ -994,7 +1007,7 @@ struct ProfilesListed: View {
                 ForEach(sortedProfiles) { profile in
                     HStack {
                         ZStack(alignment: .center) {
-                            SocialImage(imageURL: profile.profilePic, name: profile.name, frame: 50)
+                            SocialImage(imageURL: profile.profilePic, name: profile.name, id: profile.id, frame: 50)
                                 .overlay(alignment: .topTrailing) {
                                     if profile.id == topUser {
                                         Image(systemName: "crown.fill")
@@ -1036,7 +1049,8 @@ struct ProfilesListed: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.gray, lineWidth: 2)
+                .stroke(color, lineWidth: 2)
+//                .stroke(Color.gray, lineWidth: 2)
         )
         .padding(.horizontal, 10)
     }
@@ -1081,7 +1095,7 @@ struct FollowButtonShort: View {
                         .frame(width: 48, height: 32)
                         .background(
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(Color.blue)
+                                .fill(Color.oasisBlue)
                         )
                         .shadow(radius: 5)
                     }
@@ -1089,7 +1103,7 @@ struct FollowButtonShort: View {
                 } else {
                     if allowNavigation {
                         Image(systemName: "chevron.right")
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.oasisDarkPurple)
                     }
                 }
 //            }
@@ -1121,8 +1135,8 @@ struct ProfileButton: View {
                 .padding(0)
                 .frame(width: 155, height: 35)
                 .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(.blue)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(.oasisBlue)
                 )
                 .shadow(radius: 5)
                 .foregroundStyle(.white)
@@ -1140,7 +1154,7 @@ struct ProfileButton: View {
 //                        } else {
 //                            HStack(spacing: 6) {
 //                                Text(text)
-//                                    .foregroundStyle(color == .gray ? .black : .white)
+//                                    .foregroundStyle(color == .gray ? .oasisDarkPurple : .white)
 //                                if let symbol {
 //                                    Image(systemName: symbol)
 //                                }
@@ -1173,7 +1187,7 @@ struct ProfileButton: View {
             FollowButtonLong(
                 profileID: profileID,
                 text: "Follow Back",
-                color: .blue
+                color: .oasisBlue
             ) {
                 firestore.followUser(profileID) { success in
                     if success {
@@ -1187,7 +1201,7 @@ struct ProfileButton: View {
                 profileID: profileID,
                 text: "Follow",
                 symbol: "person.fill.badge.plus",
-                color: .blue
+                color: .oasisBlue
             ) {
                 firestore.followUser(profileID) { success in
                     if success {
@@ -1282,7 +1296,7 @@ struct FollowButtonLong: View {
                 } else {
                     HStack(spacing: 6) {
                         Text(text)
-                            .foregroundStyle(color == .gray ? .black : .white)
+                            .foregroundStyle(color == .gray ? .oasisDarkPurple : .white)
                         if let symbol {
                             Image(systemName: symbol)
                         }
@@ -1293,7 +1307,7 @@ struct FollowButtonLong: View {
             .foregroundStyle(.white)
             .frame(width: 135, height: 35)
             .background(
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(color)
             )
             .shadow(radius: shadow)
@@ -1310,6 +1324,8 @@ struct GroupsList: View {
     
     @Binding var navigationPath: NavigationPath
     var groups: [SocialGroup]
+    
+    var color: Color = Color.oasisBorderSocial
 
     var maxHeight: CGFloat = 235
     
@@ -1327,13 +1343,13 @@ struct GroupsList: View {
                 ForEach(sortedGroups) { group in
 //                    let group = sortedGroups[index]
                     HStack {
-                        SocialImage(imageURL: group.photo, name: group.name, frame: 50)
+                        SocialImage(imageURL: group.photo, name: group.name, id: group.id ?? UUID().uuidString, frame: 50)
 //                        VStack(alignment: .leading, spacing: 5) {
                             Text(group.name)
                             .foregroundStyle(.bwColorSwitch)
 //                                .bold()
 //                                .font(.title)
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.oasisDarkPurple)
 //                                .padding(.leading, 10)
                             
 //                        }
@@ -1366,7 +1382,8 @@ struct GroupsList: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.gray, lineWidth: 2)
+                .stroke(color, lineWidth: 2)
+//                .stroke(Color.gray, lineWidth: 2)
         )
         .padding(.horizontal, 10)
     }
@@ -1395,26 +1412,26 @@ struct GroupMemberPhotos: View {
             if members.count > 3 {
                 Text("1")
                 Group {
-                    SocialImage(imageURL: membersSorted[0].profilePic, name: membersSorted[0].name, frame: photoWidth)
+                    SocialImage(imageURL: membersSorted[0].profilePic, name: membersSorted[0].name, id: membersSorted[0].id, frame: photoWidth)
                         .offset(x: CGFloat(OFFSET_WIDTH*2))
-                    SocialImage(imageURL: membersSorted[1].profilePic, name: membersSorted[1].name, frame: photoWidth)
+                    SocialImage(imageURL: membersSorted[1].profilePic, name: membersSorted[1].name, id: membersSorted[1].id, frame: photoWidth)
                         .offset(x: CGFloat(OFFSET_WIDTH))
                     Circle()
                         .fill(Color.white)
                         .frame(width: photoWidth, height: photoWidth)
                         .overlay(
-                            Circle().stroke(Color.black, lineWidth: 1)
+                            Circle().stroke(Color.oasisDarkPurple, lineWidth: 1)
                         )
                     Text("+\(members.count - 2)")
                         .font(.subheadline)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
                 }
                
             } else {
 //                Text("2")
                 ForEach(Array(membersSorted.enumerated()), id: \.element.id) { index, profile in
 //                    let offset = CGFloat((members.count - (index + 1)) * 15.0)
-                    SocialImage(imageURL: profile.profilePic, name: profile.name, frame: photoWidth)
+                    SocialImage(imageURL: profile.profilePic, name: profile.name, id: profile.id, frame: photoWidth)
 //                        .offset(x: CGFloat(index * 15))
                         .offset(x: CGFloat((members.count - (index + 1)) * OFFSET_WIDTH))
                         .zIndex(Double(index))
@@ -1453,7 +1470,7 @@ struct GroupMemberPhotos: View {
 //    .fill(Color.white)
 //    .overlay(
 //        RoundedRectangle(cornerRadius: 30, style: .continuous)
-//            .stroke(Color.black, lineWidth: 1)
+//            .stroke(Color.oasisDarkPurple, lineWidth: 1)
 //    )
 //ScrollView(.horizontal) {
 //    LazyHStack {
@@ -1482,7 +1499,7 @@ struct FullGroupMemberPhotos: View {
                 .shadow(radius: 3)
                 .overlay(
                     RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .stroke(Color.black, lineWidth: 1)
+                        .stroke(Color.oasisDarkPurple, lineWidth: 1)
                     )
             
             ScrollView(.horizontal) {
@@ -1490,7 +1507,7 @@ struct FullGroupMemberPhotos: View {
                     HStack {
                         ForEach(Array(membersSorted.enumerated()), id: \.element.id) { index, profile in
                             NavigationLink(value: profile) {
-                                SocialImage(imageURL: profile.profilePic, name: profile.name, frame: photoWidth)
+                                SocialImage(imageURL: profile.profilePic, name: profile.name, id: profile.id, frame: photoWidth)
                             }
                         }
                         
@@ -1515,7 +1532,7 @@ struct FullGroupMemberPhotos: View {
 //                        .fill(Color.white)
 //                        .frame(width: photoWidth, height: photoWidth)
 //                        .overlay(
-//                            Circle().stroke(Color.black, lineWidth: 1)
+//                            Circle().stroke(Color.oasisDarkPurple, lineWidth: 1)
 //                        )
 //                    Text("+\(members.count - 2)")
 //                        .font(.subheadline)

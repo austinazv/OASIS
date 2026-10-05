@@ -20,16 +20,16 @@ struct OASISLoadingScreen: View {
     )
 
     // Use the shared namespace for matched geometry with the destination title
-    let namespace: Namespace.ID
+//    let namespace: Namespace.ID
 
     var body: some View {
         // Compose spinner “O” + “ASIS” with matchedGeometryEffect
         let content = OASISTitleComposable(
-            namespace: namespace,
-            fontSize: 48,
-            kerning: 10,
-            showSpinnerO: true,
-            isSource: true // <- SOURCE while loading
+//            namespace: namespace,
+            fontSize: 64,
+            kerning: 12,
+            showSpinnerO: true
+//            isSource: true // <- SOURCE while loading
         )
 
         gradient
@@ -41,45 +41,42 @@ struct OASISLoadingScreen: View {
 }
 
 struct OASISSpinner: View {
-    var lineWidth: CGFloat = 6.5
-    var size: CGFloat = 32
+    var size: CGFloat
+    var lineWidth: CGFloat
     var trimTo: CGFloat = 0.75
+
     @State private var rotation: Angle = .degrees(0)
 
     var body: some View {
-        ZStack {
-            // Main arc
-            Circle()
-                .trim(from: 0.0, to: trimTo)
-                .stroke(
-                    AngularGradient(
-                        gradient: Gradient(stops: [
-                            .init(color: .white.opacity(0.0), location: 0.0),
-                            .init(color: .white.opacity(0.5), location: trimTo * 0.6),
-                            .init(color: .white, location: trimTo)
-                        ]),
-                        center: .center
-                    ),
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .butt)
-                )
-                .frame(width: size, height: size)
-        }
-        .rotationEffect(rotation)
-        .onAppear {
-            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
-                rotation = .degrees(360)
+        Circle()
+            .trim(from: 0, to: trimTo)
+            .stroke(
+                AngularGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: .white.opacity(0), location: 0),
+                        .init(color: .white.opacity(0.5), location: trimTo * 0.6),
+                        .init(color: .white, location: trimTo)
+                    ]),
+                    center: .center
+                ),
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: .butt)
+            )
+            .frame(/*width: size, */height: size)
+            .rotationEffect(rotation)
+            .onAppear {
+                withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                    rotation = .degrees(360)
+                }
             }
-//            SpotifyAuth.authURL
-        }
     }
 }
 
-#Preview {
-    struct Wrapper: View {
-        @Namespace var ns
-        var body: some View {
-            OASISLoadingScreen(namespace: ns)
-        }
-    }
-    return Wrapper()
-}
+//#Preview {
+//    struct Wrapper: View {
+//        @Namespace var ns
+//        var body: some View {
+//            OASISLoadingScreen(namespace: ns)
+//        }
+//    }
+//    return Wrapper()
+//}

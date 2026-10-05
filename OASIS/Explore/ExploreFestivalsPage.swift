@@ -13,11 +13,13 @@ struct ExploreFestivalsPage: View {
     @EnvironmentObject var firestore: FirestoreViewModel
     @EnvironmentObject var festivalVM: FestivalViewModel
     @EnvironmentObject var explore: ExploreViewModel
+    @EnvironmentObject var tags: TagViewModel
     
     @Binding var navigationPath: NavigationPath
     
     @State var searching: Bool = false
     
+    @Binding var selectedTab: Int
     
     var body: some View {
         VStack {
@@ -26,13 +28,14 @@ struct ExploreFestivalsPage: View {
                 VStack(spacing: 0) {
                     HStack {
                         Text("Explore")
+                            .foregroundStyle(.oasisDarkPurple)
                             .font(.title)
                             .bold()
                         Spacer()
                         //                            NavigationLink(value: "New Event") {
                         Image(systemName: searching ? "xmark" : "magnifyingglass")
                             .imageScale(.large)
-                            .foregroundStyle(searching ? .red : .blue)
+                            .foregroundStyle(searching ? .red : .oasisBlue)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 searching.toggle()
@@ -46,19 +49,27 @@ struct ExploreFestivalsPage: View {
                     .padding(.bottom, 5)
                     Divider()
                     ZStack {
+                        Color(.oasisBackgroundExplore)
 //                        Color(red: 222/255, green: 238/255, blue: 228/255)
-                        Color(red: 214/255, green: 236/255, blue: 236/255)
+//                        Color(red: 214/255, green: 236/255, blue: 236/255)
                             .edgesIgnoringSafeArea([.leading, .trailing, .bottom])
                         if !searching {
                             if explore.isLoading {
                                 Spacer()
+                                Spacer()
                                 ProgressView()
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.oasisDarkPurple)
                                 Spacer()
                             } else {
                                 //                            if !searching {
                                 ScrollView {
-                                    FestivalsListed(navigationPath: $navigationPath, festivalList: explore.festivals, title: "Featured", collapsable: false)
+                                    let result = explore.getRecommendedFestivals(myFavoriteArtists: tags.myFavorites,
+                                                                                 favoritedFestivals: firestore.myUserProfile.safeStarredFestivalsList
+                                    )
+                                    
+                                    FestivalsListed(navigationPath: $navigationPath, festivalList: result.recommended, title: "Recommended For You", collapsable: true, color: .oasisBorderExplore, dontSort: true, showStar: true, selectedTab: $selectedTab)
+                                    
+                                    FestivalsListed(navigationPath: $navigationPath, festivalList: result.verified, title: "Featured", collapsable: true, color: .oasisBorderExplore, showStar: true, selectedTab: $selectedTab)
                                 }
                                 .padding(.top, 5)
                                 .refreshable {
@@ -71,7 +82,7 @@ struct ExploreFestivalsPage: View {
                     }
                     
                 }
-                .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM)
+                .withAppNavigationDestinations(navigationPath: $navigationPath, festivalVM: festivalVM, selectedTab: $selectedTab)
             }
         }
         .onAppear() {
@@ -129,7 +140,7 @@ struct ExploreFestivalsPage: View {
                         .padding(.horizontal, 5)
                         Image(systemName: "magnifyingglass")
                             .imageScale(.large)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.oasisBlue)
                             .contentShape(Rectangle())
 //                            .onTapGesture() {
 //                                if !searchText.isEmpty {
@@ -168,8 +179,8 @@ struct ExploreFestivalsPage: View {
                         let split = festivalVM.splitFestivals(explore.searchResults)
 //                        attendedFestivals = split.attended
 //                        upcomingFestivals = split.upcoming
-                        FestivalsListed(navigationPath: $navigationPath, festivalList: split.upcoming, title: "Upcoming", collapsable: true)
-                        FestivalsListed(navigationPath: $navigationPath, festivalList: split.attended, title: "Past", collapsable: true)
+                        FestivalsListed(navigationPath: $navigationPath, festivalList: split.upcoming, title: "Upcoming", collapsable: true, color: .oasisBorderExplore, selectedTab: $selectedTab)
+                        FestivalsListed(navigationPath: $navigationPath, festivalList: split.attended, title: "Past", collapsable: true, color: .oasisBorderExplore, selectedTab: $selectedTab)
                     } else if !searchText.isEmpty {
                         Text("No search results found.")
                     }
@@ -202,7 +213,7 @@ struct ExploreFestivalsPage: View {
 //        VStack(spacing: 0) {
             HStack {
                 Text("Search By:")
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.oasisDarkPurple)
                 Spacer()
                 Picker("Search By", selection: $searchBy) {
                     Text("Event Name").tag(ExploreViewModel.SearchBy.Name)
@@ -326,7 +337,7 @@ struct ExploreFestivalsPage: View {
             Image(systemName: "chevron.right")
             Spacer()
         }
-        .foregroundStyle(.blue)
+        .foregroundStyle(.oasisBlue)
         .padding(.vertical, 12)
         .contentShape(Rectangle())
         .onTapGesture {

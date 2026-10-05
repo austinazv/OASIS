@@ -60,7 +60,7 @@ struct GroupSetUpPage: View {
                         .resizable()
                         .frame(width: 130, height: 130, alignment: .center)
                         .clipShape(Circle())
-                    Text("Upload Image").foregroundStyle(Color.black)
+                    Text("Upload Image").foregroundStyle(.oasisDarkPurple)
                 }
             }
             .onTapGesture {

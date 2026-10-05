@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import UIKit
+import CryptoKit
 
 struct ArtistList: View {
     @EnvironmentObject var data: DataSet
@@ -68,17 +69,14 @@ struct ArtistList: View {
                     VStack {
                         if !data.isArtistDicEmpty(currDict: artistDict) {
                             if searchText == "" {
-                                HStack(spacing: 20) {
-                                    ShuffleButtonSection
-                                    CreatePlaylistSection
-                                }
-                                .shadow(radius: 5)
-                                .padding(.bottom, 5)
-                                .padding(.horizontal, 20)
-                                .frame(height: 75)
-                                //                                .padding(15)
-                                //                                .frame(height: 80)
-                                //                                .shadow(radius: 5)
+//                                HStack(spacing: 20) {
+//                                    ShuffleButtonSection
+//                                    CreatePlaylistSection
+//                                }
+//                                .shadow(radius: 5)
+//                                .padding(.bottom, 5)
+//                                .padding(.horizontal, 20)
+//                                .frame(height: 75)
                                 FullList
                                 
                                 //                            }
@@ -108,8 +106,8 @@ struct ArtistList: View {
                     VStack {
                         ProgressView("Adding songs...")
                             .padding()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                            .foregroundStyle(Color.black)
+                            .progressViewStyle(CircularProgressViewStyle(tint: .oasisDarkPurple))
+                            .foregroundStyle(Color.oasisDarkPurple)
                             .background(RoundedRectangle(cornerRadius: 10).fill(Color.white))
                             .shadow(radius: 5)
                     }
@@ -305,7 +303,7 @@ struct ArtistList: View {
                 }
                 .font(Font.system(size: 18))
                 .bold()
-                .foregroundStyle(Color.black)
+                .foregroundStyle(Color.oasisDarkPurpleUninverted)
             }
             .onTapGesture {
                 shuffleArtists()
@@ -332,7 +330,7 @@ struct ArtistList: View {
                 }
                 .font(Font.system(size: 18))
                 .bold()
-                .foregroundStyle(Color.black)
+                .foregroundStyle(Color.oasisDarkPurpleUninverted)
             }
 //            .frame(height: 70, alignment: .center)
             .onTapGesture {
@@ -406,7 +404,7 @@ struct ArtistList: View {
                                 })
                             }
                             if viewSubsection[i] {
-                                VStack {
+                                LazyVStack {
                                     Divider().padding(.horizontal, 20)
                                     ForEach(Array(artistArray.enumerated()), id: \.element.id) { index, artist in
                                         //                                    ZStack(alignment: .center) {
@@ -421,7 +419,7 @@ struct ArtistList: View {
                                         
                                         //                                    }
                                     }
-                                    Text((artistArray.count == 1 ? "1 Artist" : "\(artistArray.count) Artists")).padding(10)
+//                                    Text((artistArray.count == 1 ? "1 Artist" : "\(artistArray.count) Artists")).padding(10)
                                 }
                                 .animation(.spring(), value: viewSubsection[i])
 //                                .transition(.move(edge: .top).combined(with: .opacity))
@@ -635,7 +633,7 @@ struct ArtistList: View {
                                 .imageScale(.large)
                             Spacer()
                         }
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(Color.oasisDarkPurple)
                         .padding(.vertical, 10)
 //                        NavigationLink(destination: ArtistPage(currentArtist: data.shuffleArtist(includeFavorites: true), shuffle: true, includeFavorites: true).environmentObject(data)) {
 //                            EmptyView()
@@ -756,7 +754,7 @@ struct ArtistLink: View {
 //                                .fill(Color.white)
 //                                .overlay(
 //                                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-//                                        .stroke(Color.black, lineWidth: 1)
+//                                        .stroke(Color.oasisDarkPurple, lineWidth: 1)
 //                                )
 //                            ScrollView(.horizontal) {
 //                                LazyHStack {
@@ -958,7 +956,7 @@ struct ArtistLink: View {
 //                        .imageScale(.large)
 //                    Spacer()
 //                }
-//                .foregroundStyle(Color.black)
+//                .foregroundStyle(Color.oasisDarkPurple)
 //                
 ////                                    .back
 //            }
@@ -972,6 +970,8 @@ struct SortMenu: View {
     @EnvironmentObject var festivalVM: FestivalViewModel
     
     @Binding var sortType: DataSet.sortType
+    var selectMultiple: Binding<Bool>?
+    
     var currList: Array<Artist>
     var secondWeekend: Bool
 //    @Binding var artistDict: [String : Array<DataSet.artistNEW>]
@@ -995,121 +995,158 @@ struct SortMenu: View {
             
             //            if dayBool || genreBool || stageBool || tierBool {
             Menu(content: {
-                if groupFavs != nil {
-                    Button (action: {
-                        sortType = .group
-                    }, label: {
-                        HStack {
-                            Text("Sort By Group")
-                            if sortType == .group {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    })
-                }
-                //View by Alphabetically
-                Button (action: {
-                    sortType = .alpha
-                }, label: {
-                    HStack {
-                        Text("Sort Alphabetically")
-                        if sortType == .alpha {
-                            Spacer()
-                            Image(systemName: "checkmark")
-                        }
+//                if let bool = selectMultiple {
+//                    Button (action: {
+//                        bool.wrappedValue.toggle()
+//                    }, label: {
+//                        if bool.wrappedValue {
+//                            Text("Cancel")
+//                        } else {
+//                            Text("Select Multiple Artists")
+//                        }
+//                    })
+//                }
+                Picker("Sort By", selection: $sortType) {
+                    if groupFavs != nil { Text("Sort by Group").tag(DataSet.sortType.group) }
+                    Text("Sort Alphabetically").tag(DataSet.sortType.alpha)
+                    if dayBool { Text("Sort by Day").tag(DataSet.sortType.day) }
+                    if genreBool { Text("Sort by Genre").tag(DataSet.sortType.genre) }
+                    if stageBool { Text("Sort by Stage").tag(DataSet.sortType.stage) }
+                    if tierBool { Text("Sort by Tier").tag(DataSet.sortType.billing) }
+                    if editing {
+                        Text("Sort by Date Added").tag(DataSet.sortType.addDate)
+                        Text("Sort by Date Modified").tag(DataSet.sortType.modifyDate)
                     }
-                })
-                
-                //View by Day
-                if dayBool {
-                    Button (action: {
-                        sortType = .day
-                    }, label: {
-                        HStack {
-                            Text("Sort by Day")
-                            if sortType == .day {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    })
                 }
                 
-                //View by Genre
-                if genreBool {
-                    Button (action: {
-                        sortType = .genre
-                    }, label: {
-                        HStack {
-                            Text("Sort by Genre")
-                            if sortType == .genre {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    })
-                }
                 
-                //View by Stage
-                if stageBool {
-                    Button (action: {
-                        sortType = .stage
-                    }, label: {
-                        HStack {
-                            Text("Sort by Stage")
-                            if sortType == .stage {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    })
-                }
                 
-                //View by Tier
-                if tierBool {
-                    Button (action: {
-                        sortType = .billing
-                    }, label: {
-                        HStack {
-                            Text("Sort by Tier")
-                            if sortType == .billing {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    })
-                }
                 
-                if editing {
-                    //TODO: FIX
-                    Button (action: {
-                        sortType = .addDate
-                    }, label: {
-                        HStack {
-                            Text("Sort by Date Added")
-                            if sortType == .addDate {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    })
-                    
-                    Button (action: {
-                        sortType = .modifyDate
-                    }, label: {
-                        HStack {
-                            Text("Sort by Date Modified")
-                            if sortType == .modifyDate {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    })
-                }
+//                if groupFavs != nil {
+//                    Button (action: {
+//                        sortType = .group
+//                    }, label: {
+//                        Label {
+//                            Text("Sort By Group")
+//                        } icon: {
+//                            Image(systemName: "checkmark").opacity(sortType == .group ? 1 : 0)
+//                        }
+////                        HStack {
+////                            Text("Sort By Group")
+////                            Image(systemName: "checkmark").opacity(sortType == .group ? 1 : 0)
+////                            
+//////                            if sortType == .group {
+//////                                Spacer()
+//////                                Image(systemName: "checkmark")
+//////                            }
+////                        }
+//                    })
+//                }
+//                //View by Alphabetically
+//                Button (action: {
+//                    sortType = .alpha
+//                }, label: {
+//                    HStack {
+//                        Text("Sort Alphabetically")
+//                        if sortType == .alpha {
+//                            Image(systemName: "checkmark")
+//                        } else {
+//                            Color.clear
+//                        }
+//                    }
+//                })
+//                
+//                //View by Day
+//                if dayBool {
+//                    Button (action: {
+//                        sortType = .day
+//                    }, label: {
+//                        HStack {
+//                            Text("Sort by Day")
+//                            if sortType == .day {
+//                                Spacer()
+//                                Image(systemName: "checkmark")
+//                            }
+//                        }
+//                    })
+//                }
+//                
+//                //View by Genre
+//                if genreBool {
+//                    Button (action: {
+//                        sortType = .genre
+//                    }, label: {
+//                        HStack {
+//                            Text("Sort by Genre")
+//                            if sortType == .genre {
+//                                Spacer()
+//                                Image(systemName: "checkmark")
+//                            }
+//                        }
+//                    })
+//                }
+//                
+//                //View by Stage
+//                if stageBool {
+//                    Button (action: {
+//                        sortType = .stage
+//                    }, label: {
+//                        HStack {
+//                            Text("Sort by Stage")
+//                            if sortType == .stage {
+//                                Spacer()
+//                                Image(systemName: "checkmark")
+//                            }
+//                        }
+//                    })
+//                }
+//                
+//                //View by Tier
+//                if tierBool {
+//                    Button (action: {
+//                        sortType = .billing
+//                    }, label: {
+//                        HStack {
+//                            Text("Sort by Tier")
+//                            if sortType == .billing {
+//                                Spacer()
+//                                Image(systemName: "checkmark")
+//                            }
+//                        }
+//                    })
+//                }
+//                
+//                if editing {
+//                    //TODO: FIX
+//                    Button (action: {
+//                        sortType = .addDate
+//                    }, label: {
+//                        HStack {
+//                            Text("Sort by Date Added")
+//                            if sortType == .addDate {
+//                                Spacer()
+//                                Image(systemName: "checkmark")
+//                            }
+//                        }
+//                    })
+//                    
+//                    Button (action: {
+//                        sortType = .modifyDate
+//                    }, label: {
+//                        HStack {
+//                            Text("Sort by Date Modified")
+//                            if sortType == .modifyDate {
+//                                Spacer()
+//                                Image(systemName: "checkmark")
+//                            }
+//                        }
+//                    })
+//                }
             }, label: {
                 Group {
-                    Image(systemName: "list.bullet")
+                    Image(systemName: "line.3.horizontal.decrease")
+//                    Image(systemName: "arrow.up.arrow.down")
+//                    Image(systemName: "list.bullet")
                 }
             })
         }
@@ -1136,53 +1173,4 @@ extension View {
 }
 
 
-final class ImageCache {
-    static let shared = ImageCache()
 
-    private let cacheDir: URL
-    private let memoryCache = NSCache<NSString, UIImage>() // 🔥 add this
-
-    private init() {
-        cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("imageCache")
-
-        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-    }
-
-    private func localPath(for url: String) -> URL {
-        let filename = url.replacingOccurrences(of: "/", with: "_")
-        return cacheDir.appendingPathComponent(filename)
-    }
-
-    func getCachedImage(for url: String) -> UIImage? {
-        // 1. Memory (fastest)
-        if let image = memoryCache.object(forKey: url as NSString) {
-            return image
-        }
-
-        // 2. Disk
-        let path = localPath(for: url)
-        if let image = UIImage(contentsOfFile: path.path) {
-            memoryCache.setObject(image, forKey: url as NSString) // 🔥 promote to memory
-            return image
-        }
-
-        return nil
-    }
-
-    func cacheImage(_ data: Data, for url: String) {
-        let path = localPath(for: url)
-
-        // Save to disk
-        try? data.write(to: path)
-
-        // Save to memory
-        if let image = UIImage(data: data) {
-            memoryCache.setObject(image, forKey: url as NSString)
-        }
-    }
-    
-    func removeCachedImage(for key: String) {
-        memoryCache.removeObject(forKey: key as NSString)
-    }
-}

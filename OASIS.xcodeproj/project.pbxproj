@@ -7,10 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		771D458C3060F390002FCA51 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 771D458B3060F390002FCA51 /* FirebaseMessaging */; };
 		771F79C82ED0043A002421C4 /* Search in Frameworks */ = {isa = PBXBuildFile; productRef = 771F79C72ED0043A002421C4 /* Search */; };
+		7741C8402FF88EF900158AF4 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7741C83F2FF88EF900158AF4 /* WidgetKit.framework */; };
+		7741C8422FF88EF900158AF4 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7741C8412FF88EF900158AF4 /* SwiftUI.framework */; };
+		7741C8532FF88EFC00158AF4 /* OASISWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7741C83D2FF88EF900158AF4 /* OASISWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7741C85C2FFABF6600158AF4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 775942122F60D83C000F7C23 /* Assets.xcassets */; };
 		775942132F60D83F000F7C23 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 775942122F60D83C000F7C23 /* Assets.xcassets */; };
 		7759D44F2F612E4E000F7C23 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7759D44E2F612E4E000F7C23 /* GoogleService-Info.plist */; };
 		7759D4512F612E5E000F7C23 /* OASIS-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7759D4502F612E5E000F7C23 /* OASIS-Info.plist */; };
+		77652E6F3064A67000B7DE8A /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 77652E6E3064A67000B7DE8A /* FirebaseFunctions */; };
 		778B9B472D6D892800973699 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 778B9B462D6D892800973699 /* FirebaseAppCheck */; };
 		77CD3E672E87A0CE0024C454 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 77CD3E662E87A0CE0024C454 /* GoogleSignIn */; };
 		77CD3E692E87A0CE0024C454 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 77CD3E682E87A0CE0024C454 /* GoogleSignInSwift */; };
@@ -20,6 +26,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		7741C8512FF88EFC00158AF4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F9FF5B2D37673300836B0A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7741C83C2FF88EF900158AF4;
+			remoteInfo = OASISWidgetExtension;
+		};
 		77F9FF742D37673700836B0A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 77F9FF5B2D37673300836B0A /* Project object */;
@@ -36,7 +49,25 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		7741C8582FF88EFC00158AF4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7741C8532FF88EFC00158AF4 /* OASISWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		7741C83D2FF88EF900158AF4 /* OASISWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OASISWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7741C83F2FF88EF900158AF4 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		7741C8412FF88EF900158AF4 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		7741C8632FFB801F00158AF4 /* OASISWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OASISWidgetExtension.entitlements; sourceTree = "<group>"; };
 		775942122F60D83C000F7C23 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = OASIS/Assets.xcassets; sourceTree = "<group>"; };
 		7759D44E2F612E4E000F7C23 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		7759D4502F612E5E000F7C23 /* OASIS-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "OASIS-Info.plist"; sourceTree = "<group>"; };
@@ -48,6 +79,32 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7741C8572FF88EFC00158AF4 /* Exceptions for "OASISWidget" folder in "OASISWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7741C83C2FF88EF900158AF4 /* OASISWidgetExtension */;
+		};
+		7741C85A2FFABC4E00158AF4 /* Exceptions for "OASIS" folder in "OASISWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Festival/ArtistImage.swift,
+				Festival/FestivalLogoView.swift,
+				LogIn/OASISLoadingScreen.swift,
+				OASISTitleComposable.swift,
+				ViewModels/AppData.swift,
+			);
+			target = 7741C83C2FF88EF900158AF4 /* OASISWidgetExtension */;
+		};
+		7741C8622FFB396D00158AF4 /* Exceptions for "OASISWidget" folder in "OASIS" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				OASISWidgetSmall.swift,
+				WidgetData.swift,
+			);
+			target = 77F9FF622D37673300836B0A /* OASIS */;
+		};
 		775942112F60D814000F7C23 /* Exceptions for "OASIS" folder in "OASIS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -66,10 +123,20 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		7741C8432FF88EF900158AF4 /* OASISWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7741C8622FFB396D00158AF4 /* Exceptions for "OASISWidget" folder in "OASIS" target */,
+				7741C8572FF88EFC00158AF4 /* Exceptions for "OASISWidget" folder in "OASISWidgetExtension" target */,
+			);
+			path = OASISWidget;
+			sourceTree = "<group>";
+		};
 		77F9FF652D37673300836B0A /* OASIS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				775942112F60D814000F7C23 /* Exceptions for "OASIS" folder in "OASIS" target */,
+				7741C85A2FFABC4E00158AF4 /* Exceptions for "OASIS" folder in "OASISWidgetExtension" target */,
 			);
 			path = OASIS;
 			sourceTree = "<group>";
@@ -87,12 +154,23 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		7741C83A2FF88EF900158AF4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7741C8422FF88EF900158AF4 /* SwiftUI.framework in Frameworks */,
+				7741C8402FF88EF900158AF4 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		77F9FF602D37673300836B0A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				771D458C3060F390002FCA51 /* FirebaseMessaging in Frameworks */,
 				77CD3E672E87A0CE0024C454 /* GoogleSignIn in Frameworks */,
 				778B9B472D6D892800973699 /* FirebaseAppCheck in Frameworks */,
+				77652E6F3064A67000B7DE8A /* FirebaseFunctions in Frameworks */,
 				77F2B1DC2D60729B00BDF437 /* FirebaseAuth in Frameworks */,
 				77CD3E692E87A0CE0024C454 /* GoogleSignInSwift in Frameworks */,
 				77F2B1DE2D60729B00BDF437 /* FirebaseFirestore in Frameworks */,
@@ -118,9 +196,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		7741C83E2FF88EF900158AF4 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				7741C83F2FF88EF900158AF4 /* WidgetKit.framework */,
+				7741C8412FF88EF900158AF4 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		77F9FF5A2D37673300836B0A = {
 			isa = PBXGroup;
 			children = (
+				7741C8632FFB801F00158AF4 /* OASISWidgetExtension.entitlements */,
 				7759D4502F612E5E000F7C23 /* OASIS-Info.plist */,
 				7759D44E2F612E4E000F7C23 /* GoogleService-Info.plist */,
 				775942122F60D83C000F7C23 /* Assets.xcassets */,
@@ -129,6 +217,8 @@
 				77F9FF652D37673300836B0A /* OASIS */,
 				77F9FF762D37673700836B0A /* OASISTests */,
 				77F9FF802D37673700836B0A /* OASISUITests */,
+				7741C8432FF88EF900158AF4 /* OASISWidget */,
+				7741C83E2FF88EF900158AF4 /* Frameworks */,
 				77F9FF642D37673300836B0A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -139,6 +229,7 @@
 				77F9FF632D37673300836B0A /* OASIS.app */,
 				77F9FF732D37673700836B0A /* OASISTests.xctest */,
 				77F9FF7D2D37673700836B0A /* OASISUITests.xctest */,
+				7741C83D2FF88EF900158AF4 /* OASISWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -146,6 +237,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		7741C83C2FF88EF900158AF4 /* OASISWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7741C8542FF88EFC00158AF4 /* Build configuration list for PBXNativeTarget "OASISWidgetExtension" */;
+			buildPhases = (
+				7741C8392FF88EF900158AF4 /* Sources */,
+				7741C83A2FF88EF900158AF4 /* Frameworks */,
+				7741C83B2FF88EF900158AF4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7741C8432FF88EF900158AF4 /* OASISWidget */,
+			);
+			name = OASISWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = OASISWidgetExtension;
+			productReference = 7741C83D2FF88EF900158AF4 /* OASISWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		77F9FF622D37673300836B0A /* OASIS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 77F9FF872D37673700836B0A /* Build configuration list for PBXNativeTarget "OASIS" */;
@@ -153,10 +266,12 @@
 				77F9FF5F2D37673300836B0A /* Sources */,
 				77F9FF602D37673300836B0A /* Frameworks */,
 				77F9FF612D37673300836B0A /* Resources */,
+				7741C8582FF88EFC00158AF4 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7741C8522FF88EFC00158AF4 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				77F9FF652D37673300836B0A /* OASIS */,
@@ -170,6 +285,8 @@
 				77CD3E662E87A0CE0024C454 /* GoogleSignIn */,
 				77CD3E682E87A0CE0024C454 /* GoogleSignInSwift */,
 				771F79C72ED0043A002421C4 /* Search */,
+				771D458B3060F390002FCA51 /* FirebaseMessaging */,
+				77652E6E3064A67000B7DE8A /* FirebaseFunctions */,
 			);
 			productName = ChellaTunez;
 			productReference = 77F9FF632D37673300836B0A /* OASIS.app */;
@@ -228,9 +345,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1620;
+				LastSwiftUpdateCheck = 2650;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
+					7741C83C2FF88EF900158AF4 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 					77F9FF622D37673300836B0A = {
 						CreatedOnToolsVersion = 16.2;
 					};
@@ -266,11 +386,20 @@
 				77F9FF622D37673300836B0A /* OASIS */,
 				77F9FF722D37673700836B0A /* OASISTests */,
 				77F9FF7C2D37673700836B0A /* OASISUITests */,
+				7741C83C2FF88EF900158AF4 /* OASISWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		7741C83B2FF88EF900158AF4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7741C85C2FFABF6600158AF4 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		77F9FF612D37673300836B0A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -298,6 +427,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		7741C8392FF88EF900158AF4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		77F9FF5F2D37673300836B0A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -322,6 +458,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		7741C8522FF88EFC00158AF4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7741C83C2FF88EF900158AF4 /* OASISWidgetExtension */;
+			targetProxy = 7741C8512FF88EFC00158AF4 /* PBXContainerItemProxy */;
+		};
 		77F9FF752D37673700836B0A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 77F9FF622D37673300836B0A /* OASIS */;
@@ -335,6 +476,71 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		7741C8552FF88EFC00158AF4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = OASISWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 9GRL5X5JRY;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OASISWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OASISWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AustinZambitoValente.OASIS.OASISWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7741C8562FF88EFC00158AF4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = OASISWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9GRL5X5JRY;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OASISWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OASISWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.AustinZambitoValente.OASIS.OASISWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		77F9FF852D37673700836B0A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -387,7 +593,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -444,7 +650,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -461,7 +667,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OASIS/OASIS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"OASIS/Preview Content\"";
 				DEVELOPMENT_TEAM = 9GRL5X5JRY;
 				ENABLE_PREVIEWS = YES;
@@ -475,7 +681,7 @@
 				INFOPLIST_KEY_UIStatusBarStyle = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -484,12 +690,15 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/OASIS/node_modules/@unrs/resolver-binding-darwin-x64",
 				);
-				MARKETING_VERSION = 2.3;
+				MARKETING_VERSION = 2.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.AustinZambitoValente.OASIS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -500,7 +709,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OASIS/OASIS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"OASIS/Preview Content\"";
 				DEVELOPMENT_TEAM = 9GRL5X5JRY;
 				ENABLE_PREVIEWS = YES;
@@ -514,7 +723,7 @@
 				INFOPLIST_KEY_UIStatusBarStyle = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -523,12 +732,15 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/OASIS/node_modules/@unrs/resolver-binding-darwin-x64",
 				);
-				MARKETING_VERSION = 2.3;
+				MARKETING_VERSION = 2.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.AustinZambitoValente.OASIS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -609,6 +821,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		7741C8542FF88EFC00158AF4 /* Build configuration list for PBXNativeTarget "OASISWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7741C8552FF88EFC00158AF4 /* Debug */,
+				7741C8562FF88EFC00158AF4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		77F9FF5E2D37673300836B0A /* Build configuration list for PBXProject "OASIS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -675,10 +896,20 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		771D458B3060F390002FCA51 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 77F2B1DA2D60729B00BDF437 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
 		771F79C72ED0043A002421C4 /* Search */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 771F79C62ED0043A002421C4 /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;
 			productName = Search;
+		};
+		77652E6E3064A67000B7DE8A /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 77F2B1DA2D60729B00BDF437 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
 		};
 		778B9B462D6D892800973699 /* FirebaseAppCheck */ = {
 			isa = XCSwiftPackageProductDependency;

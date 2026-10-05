@@ -485,7 +485,7 @@ struct AddArtistPage: View {
                                     .background(
                                         RoundedRectangle(cornerRadius: 10)
                                         //                                    .stroke(Color("OASIS Dark Orange"), lineWidth: 1)
-                                            .stroke(.black, lineWidth: 1)
+                                            .stroke(.oasisDarkPurple, lineWidth: 1)
                                             .foregroundStyle(.white)
                                     )
                                     .onTapGesture {
@@ -550,7 +550,7 @@ struct AddArtistPage: View {
     }
     
     func fetchGenresFromLastFM(artistName: String, completion: @escaping ([String]) -> Void) {
-        let apiKey = "a7bbef8bb52f8d29d337c85ddb589722"  // ⬅️ replace this with your real API key
+        let apiKey = "a7bbef8bb52f8d29d337c85ddb589722"
         let encodedArtist = artistName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
 
         let urlStr = "https://ws.audioscrobbler.com/2.0/?method=artist.getInfo&artist=\(encodedArtist)&api_key=\(apiKey)&format=json"

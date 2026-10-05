@@ -31,30 +31,55 @@ struct ArtistPage: View {
     
     @State var showArtistTagSheet: Bool = false
     
+    @State var showNotificationAlert = false
     @State var popupMessage: String?
-    
+    @State private var popupAction: () -> Void = {}
     
     
     var body: some View {
-        VStack {
-            ArtistTitleBar
-            List {
-                ArtistPageSection
-                //                ArtistPlaylistSection
-                //                LatestProjectSection
-                //                ArtistSpotifySection
-                //                UpcomingAlbumSection
-                //                AllAlbumsSection
-                ArtistTagSection
-                RelatedArtistsSection
-                ArtistGenresSection
-                FestivalInfoSection
+        ZStack(alignment: photoExpanded ? .center : .topLeading) {
+            VStack {
+                ArtistImage(imageURL: currentArtist.imageURL, frame: photoExpanded ? 320 : 120)
+                    .shadow(radius: photoExpanded ? 20 : 0)
+                    .padding(.leading, photoExpanded ? 0 : 40)
+                    .onTapGesture {
+                        if currentArtist.imageURL != "" {
+                            toggleImage()
+                        }
+                    }
+                if photoExpanded {
+                    Spacer()
+                }
             }
-            //            .background(RoundedRectangle(cornerRadius: 5)
-            //                .foregroundStyle(Color(currentArtist.photo.averageColor!)))
-            
-            
+                .zIndex(2)
+            VStack {
+                ArtistTitleBar
+                List {
+                    ArtistPageSection
+                    ArtistTagSection
+                    RelatedArtistsSection
+                    ArtistGenresSection
+                    FestivalInfoSection
+                    //                ArtistPlaylistSection
+                    //                LatestProjectSection
+                    //                ArtistSpotifySection
+                    //                UpcomingAlbumSection
+                    //                AllAlbumsSection
+                }
+                //            .background(RoundedRectangle(cornerRadius: 5)
+                //                .foregroundStyle(Color(currentArtist.photo.averageColor!)))
+            }
+            if photoExpanded {
+                Color.oasisDarkPurple.opacity(0.45)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .zIndex(1)
+                    .onTapGesture {
+                        collapseImage()
+                    }
+            }
         }
+        .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showArtistTagSheet) {
             ArtistTagSheet
             
@@ -71,7 +96,7 @@ struct ArtistPage: View {
             //                navigationPath.removeLast()
             //            }
         }
-        .onChange(of: currentArtist.id) { _ in
+        .onChange(of: currentArtist.id) {
             getLatestProject()
         }
         //        .onChange(of: currentArtist) { _ in
@@ -100,18 +125,19 @@ struct ArtistPage: View {
             })
         .overlay(alignment: .bottom) {
             if let message = popupMessage {
-                MessagePopUp(message: message)
+                MessagePopUp(message: message, action: popupAction)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                //                    .padding(.bottom, 20)
+//                    .padding(.bottom, 20)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: popupMessage)
         .onChange(of: popupMessage) { _, newValue in
             guard newValue != nil else { return }
-            
+
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 withAnimation {
                     popupMessage = nil
+                    popupAction = {}
                 }
             }
         }
@@ -141,174 +167,362 @@ struct ArtistPage: View {
         return String("Genres: " + genres)
     }
     
+    @State private var photoExpanded = false
+    
     var ArtistTitleBar: some View {
         Group {
-            ZStack(alignment: .top) {
-                //                Color(.gray)
-                //                    .ignoresSafeArea()
-                VStack(alignment: .leading) {
-                    HStack {
-                        if let url = spotifyArtistURL(from: currentArtist.id) {
-                            Link(destination: url, label: {
-                                ArtistImage(imageURL: currentArtist.imageURL, frame: 120)
-                            })
-                        }
-                        VStack {
-                            HStack {
-                                Text(currentArtist.name)
-                                    .multilineTextAlignment(.center)
-                                    .font(Font.system(size: 22))
-                                    .bold()
-                                //                                Button(action: {
-                                //                                    self.artistInfoPopup = true
-                                //                                }, label: {
-                                //                                    ZStack {
-                                //                                        Rectangle()
-                                //                                        //                                            .scaledToFit()
-                                //                                            .frame(width: 20, height: 60)
-                                //                                            .opacity(0)
-                                //                                        Image(systemName: "info.circle")
-                                //                                            .imageScale(.large)
-                                //                                    }
-                                //                                })
-                                
-                            }
-                            .foregroundStyle(Color("BW Color Switch"))
-                            .padding(.bottom, 5)
-                            HStack {
-                                if currentFestival.published {
-                                    ShareLink(item: getArtistShareLink()) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(Color.white)
-                                                .frame(width: 28, height: 28)
-                                                .shadow(radius: 3)
-                                            
-                                            Image(systemName: "square.and.arrow.up.circle")
-                                                .imageScale(.large)
-                                                .foregroundStyle(.blue)
-                                        }
-                                        .padding([.leading, .trailing], 5)
-                                    }
-                                } else {
-                                    Button(action: {
-                                        popupMessage = "Make this festival public to share."
-                                    }, label: {
-                                        ZStack {
-                                            Circle()
-                                                .fill(Color.white)
-                                                .frame(width: 28, height: 28)
-                                                .shadow(radius: 3)
-                                            
-                                            Image(systemName: "square.and.arrow.up.circle")
-                                                .imageScale(.large)
-                                                .foregroundStyle(.gray)
-                                        }
-                                        .padding([.leading, .trailing], 5)
-                                    })
-                                }
-                                Button(action: {
-                                    tags.heartPressed(currentArtist.id)
-                                    firestore.myUserProfile.favoriteArtistsList = tags.myFavorites
-                                }, label: {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.white)
-                                            .frame(width: 28, height: 28)
-                                            .shadow(radius: 3)
-                                        
-                                        Image(systemName: "heart.circle")
-                                            .imageScale(.large)
-                                            .foregroundStyle(tags.isArtistFavorited(currentArtist.id) ? Color.red : Color.gray)
-                                    }
-                                    .padding([.leading, .trailing], 2)
-                                })
-                                
-                                Button(action: {
-                                    showArtistTagSheet = true
-                                }, label: {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.white)
-                                            .frame(width: 28, height: 28)
-                                            .shadow(radius: 3)
-                                        
-                                        Image(systemName: "tag.circle")
-                                            .imageScale(.large)
-                                            .foregroundStyle(Color.blue)
-                                    }
-                                    .padding([.leading, .trailing], 5)
-                                })
-                                
-                                
-                                //                                Menu(content: {
-                                //                                    if !tags.isDNSTSelected(currentArtist.id) {
-                                ////                                    if !currentArtist.artistTags.contains(tags.DONOTSUGGESTTAG.id) {
-                                ////                                    if tags.artistTagDictionary[currentArtist.id]?.contains(tags.DONOTSUGGESTTAG.id) {
-                                //                                        Button (action: {
-                                //                                            tags.addDNST(currentArtist.id)
-                                ////                                            doNotSuggestPressed()
-                                //                                            //                                        festivalVM.dislikeButtonPressed(currentArtist.id)
-                                //                                            //                                        sortType = .alpha
-                                //                                        }, label: {
-                                //                                            HStack {
-                                //                                                Text("Do Not Suggest")
-                                //                                                Spacer()
-                                //                                                Image(systemName: "nosign")
-                                //                                            }
-                                ////                                            .foregroundStyle(festivalVM.dislikeList.contains(currentArtist.id) ? Color.red : Color.gray)
-                                //                                        })
-                                //                                    }
-                                //                                    Button (action: {
-                                //                                        showArtistTagSheet = true
-                                ////                                        festivalVM.dislikeButtonPressed(currentArtist.id)
-                                ////                                        sortType = .alpha
-                                //                                    }, label: {
-                                //                                        HStack {
-                                ////                                            if currentArtist.artistTags.isEmpty {
-                                //                                            if tags.doesArtistHaveTags(currentArtist.id) {
-                                //                                                Text("Edit Tags")
-                                //                                                Spacer()
-                                //                                                Image(systemName: "pencil.circle")
-                                //                                            } else {
-                                //                                                Text("Add Tags")
-                                //                                                Spacer()
-                                //                                                Image(systemName: "plus.circle")
-                                //                                            }
-                                //                                        }
-                                //                                    })
-                                //
-                                //                                }, label: {
-                                //                                    Group {
-                                //                                        Image(systemName: "ellipsis.circle")
-                                ////                                        Image(systemName: "tag.circle")
-                                //                                            .imageScale(.large)
-                                //                                            .foregroundStyle(Color.gray)
-                                //                                            .padding([.leading, .trailing], 5)
-                                //                                    }
-                                //                                })
-                            }
-                            .font(Font.system(size: 26))
-                            //                            .shadow(radius: 2)
-                            //                            .padding(10)
-                            
-                            //                        .listRowBackground(Color(hue: 0.76, saturation: 0.2, brightness: 0.85))
-                        }
-                        //                    .background(RoundedRectangle(cornerRadius: 20)
-                        //                        .foregroundStyle(Color.gray))
-                        .padding(10)
-                    }
-                    .padding(.horizontal, 10)
+            HStack() {
+                Spacer().frame(width: 150)
+                Spacer()
+                VStack(spacing: 16) {
+                    Text(currentArtist.name)
+                        .multilineTextAlignment(.center)
+                        .font(Font.system(size: 22))
+                        .bold()
+//                        .padding(.bottom, 6)
+                    ArtistButtons
                     
                 }
+                Spacer()
+                
             }
-            .padding(.bottom, 10)
+            .frame(height: 130)
+        }
+//            
+//            
+//           
+//        
+//        
+//        
+//        
+//        
+//        
+//        
+//        
+//        
+//        
+//        
+//        
+//        
+//        
+//        Group {
+//            ZStack(alignment: .top) {
+//                //                Color(.gray)
+//                //                    .ignoresSafeArea()
+//                VStack(alignment: .leading) {
+//                    HStack {
+//                        if let url = spotifyArtistURL(from: currentArtist.id) {
+//                            Link(destination: url, label: {
+//                                ArtistImage(imageURL: currentArtist.imageURL, frame: 120)
+//                            })
+//                        }
+//                        VStack {
+//                            HStack {
+//                                Text(currentArtist.name)
+//                                    .multilineTextAlignment(.center)
+//                                    .font(Font.system(size: 22))
+//                                    .bold()
+//
+//                                
+//                            }
+//                            .foregroundStyle(Color("BW Color Switch"))
+//                            .padding(.bottom, 8)
+//                            HStack {
+//                                if currentFestival.published {
+//                                    ShareLink(item: getArtistShareLink()) {
+//                                        ZStack {
+//                                            Circle()
+//                                                .fill(.bwColorSwitchReverse)
+//                                                .frame(width: 28, height: 28)
+//                                                .shadow(radius: 3)
+//                                            
+//                                            Image(systemName: "square.and.arrow.up.circle")
+//                                                .imageScale(.large)
+//                                                .foregroundStyle(.oasisBlue)
+//                                        }
+//                                        .padding([.leading, .trailing], 5)
+//                                    }
+//                                } else {
+//                                    Button(action: {
+//                                        popupMessage = "Make this festival public to share."
+//                                    }, label: {
+//                                        ZStack {
+//                                            Circle()
+//                                                .fill(Color.white)
+//                                                .frame(width: 28, height: 28)
+//                                                .shadow(radius: 3)
+//                                            
+//                                            Image(systemName: "square.and.arrow.up.circle")
+//                                                .imageScale(.large)
+//                                                .foregroundStyle(.gray)
+//                                        }
+//                                        .padding([.leading, .trailing], 5)
+//                                    })
+//                                }
+//                                
+//                                Button(action: {
+//                                    tags.heartPressed(currentArtist.id)
+//                                    firestore.myUserProfile.favoriteArtistsList = tags.myFavorites
+//                                }, label: {
+//                                    ZStack {
+//                                        Circle()
+//                                            .fill(.bwColorSwitchReverse)
+//                                            .frame(width: 36, height: 36)
+//                                            .shadow(radius: 3)
+//                                        
+//                                        Image(systemName: tags.isArtistFavorited(currentArtist.id) ? "heart.fill" : "heart")
+//                                            .font(.system(size: 23))
+//                                            .foregroundStyle(.red)
+//                                        //                                            .foregroundStyle(tags.isArtistFavorited(currentArtist.id) ? Color.red : Color.gray)
+//                                    }
+//                                    .overlay(
+//                                        Circle()
+//                                            .scale(1.1)
+//                                            .stroke(.red, lineWidth: 2)
+//
+//                                    )
+//                                    
+//                                    
+//                                })
+//                                .padding([.leading, .trailing], 3)
+//                                
+//                                Button(action: {
+//                                    showArtistTagSheet = true
+//                                }, label: {
+//                                    ZStack {
+//                                        Circle()
+//                                            .fill(.bwColorSwitchReverse)
+//                                            .frame(width: 28, height: 28)
+//                                            .shadow(radius: 3)
+//                                        
+//                                        Image(systemName: "tag.circle")
+//                                            .imageScale(.large)
+//                                            .foregroundStyle(.oasisBlue)
+////                                            .overlay(
+////                                                Circle()
+////                                                    .stroke(.oasisBlue, lineWidth: 2)
+////                //                                    .stroke(Color.gray, lineWidth: 2)
+////                                            )
+//                                    }
+//                                    .padding([.leading, .trailing], 5)
+//                                })
+//                                
+//                                
+//                                //                                Menu(content: {
+//                                //                                    if !tags.isDNSTSelected(currentArtist.id) {
+//                                ////                                    if !currentArtist.artistTags.contains(tags.DONOTSUGGESTTAG.id) {
+//                                ////                                    if tags.artistTagDictionary[currentArtist.id]?.contains(tags.DONOTSUGGESTTAG.id) {
+//                                //                                        Button (action: {
+//                                //                                            tags.addDNST(currentArtist.id)
+//                                ////                                            doNotSuggestPressed()
+//                                //                                            //                                        festivalVM.dislikeButtonPressed(currentArtist.id)
+//                                //                                            //                                        sortType = .alpha
+//                                //                                        }, label: {
+//                                //                                            HStack {
+//                                //                                                Text("Do Not Suggest")
+//                                //                                                Spacer()
+//                                //                                                Image(systemName: "nosign")
+//                                //                                            }
+//                                ////                                            .foregroundStyle(festivalVM.dislikeList.contains(currentArtist.id) ? Color.red : Color.gray)
+//                                //                                        })
+//                                //                                    }
+//                                //                                    Button (action: {
+//                                //                                        showArtistTagSheet = true
+//                                ////                                        festivalVM.dislikeButtonPressed(currentArtist.id)
+//                                ////                                        sortType = .alpha
+//                                //                                    }, label: {
+//                                //                                        HStack {
+//                                ////                                            if currentArtist.artistTags.isEmpty {
+//                                //                                            if tags.doesArtistHaveTags(currentArtist.id) {
+//                                //                                                Text("Edit Tags")
+//                                //                                                Spacer()
+//                                //                                                Image(systemName: "pencil.circle")
+//                                //                                            } else {
+//                                //                                                Text("Add Tags")
+//                                //                                                Spacer()
+//                                //                                                Image(systemName: "plus.circle")
+//                                //                                            }
+//                                //                                        }
+//                                //                                    })
+//                                //
+//                                //                                }, label: {
+//                                //                                    Group {
+//                                //                                        Image(systemName: "ellipsis.circle")
+//                                ////                                        Image(systemName: "tag.circle")
+//                                //                                            .imageScale(.large)
+//                                //                                            .foregroundStyle(Color.gray)
+//                                //                                            .padding([.leading, .trailing], 5)
+//                                //                                    }
+//                                //                                })
+//                            }
+//                            .font(Font.system(size: 26))
+//                            //                            .shadow(radius: 2)
+//                            //                            .padding(10)
+//                            
+//                            //                        .listRowBackground(Color(hue: 0.76, saturation: 0.2, brightness: 0.85))
+//                        }
+//                        //                    .background(RoundedRectangle(cornerRadius: 20)
+//                        //                        .foregroundStyle(Color.gray))
+//                        .padding(10)
+//                    }
+//                    .padding(.horizontal, 10)
+//                    
+//                }
+//            }
+//            .padding(.bottom, 10)
+//        }
+    }
+    
+    var ArtistButtons: some View {
+        HStack {
+            //Share Button
+            if currentFestival.published {
+                ShareLink(item: getArtistShareLink()) {
+                    ZStack {
+                        Circle()
+                            .fill(.bwColorSwitchReverse)
+                            .frame(width: 28, height: 28)
+                            .shadow(radius: 3)
+                        
+                        Image(systemName: "square.and.arrow.up.circle")
+                            .imageScale(.large)
+                            .foregroundStyle(.oasisBlue)
+                    }
+                    .padding([.leading, .trailing], 5)
+                }
+            } else {
+                Button(action: {
+                    popupMessage = "Make this festival public to share."
+                }, label: {
+                    ZStack {
+                        Circle()
+                            .fill(.bwColorSwitchReverse)
+                            .frame(width: 28, height: 28)
+                            .shadow(radius: 3)
+                        
+                        Image(systemName: "square.and.arrow.up.circle")
+                            .imageScale(.large)
+                            .foregroundStyle(.oasisGrey)
+                    }
+                    .padding([.leading, .trailing], 5)
+                })
+            }
+            
+            
+            //Heart Button
+            Button(action: {
+                tags.heartPressed(currentArtist.id)
+                firestore.myUserProfile.favoriteArtistsList = tags.myFavorites
+                favoriteFestival()
+            }, label: {
+                ZStack {
+                    Circle()
+                        .fill(.bwColorSwitchReverse)
+                        .frame(width: 36, height: 36)
+                        .shadow(radius: 3)
+                    
+                    Image(systemName: tags.isArtistFavorited(currentArtist.id) ? "heart.fill" : "heart")
+                        .font(.system(size: 23))
+                        .foregroundStyle(.red)
+                    //                                            .foregroundStyle(tags.isArtistFavorited(currentArtist.id) ? Color.red : Color.gray)
+                }
+                .overlay(
+                    Circle()
+                        .scale(1.1)
+                        .stroke(.red, lineWidth: 2)
+
+                )
+                
+                
+            })
+            .padding([.leading, .trailing], 5)
+            
+            
+            //Group Button
+            Button(action: {
+                showArtistTagSheet = true
+            }, label: {
+                ZStack {
+                    Circle()
+                        .fill(.bwColorSwitchReverse)
+                        .frame(width: 28, height: 28)
+                        .shadow(radius: 3)
+                    
+                    Image(systemName: "tag.circle")
+                        .imageScale(.large)
+                        .foregroundStyle(.oasisBlue)
+                }
+                .padding([.leading, .trailing], 5)
+            })
+        }
+        .font(Font.system(size: 26))
+        .alert("Never Miss a Festival!", isPresented: $showNotificationAlert) {
+            Button("Not Now", role: .cancel) { }
+
+            Button("Enable") {
+                requestPermissionAction()
+            }
+        } message: {
+            Text("Enable notifications to get festival reminders, see new followers, and more.")
+//            Text("Oasis can remind you one week before your saved festivals begin. You'll only receive reminders for festivals you choose to save, and you can change this anytime in Settings.")
+        }
+    }
+    
+    func favoriteFestival() {
+        let wasFavorited = festivalVM.festivalIsFavorited(festivalID: currentFestival.id)
+        if !wasFavorited {
+            festivalVM.starPressed(festival: currentFestival)
+            firestore.myUserProfile.starredFestivalsList = festivalVM.myFestivals.map { $0.id.uuidString }
+            //                            if !wasFavorited {
+            Task {
+                let status = await NotificationManager.shared.notificationStatus()
+                
+                if !NotificationManager.shared.festivalNotificationsRequested {
+                    NotificationManager.shared.festivalNotificationsRequested = true
+                    showNotificationAlert = true
+                } else if status == .notDetermined {
+                    popupAction = requestPermissionAction
+                    popupMessage = "Enable notifications to get festival reminders."
+                } else if status == .denied {
+                    popupAction = openSettingsAction
+                    popupMessage = "Enable notifications to get festival reminders."
+                } else {
+                    festivalVM.scheduleFestivalReminder(currentFestival)
+                }
+            }
+        }
+    }
+    
+    func requestPermissionAction() {
+        Task {
+            let granted = await NotificationManager.shared.requestPermission()
+            if granted {
+                festivalVM.scheduleFestivalReminder(currentFestival)
+            }
+        }
+    }
+    
+    func openSettingsAction() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
         }
     }
     
     
     func getArtistShareLink() -> String {
         return "https://oasis-austinzv.web.app/share/festival/\(currentFestival.id)/artist/\(currentArtist.id)"
+    }
+    
+    func toggleImage() {
+        withAnimation {
+            photoExpanded.toggle()
+        }
+    }
+
+    func collapseImage() {
+        withAnimation {
+            photoExpanded = false
+        }
     }
     
     //    func doNotSuggestPressed() {
@@ -334,7 +548,7 @@ struct ArtistPage: View {
     //                        Image(systemName: "chevron.right")
     //                    }
     //                })
-    //                .foregroundStyle(Color.black)
+    //                .foregroundStyle(Color.oasisDarkPurple)
     //
     //            }
     ////            Section(header: Text("Playlist")) {
@@ -389,18 +603,18 @@ struct ArtistPage: View {
                                 HStack {
                                     Image(systemName: tags.DONOTSUGGESTTAG.symbol)
                                     Text(tags.DONOTSUGGESTTAG.name)
-                                    Image(systemName: "chevron.right")/*.foregroundStyle(.black)*/
+                                    Image(systemName: "chevron.right")/*.foregroundStyle(.oasisDarkPurple)*/
                                 }
                                 .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
                                 .padding(INFO_PADDING)
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(Color("BW Color Switch Reverse"))
-                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                        .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(.black, lineWidth: 1)
+                                        .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -414,18 +628,18 @@ struct ArtistPage: View {
                                 HStack {
                                     Image(systemName: tag.symbol)
                                     Text(tag.name)
-                                    Image(systemName: "chevron.right")/*.foregroundStyle(.black)*/
+                                    Image(systemName: "chevron.right")/*.foregroundStyle(.oasisDarkPurple)*/
                                 }
                                 .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
                                 .padding(INFO_PADDING)
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(Color("BW Color Switch Reverse"))
-                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                        .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(.black, lineWidth: 1)
+                                        .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -513,13 +727,14 @@ struct ArtistPage: View {
                             //                            Text(currentArtist.name)
                             Text("")
                             HStack {
-                                Image("Spotify Full Logo")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(height: 25, alignment: .center)
-                                //                                        .offset(x: -5)
-                                Text("Page")
-                                    .font(.system(size: 17))
+                                Text("Artist Page").bold().font(.system(size: 17))
+//                                Image("Spotify Full Logo")
+//                                    .resizable()
+//                                    .scaledToFit()
+//                                    .frame(height: 25, alignment: .center)
+//                                //                                        .offset(x: -5)
+//                                Text("Page")
+//                                    .font(.system(size: 17))
                             }
                             Spacer()
                             Image("Spotify Image Black")
@@ -675,7 +890,7 @@ struct ArtistPage: View {
                     Text("Latest Album") }
                 ) {
                     ProgressView()
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurple)
                 }
             }
         }
@@ -761,11 +976,11 @@ struct ArtistPage: View {
                                         .background(
                                             RoundedRectangle(cornerRadius: 15)
                                                 .fill(Color("BW Color Switch Reverse"))
-                                                .shadow(color: .black, radius: 2, x: 0, y: 2)
+                                                .shadow(color: .oasisDarkPurpleUninverted, radius: 2, x: 0, y: 2)
                                         )
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 15)
-                                                .stroke(.black, lineWidth: 2)
+                                                .stroke(.oasisDarkPurpleUninverted, lineWidth: 2)
                                         )
                                     }
                                     .foregroundStyle(Color("BW Color Switch"))
@@ -808,11 +1023,11 @@ struct ArtistPage: View {
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(Color("BW Color Switch Reverse"))
-                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                        .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(.black, lineWidth: 1)
+                                        .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -876,11 +1091,11 @@ struct ArtistPage: View {
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(Color("BW Color Switch Reverse"))
-                                        .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                        .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(.black, lineWidth: 1)
+                                        .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -941,43 +1156,21 @@ struct ArtistPage: View {
     
     var ArtistDay: some View {
         Group {
-            //            if let currFest = festivalVM.currentFestival {
-            FlowLayout(spacing: 8) {
-                Text("Day:")
-                    .padding(.vertical, INFO_PADDING)
-                if currentArtist.day == data.NA_TITLE_BLOCK {
-                    Text("Unannounced")
+            if currentFestival.startDate != currentFestival.endDate {
+                FlowLayout(spacing: 8) {
+                    Text("Day:")
                         .padding(.vertical, INFO_PADDING)
-                } else {
-                    Button {
-                        let dayList = festivalVM.getDayList(currArtist: currentArtist, currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
-                        navigationPath.append(ArtistListStruct(titleText: currentArtist.day, festival: currentFestival, list: dayList)
-                        )
-                    } label: {
-                        HStack {
-                            Text(currentArtist.day)
-                            Image(systemName: "chevron.right")
-                        }
-                        .foregroundStyle(Color("OASIS Dark Orange"))
-                        .padding(INFO_PADDING)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color("BW Color Switch Reverse"))
-                                .shadow(color: .black, radius: 1, x: 0, y: 2)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(.black, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    if currentFestival.secondWeekend && currentArtist.weekend != "Both" {
+                    if currentArtist.day == data.NA_TITLE_BLOCK {
+                        Text("Unannounced")
+                            .padding(.vertical, INFO_PADDING)
+                    } else {
                         Button {
-                            let weekendList = festivalVM.getWeekendList(weekend: currentArtist.weekend, currList: currentFestival.artistList)
-                            navigationPath.append(ArtistListStruct(titleText: currentArtist.weekend, festival: currentFestival, list: weekendList))
+                            let dayList = festivalVM.getDayList(currArtist: currentArtist, currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
+                            navigationPath.append(ArtistListStruct(titleText: currentArtist.day, festival: currentFestival, list: dayList)
+                            )
                         } label: {
                             HStack {
-                                Text(currentArtist.weekend)
+                                Text(currentArtist.day)
                                 Image(systemName: "chevron.right")
                             }
                             .foregroundStyle(Color("OASIS Dark Orange"))
@@ -985,18 +1178,40 @@ struct ArtistPage: View {
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
                                     .fill(Color("BW Color Switch Reverse"))
-                                    .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                    .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10)
-                                    .stroke(.black, lineWidth: 1)
+                                    .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
+                        if currentFestival.secondWeekend && currentArtist.weekend != "Both" {
+                            Button {
+                                let weekendList = festivalVM.getWeekendList(weekend: currentArtist.weekend, currList: currentFestival.artistList)
+                                navigationPath.append(ArtistListStruct(titleText: currentArtist.weekend, festival: currentFestival, list: weekendList))
+                            } label: {
+                                HStack {
+                                    Text(currentArtist.weekend)
+                                    Image(systemName: "chevron.right")
+                                }
+                                .foregroundStyle(Color("OASIS Dark Orange"))
+                                .padding(INFO_PADDING)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color("BW Color Switch Reverse"))
+                                        .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }
-            
             
             
             
@@ -1061,11 +1276,11 @@ struct ArtistPage: View {
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
                                     .fill(Color("BW Color Switch Reverse"))
-                                    .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                    .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10)
-                                    .stroke(.black, lineWidth: 1)
+                                    .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
@@ -1117,11 +1332,11 @@ struct ArtistPage: View {
                         .background(
                             RoundedRectangle(cornerRadius: 10)
                                 .fill(Color("BW Color Switch Reverse"))
-                                .shadow(color: .black, radius: 1, x: 0, y: 2)
+                                .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(.black, lineWidth: 1)
+                                .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -1146,6 +1361,12 @@ struct ArtistPage: View {
             //            }
         }
     }
+    
+    
+    
+    
+    
+    
     
     @State var showAddTagSheet = false
     @State var selectedTags: Set<UUID> = []
@@ -1172,10 +1393,14 @@ struct ArtistPage: View {
         }
         .onAppear {
             editView = false
-            selectedTags = Set(tags.getArtistTags(artistID: currentArtist.id, festivalID: currentFestival.id).map(\.id))
+            selectedTags.formUnion(Set(tags.getArtistTags(artistID: currentArtist.id, festivalID: currentFestival.id).map(\.id)))
+//            selectedTags = Set(tags.getArtistTags(artistID: currentArtist.id, festivalID: currentFestival.id).map(\.id))
             allOtherTagsSelected = Set<ArtistTag>()
             showAllTags = false
             DNSTChecked = tags.isArtistDNS(currentArtist.id)
+//            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                
+//            }
             //            for tagID in currentArtist.artistTags {
             //            selectedTags.removeAll()
             //            for tagID in tags.getArtistTagIDs(artistID: currentArtist.id) {
@@ -1189,7 +1414,8 @@ struct ArtistPage: View {
         //            }
         //        }
         .sheet(item: $editingTag) { tag in
-            NewTagSheet(editingTag: tag, binding: $editingTag, currentFestival: currentFestival, selectedTags: $selectedTags)
+            NewTagSheet(editingTag: tag, binding: $editingTag, currentFestival: currentFestival, currentArtist: currentArtist, selectedTags: $selectedTags)
+//                .onDi
         }
 //        .onChange(of: tags.festivalTags) { oldFestTags, newFestTags in
 //            let oldTags = oldFestTags[currentFestival.id].map { Set($0.keys) } ?? []
@@ -1216,15 +1442,16 @@ struct ArtistPage: View {
                         .frame(width: 28, alignment: .center)
                     Text(tags.DONOTSUGGESTTAG.name)
                 }
-                .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
+                .foregroundStyle(.oasisDarkPurpleUninverted)
+//                .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
 //                .foregroundStyle(getTagColor(tags.DONOTSUGGESTTAG))
                 Spacer()
                 Group {
-//                    if !editView {
-                        Image(systemName: DNSTChecked ? "checkmark.square.fill" : "square")
-                            .foregroundStyle(.black)
-                            .imageScale(.large)
-//                    }
+                    //                    if !editView {
+                    Image(systemName: DNSTChecked ? "checkmark.square.fill" : "square")
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
+                        .imageScale(.large)
+                    //                    }
                 }
                 .frame(height: 24, alignment: .center)
                 
@@ -1248,7 +1475,7 @@ struct ArtistPage: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.black, lineWidth: 1)
+                .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
         )
         .padding(.vertical, 12)
         .padding(.horizontal, 30)
@@ -1268,7 +1495,7 @@ struct ArtistPage: View {
                         Image(systemName: "plus.circle")
                         Text("Add \(currentFestival.name) Tag")
                     }
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.oasisBlue)
                 }
                 .padding(.top, 4)
             } else {
@@ -1293,7 +1520,7 @@ struct ArtistPage: View {
                                 Group {
                                     if !editView {
                                         Image(systemName: selectedTags.contains(tag.id) ? "checkmark.square.fill" : "square")
-                                            .foregroundStyle(.black)
+                                            .foregroundStyle(.oasisDarkPurpleUninverted)
                                             .imageScale(.large)
                                     } else if tag != tags.DONOTSUGGESTTAG {
                                         Image(systemName: "square.and.pencil")
@@ -1331,7 +1558,7 @@ struct ArtistPage: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(.black, lineWidth: 1)
+                            .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                     )
                     .padding(.vertical, 12)
                     
@@ -1350,7 +1577,7 @@ struct ArtistPage: View {
                                     Image(systemName: "plus.circle")
                                     Text("Add Tag")
                                 }
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.oasisBlue)
                             }
                             //                        Spacer()
                             Divider().padding(.horizontal, 15)
@@ -1373,7 +1600,7 @@ struct ArtistPage: View {
                                     //                                Image(systemName: "pencil.circle")
                                     Text("Done Editing")
                                 }
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.oasisBlue)
                             }
                         }
                     }
@@ -1425,7 +1652,7 @@ struct ArtistPage: View {
                                     Spacer()
                                     Group {
                                         Image(systemName: allOtherTagsSelected.contains(tag) ? "checkmark.square.fill" : "square")
-                                            .foregroundStyle(.black)
+                                            .foregroundStyle(.oasisDarkPurpleUninverted)
                                             .imageScale(.large)
                                     }
                                     .frame(height: 24, alignment: .center)
@@ -1449,7 +1676,7 @@ struct ArtistPage: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(.black, lineWidth: 1)
+                                .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
                         )
                         .padding(.vertical, 12)
                         
@@ -1469,7 +1696,7 @@ struct ArtistPage: View {
             if editView {
                 return .gray
             } else {
-                return .black
+                return .oasisDarkPurpleUninverted
             }
         }
         return COLOR_SPECTRUM_ARRAY[tag.color]
@@ -1569,52 +1796,7 @@ struct Triangle: Shape {
 //    }
 //}
 
-struct ArtistImage: View {
-    let imageURL: String
-    let frame: CGFloat
-    @State private var image: UIImage?
 
-    var body: some View {
-        Group {
-            if let image = image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: frame, height: frame)
-                    .clipShape(Rectangle())
-            } else {
-                Image(systemName: "person.crop.circle.fill")
-                    .resizable()
-                    .foregroundColor(.gray)
-                    .frame(width: frame, height: frame)
-                    .onAppear { loadImage() }
-            }
-        }
-        .onChange(of: imageURL) {
-            image = nil
-        }
-    }
-
-    private func loadImage() {
-        // 1. Cached?
-        if let cached = ImageCache.shared.getCachedImage(for: imageURL) {
-            image = cached
-            return
-        }
-
-        // 2. Remote fetch
-        guard let url = URL(string: imageURL) else { return }
-
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            if let data = data, let img = UIImage(data: data) {
-//                ImageCache.shared.cacheImage(data, for: imageURL)
-                DispatchQueue.main.async {
-                    self.image = img
-                }
-            }
-        }.resume()
-    }
-}
 
 
 struct WrappingHStack: Layout {
@@ -1759,7 +1941,7 @@ struct WrappingHStack: Layout {
 //                    .frame(height: 65)
 //                    .background(
 //                        Capsule()
-//                            .stroke(.black, lineWidth: 2)
+//                            .stroke(.oasisDarkPurple, lineWidth: 2)
 //                    )
 //                    
 //                    Spacer()
@@ -1769,7 +1951,7 @@ struct WrappingHStack: Layout {
 //                if showSymbolPicker {
 //                    
 //                    // dismiss layer
-//                    //                    Color.black.opacity(0.001)
+//                    //                    Color.oasisDarkPurple.opacity(0.001)
 //                    //                        .ignoresSafeArea()
 //                    //                        .onTapGesture {
 //                    //                            withAnimation(.spring()) {
@@ -1790,14 +1972,14 @@ struct WrappingHStack: Layout {
 //                            } label: {
 //                                Image(systemName: symbol)
 //                                    .font(.system(size: 20))
-//                                    .foregroundStyle(selectedSymbol == symbol ? .blue : .black)
+//                                    .foregroundStyle(selectedSymbol == symbol ? .blue : .oasisDarkPurple)
 //                                    .frame(width: SYMBOLGRIDSIZE, height: SYMBOLGRIDSIZE)
 //                            }
 //                            .buttonStyle(.plain)
 //                            .background(Color.white)
 //                            .overlay(
 //                                Rectangle()
-//                                    .stroke(.black, lineWidth: 1)
+//                                    .stroke(.oasisDarkPurple, lineWidth: 1)
 //                            )
 //                        }
 //                    }
@@ -1805,7 +1987,7 @@ struct WrappingHStack: Layout {
 //                    .background(Color.white)
 //                    //                        .overlay(
 //                    //                            Rectangle()
-//                    //                                .stroke(.black, lineWidth: 2)
+//                    //                                .stroke(.oasisDarkPurple, lineWidth: 2)
 //                    //                        )
 //                    .position(
 //                        x: 175,
@@ -1816,7 +1998,7 @@ struct WrappingHStack: Layout {
 //                } else if showColorPicker {
 //                    
 //                    // dismiss layer
-//                    //                    Color.black.opacity(0.001)
+//                    //                    Color.oasisDarkPurple.opacity(0.001)
 //                    //                        .ignoresSafeArea()
 //                    //                        .onTapGesture {
 //                    //                            withAnimation(.spring()) {
@@ -1837,7 +2019,7 @@ struct WrappingHStack: Layout {
 //                            } label: {
 //                                if index == selectedColor {
 //                                    Circle()
-//                                        .stroke(Color.black, lineWidth: 2)
+//                                        .stroke(Color.oasisDarkPurple, lineWidth: 2)
 //                                        .frame(width: 30, height: 30)
 //                                        .overlay(
 //                                            Circle()
@@ -1852,14 +2034,14 @@ struct WrappingHStack: Layout {
 //                                
 //                                //                                Image(systemName: symbol)
 //                                //                                    .font(.system(size: 20))
-//                                //                                    .foregroundStyle(selectedSymbol == symbol ? .blue : .black)
+//                                //                                    .foregroundStyle(selectedSymbol == symbol ? .blue : .oasisDarkPurple)
 //                                //                                    .frame(width: SYMBOLGRIDSIZE, height: SYMBOLGRIDSIZE)
 //                            }
 //                            .buttonStyle(.plain)
 //                            .background(Color.white)
 //                            //                            .overlay(
 //                            //                                Rectangle()
-//                            //                                    .stroke(.black, lineWidth: 1)
+//                            //                                    .stroke(.oasisDarkPurple, lineWidth: 1)
 //                            //                            )
 //                        }
 //                    }
@@ -1868,7 +2050,7 @@ struct WrappingHStack: Layout {
 //                    .background(Color.white)
 //                    .overlay(
 //                        Rectangle()
-//                            .stroke(.black, lineWidth: 2)
+//                            .stroke(.oasisDarkPurple, lineWidth: 2)
 //                        
 //                    )
 //                    .position(

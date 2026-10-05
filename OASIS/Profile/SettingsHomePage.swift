@@ -12,11 +12,22 @@ struct SettingsHomePage: View {
     
     @Binding var navigationPath: NavigationPath
     
+    @State var showLogInSheet: Bool = false
+    
     var body: some View {
         VStack {
             MenuOptions
         }
         .navigationTitle("Settings")
+        .sheet(isPresented: $showLogInSheet) {
+//            LogInPage(signInText: true)
+            AccountSetUpPage(showSheet: $showLogInSheet)
+        }
+//        .onChange(of: showLogInSheet) { _, newVal in
+//            if !newVal {
+//
+//            }
+//        }
     }
     
     var MenuOptions: some View {
@@ -26,26 +37,27 @@ struct SettingsHomePage: View {
                 .frame(height: 1)
                 .background(Color.gray)
 
-            Button(action: { navigationPath.append("Edit Profile") }) {
-                ZStack {
-                    HStack {
-                        Text("Edit Profile")
-                        Image(systemName: "gear.circle")
-                            .imageScale(.large)
+            if firestore.phoneConnected {
+                Button(action: { navigationPath.append("Edit Profile") }) {
+                    ZStack {
+                        HStack {
+                            Image(systemName: "person.crop.circle")
+                                .imageScale(.large)
+                            Text("Edit Profile")
+                        }
+                        HStack {
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .padding(.trailing, 20)
+                        }
                     }
-                    HStack {
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .padding(.trailing, 20)
-                    }
+                    .frame(height: OPTION_HEIGHT)
+                    .foregroundStyle(.bwColorSwitch)
                 }
-                .frame(height: OPTION_HEIGHT)
-                .foregroundStyle(.bwColorSwitch)
+                Divider()
+                    .frame(height: 1)
+                    .background(Color.gray)
             }
-            Divider()
-                .frame(height: 1)
-                .background(Color.gray)
-
 //            Button(action: { navigationPath.append("Spotify Account") }) {
 //                ZStack {
 //                    HStack {
@@ -70,9 +82,31 @@ struct SettingsHomePage: View {
             Button(action: { navigationPath.append("About Page") }) {
                 ZStack {
                     HStack {
-                        Text("About")
+                        Image(systemName: "bell.circle")
+                            .imageScale(.large)
+                        Text("Notifications")
+                        
+                    }
+                    HStack {
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .padding(.trailing, 20)
+                    }
+                }
+                .frame(height: OPTION_HEIGHT)
+                .foregroundStyle(.bwColorSwitch)
+            }
+            
+            Divider()
+                .frame(height: 1)
+                .background(Color.gray)
+            
+            Button(action: { navigationPath.append("About Page") }) {
+                ZStack {
+                    HStack {
                         Image(systemName: "info.circle")
                             .imageScale(.large)
+                        Text("About")
                     }
                     HStack {
                         Spacer()
@@ -90,10 +124,11 @@ struct SettingsHomePage: View {
 
 //            LogOutOASISButton
             Spacer()
-            LogOutButton
+            
+            LogInOutButton
             
         }
-        .foregroundStyle(.black)
+        .foregroundStyle(.oasisDarkPurple)
     }
     
     @State var logOutAlert: Bool = false
@@ -105,11 +140,11 @@ struct SettingsHomePage: View {
                 .frame(width: 190, height: 50, alignment: .center)
                 .overlay(
                     RoundedRectangle(cornerRadius: 25)
-                        .stroke(Color.black, lineWidth: 2) // black border
+                        .stroke(Color.oasisDarkPurple, lineWidth: 2) // black border
                 )
             HStack {
                 Text("Log Out")
-                    .foregroundColor(.black)
+                    .foregroundColor(.oasisDarkPurple)
                 OASISTitle(fontSize: 18, kerning: 2)
             }
         }
@@ -133,16 +168,28 @@ struct SettingsHomePage: View {
     
     @State var showLogOutAlert = false
     
-    var LogOutButton: some View {
+    var LogInOutButton: some View {
         VStack {
-            Button(action: { showLogOutAlert = true }) {
-                Text("Log Out")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .foregroundStyle(.white)
-                    .background(.red)
-                    .cornerRadius(10)
+            if firestore.phoneConnected {
+                Button(action: { showLogOutAlert = true }) {
+                    Text("Log Out")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .foregroundStyle(.white)
+                        .background(.red)
+                        .cornerRadius(10)
+                }
+            } else {
+                Button(action: { showLogInSheet = true }) {
+                    Text("Log In")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .foregroundStyle(.white)
+                        .background(.oasisBlue)
+                        .cornerRadius(10)
+                }
             }
         }
         .padding(30)
@@ -151,6 +198,7 @@ struct SettingsHomePage: View {
 //                  message: Text("This cannot be undone."),
                   primaryButton: .destructive(Text("Log Out")) {
                 firestore.signOutUser() { completion in
+                    navigationPath = NavigationPath()
                     //print("Logged Out")
                 }
 //                data.signOutUser { result in

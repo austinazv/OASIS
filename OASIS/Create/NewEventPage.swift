@@ -10,6 +10,7 @@ import MapKit
 import PhotosUI
 import PDFKit
 import QuickLook
+import FirebaseFunctions
 
 struct NewEventPage: View {
     @EnvironmentObject var data: DataSet
@@ -36,15 +37,21 @@ struct NewEventPage: View {
     
     @State var lastEditedArtist: Artist?
     
+    @State var showPublishWithNotificationSheet: Bool = false
+    @State var showLogInSheet: Bool = false
+    
+    @Binding var selectedTab: Int
+    
 //    init(festivalCreator: FestivalViewModel) {
 //        self.festivalCreator = festivalCreator
 ////        _draft = StateObject(wrappedValue: NewEventPageViewModel(festivalCreator: festivalCreator))
 //    }
     
-    init(festival: Festival, /*festivalCreator: FestivalViewModel,*/ navigationPath: Binding<NavigationPath>) {
+    init(festival: Festival, /*festivalCreator: FestivalViewModel,*/ navigationPath: Binding<NavigationPath>, selectedTab: Binding<Int>) {
         _navigationPath = navigationPath
         _draft = StateObject(wrappedValue: NewEventPageViewModel(festival: festival))
         oldVersion = festival
+        _selectedTab = selectedTab
     }
     
     @State var discardChangesAlert: Bool = false
@@ -124,7 +131,7 @@ struct NewEventPage: View {
                     Button (action: {
                         dismissKeyboard()
                         festivalVM.currentFestival = draft.newFestival
-                        navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: draft.newFestival, draftView: false, previewView: true))
+                        navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: draft.newFestival, draftView: false, previewView: true, selectedTab: $selectedTab))
                     }, label: {
                         Text("Preview")
                         Image(systemName: "eyes")
@@ -142,44 +149,73 @@ struct NewEventPage: View {
                                 Image(systemName: "rectangle.and.pencil.and.ellipsis")
                             }
                         })
-                        Button (action: {
-                            Task {
-                                defer { uploadingFestival = false }
-                                await savePublically()
-                            }
-                        }, label: {
-                            Text("Publish Updates")
-                            Image(systemName: "globe")
-                        })
+                        if firestore.phoneConnected {
+                            Button (action: {
+                                Task {
+                                    defer { uploadingFestival = false }
+                                    await savePublically()
+                                }
+                            }, label: {
+                                Text("Publish Updates")
+                                Image(systemName: "globe")
+                            })
+                            Button (action: {
+                                showPublishWithNotificationSheet = true
+                            }, label: {
+                                Text("Publish & Notify")
+                                Image(systemName: "bell")
+                            })
+                        } else {
+                            Button (action: {
+                                showLogInSheet = true
+                            }, label: {
+                                Text("Sign In To Publish")
+                                Image(systemName: "person.crop.circle")
+                            })
+                        }
                     } else {
                         Button (action: {
                             Task {
                                 await saveLocally()
                             }
-                            
                         }, label: {
                             HStack {
                                 Text("Save Privately")
                                 Image(systemName: "lock")
                             }
                         })
-                        Button (action: {
-                            uploadingFestival = true
-                            festivalVM.uploadFestival(draft.newFestival) { result in
-                                switch result {
-                                case .success():
-                                    ////print("Festival uploaded with merge successfully!")
-                                    uploadingFestival = false
-                                    navigationPath.removeLast()
-                                case .failure(let error):
-                                    print("Upload failed:", error)
-                                    uploadingFestival = false
+                        if firestore.phoneConnected {
+                            Button (action: {
+                                uploadingFestival = true
+                                festivalVM.uploadFestival(draft.newFestival) { result in
+                                    switch result {
+                                    case .success():
+                                        ////print("Festival uploaded with merge successfully!")
+                                        uploadingFestival = false
+                                        navigationPath.removeLast()
+                                    case .failure(let error):
+                                        print("Upload failed:", error)
+                                        uploadingFestival = false
+                                    }
                                 }
-                            }
-                        }, label: {
-                            Text("Publish")
-                            Image(systemName: "globe")
-                        })
+                            }, label: {
+                                Text("Publish")
+                                Image(systemName: "globe")
+                            })
+                            Button (action: {
+                                showPublishWithNotificationSheet = true
+                            }, label: {
+                                Text("Publish & Notify")
+                                Image(systemName: "bell")
+                            })
+                        } else {
+                            Button (action: {
+                                showLogInSheet = true
+                            }, label: {
+                                Text("Sign In To Publish")
+                                Image(systemName: "person.crop.circle")
+                            })
+                        }
                     }
                     
                 }, label: {
@@ -214,6 +250,13 @@ struct NewEventPage: View {
             if let artist = selectedArtist {
                 AddArtistPage(/*navigationPath: $navigationPath, */newArtist: artist, artistImage: artistImages[artist.id], newFestival: $draft.newFestival, showArtistSearchPage: $showArtistSearchPage, lastEditedArtist: lastEditedArtist)
             }
+        }
+        .sheet(isPresented: $showPublishWithNotificationSheet) {
+            PublishWithNotificationsSheet
+        }
+        .sheet(isPresented: $showLogInSheet) {
+//            LogInPage(signInText: true)
+            AccountSetUpPage(showSheet: $showLogInSheet)
         }
         .alert(isPresented: $discardChangesAlert) {
             return Alert(title: Text("Discard Changes?"),
@@ -342,6 +385,7 @@ struct NewEventPage: View {
                 if draft.newFestival.name == "Unnamed Festival" { draft.newFestival.name = "" }
             }
         }
+        
     }
     
     @State private var singleDayEvent = false
@@ -357,7 +401,7 @@ struct NewEventPage: View {
             }
             ) {
                 VStack {
-                    Toggle(isOn: $singleDayEvent, label: { Text("Single Day Event") }).padding(.vertical, 1)
+                    Toggle(isOn: $singleDayEvent, label: { Text("Single Day Event") }).padding(.vertical, 1).tint(.oasisDarkBlue)
                     Divider()
                     HStack {
                         Text(getStartDateText())
@@ -718,7 +762,7 @@ struct NewEventPage: View {
                                 .padding(6)
                                 .background(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(.black, lineWidth: 1)
+                                        .stroke(.oasisDarkPurple, lineWidth: 1)
                                         .foregroundStyle(.white)
                                 )
                                 .onTapGesture {
@@ -835,7 +879,7 @@ struct NewEventPage: View {
                     ZStack(alignment: .topLeading) {
                         HStack {
                             ZStack {
-                                TextField("Search Spotify Database", text: $artistSearchText)
+                                TextField("Add Artist", text: $artistSearchText)
                                     .padding(5)
                                     .background(Color(.systemGray6))
                                     .autocorrectionDisabled(true)
@@ -1314,7 +1358,7 @@ struct NewEventPage: View {
                 let showingLogo = (selectedLogo != nil || (draft.newFestival.logoPath != nil && !logoDeleted))
                 VStack {
                     if let selectedLogo {
-                        InvertInDarkModeImage(image: selectedLogo, frame: 60)
+                        InvertInDarkModeImage(image: selectedLogo, frame: 60, invert: true)
 //                        ZStack {
 //                            Image(uiImage: selectedLogo)
 //                                .resizable()
@@ -1536,7 +1580,366 @@ struct NewEventPage: View {
         artistSearchFocused = false
         urlTextFocused = false
     }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    var PublishWithNotificationsSheet: some View {
+        VStack {
+            NavigationButtons
+            Text("Publish With Notifications").font(.title2).padding()
+            ScrollView {
+                TitleText
+                MessageText
+                NotifyOtherFestivals
+                //            Spacer()
+            }
+        }
+        .onChange(of: selectedFestivals) { _, newSet in
+            print("FESTIVALS TO NOTIFY: \(newSet)")
+        }
+    }
+    
+    var NavigationButtons: some View {
+        Group {
+            HStack {
+                Button(action: {
+                    showPublishWithNotificationSheet = false
+                }, label: {
+                    Text("Cancel")
+                        .foregroundStyle(.red)
+                })
+                Spacer()
+                Button(action: {
+                    
+                        Task {
+                            defer {
+                                uploadingFestival = false
+                                showPublishWithNotificationSheet = false
+                            }
+                            await savePublically()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+                                firestore.sendFestivalNotification(festivalID: draft.newFestival.id,
+                                                                   title: title,
+                                                                   body: message,
+                                                                   festivalsToNotify: selectedFestivals)
+                            }
+                        }
+//                        testPushNotification()
+//                    }
+                    
+                }, label: {
+                    Group {
+                        Text("Publish")
+                    }
+//                    .foregroundStyle(isGenreLoading ? .gray : .blue)
+                })
+//                .disabled(isGenreLoading)
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 18)
+            Divider()
+        }
+    }
+    
+    @State private var title = ""
+    let MAX_TITLE_COUNT = 30
+    
+    
+    var TitleText: some View {
+        HStack(spacing: 0) {
+            Text("Title: ").bold()
+            Text(title)
+            Spacer()
+        }
+        .font(.system(size: 17))
+        .padding(.vertical, 4)
+        .padding(.horizontal, 24)
+        .onAppear {
+            let festNameAndYear = festivalVM.getFestiTitleWithYear(name: draft.newFestival.name, startDate: draft.newFestival.startDate)
+            if draft.newFestival.published {
+                title = "\(festNameAndYear) Updates!"
+            } else {
+                title = "\(festNameAndYear) Lineup Released!"
+            }
+        }
+    }
+    
+    
+    var TitleTextEditable: some View {
+        VStack(alignment: .center, spacing: 4) {
+            HStack {
+                Text("Title")
+                    .font(.system(size: 17))
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            
+            TextField("Name", text: $title)
+//                .frame(height: 40)
+                .padding()
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .onChange(of: title) {
+                    if title.count > MAX_TITLE_COUNT {
+                        title = String(message.prefix(MAX_TITLE_COUNT))
+                    }
+                }
+                
+            HStack {
+                let charCountRemaining = MAX_TITLE_COUNT - title.count
+                Spacer()
+                Text("\(charCountRemaining)")
+                    .foregroundStyle(charCountRemaining == 0 ? .red : .gray)
+            }
+            .padding(.horizontal, 4)
+            
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    
+    @State private var message = ""
+    let MAX_MESSAGE_COUNT = 80
+    
+    @FocusState private var messageFocused: Bool
+    
+    var MessageText: some View {
+        VStack(alignment: .center, spacing: 4) {
+            HStack {
+                Text("Message:")
+                    .font(.system(size: 17))
+                    .bold()
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+            
+            ZStack(alignment: .topLeading) {
+                DismissOnReturnTextEditor(
+                    text: $message,
+                    isFocused: $messageFocused
+                )
+                .frame(height: 60)
+                .padding()
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .onChange(of: message) {
+                    if message.count > MAX_MESSAGE_COUNT {
+                        message = String(message.prefix(MAX_MESSAGE_COUNT))
+                    }
+                }
+//                TextEditor(text: $message)
+////                    .submitLabel(.done)
+//                    .frame(height: 60)
+//                    .padding()
+//                    .background(Color(.systemGray6))
+//                    .clipShape(RoundedRectangle(cornerRadius: 12))
+//                    .onChange(of: message) {
+//                        if message.count > MAX_MESSAGE_COUNT {
+//                            message = String(message.prefix(MAX_MESSAGE_COUNT))
+//                        }
+//                    }
+//                    .focused($messageFocused)
+//                    .toolbar {
+//                        ToolbarItemGroup(placement: .keyboard) {
+//                            Spacer()
+//
+//                            Button {
+//                                messageFocused = false
+//                            } label: {
+//                                Image(systemName: "checkmark")
+//                            }
+//                        }
+//                    }
+                if message.isEmpty {
+                    Group {
+                        if draft.newFestival.published {
+                            Text("Describe Your Updates")
+                        }
+//                        else {
+//                            Text("Promo")
+//                        }
+                    }
+                    .foregroundStyle(.gray)
+                    .opacity(0.9)
+                    .padding(25)
+                }
+            }
+            
+            HStack {
+                let charCountRemaining = MAX_MESSAGE_COUNT - message.count
+                Spacer()
+                Text("\(charCountRemaining)")
+                    .foregroundStyle(charCountRemaining == 0 ? .red : .gray)
+            }
+            .padding(.horizontal, 4)
+            
+        }
+        .padding(.horizontal, 20)
+        .onAppear {
+            if draft.newFestival.published {
+                message = ""
+            } else {
+                message = getMessageText()
+            }
+            
+        }
+    }
+    
+    func getMessageText() -> String {
+        let tierLabels = ["Headliner", "First Tier", "Second Tier", "Third+ Tier"]
+        
+        let dayOrder: [String: Int] = [
+            "Tuesday": 0,
+            "Wednesday": 1,
+            "Thursday": 2,
+            "Friday": 3,
+            "Saturday": 4,
+            "Sunday": 5,
+            "Monday": 6
+        ]
+        
+        func parseDay(_ str: String) -> (dayIndex: Int, weekendIndex: Int) {
+            let components = str.components(separatedBy: " (")
+            let dayName = components.first?.trimmingCharacters(in: .whitespaces) ?? ""
+            let dayIndex = dayOrder[dayName] ?? Int.max
+            
+            var weekendIndex = 0
+            
+            if str.contains("Weekend 1") {
+                weekendIndex = 1
+            } else if str.contains("Weekend 2") {
+                weekendIndex = 2
+            }
+            
+            return (dayIndex, weekendIndex)
+        }
+        
+        func compareDays(_ artist1: Artist, _ artist2: Artist) -> Bool {
+            let d1 = parseDay(artist1.day)
+            let d2 = parseDay(artist2.day)
+            
+            if d1.weekendIndex != d2.weekendIndex {
+                return d1.weekendIndex < d2.weekendIndex
+            }
+            
+            if d1.dayIndex != d2.dayIndex {
+                return d1.dayIndex < d2.dayIndex
+            }
+            
+            return artist1.name.localizedCaseInsensitiveCompare(artist2.name) == .orderedAscending
+        }
+        
+        // First sort everything by tier.
+        let tierSorted = draft.newFestival.artistList.sorted {
+            let tier1 = tierLabels.firstIndex(of: $0.tier) ?? tierLabels.count
+            let tier2 = tierLabels.firstIndex(of: $1.tier) ?? tierLabels.count
+            
+            return tier1 != tier2
+                ? tier1 < tier2
+                : $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        
+        // Build the final list, prioritizing different days within each tier.
+        var sortedArtists: [Artist] = []
+        
+        for tier in tierLabels + ["-- N/A --"] {
+            let artistsInTier = tierSorted.filter { $0.tier == tier }
+            
+            var remaining = artistsInTier
+            
+            while !remaining.isEmpty {
+                // Prefer an artist whose day hasn't already been used in this tier.
+                let usedDays = Set(sortedArtists
+                    .filter { $0.tier == tier }
+                    .map { $0.day })
+                
+                let differentDayArtist = remaining
+                    .filter { !usedDays.contains($0.day) }
+                    .sorted(by: compareDays)
+                    .first
+                
+                if let artist = differentDayArtist {
+                    sortedArtists.append(artist)
+                    remaining.removeAll { $0.id == artist.id }
+                } else {
+                    // All remaining artists share a day, so sort alphabetically.
+                    sortedArtists.append(contentsOf: remaining.sorted {
+                        $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                    })
+                    break
+                }
+            }
+        }
+        
+        let topArtists = Array(sortedArtists.prefix(3))
+        let names = topArtists.map { $0.name }
+        
+        switch names.count {
+        case 0:
+            return ""
+        case 1:
+            return "\(names[0]), and more!"
+        case 2:
+            return "\(names[0]), \(names[1]), and more!"
+        default:
+            return "\(names[0]), \(names[1]), \(names[2]), and more!"
+        }
+    }
+    
+    
+    
+    
+    
+    @State var selectedFestivals = Set<UUID>()
+    
+    @State var myFestivals: [Festival] = []
+    @State var myFestivalsLoading = false
+    
+    var NotifyOtherFestivals: some View {
+        Group {
+            SelectedFestivals(festivalList: myFestivals, selectedFestivals: $selectedFestivals, title: "Notify Your Other Festivals:", fontSize: 17, isLoading: myFestivalsLoading)
+                .padding(8)
+        }
+        .task {
+            myFestivalsLoading = true
+            defer { myFestivalsLoading = false }
 
+            do {
+                myFestivals = try await firestore.getMyFestivals()
+                    .filter { $0.id != draft.newFestival.id }
+                    .sorted {
+                        if $0.startDate == $1.startDate {
+                            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                        }
+                        return $0.startDate > $1.startDate
+                    }
+            } catch {
+                print("Error fetching my festivals: \(error)")
+            }
+        }
+    }
+    
+    
+    
+    func testPushNotification() {
+        Functions.functions()
+            .httpsCallable("testPushNotification")
+            .call { result, error in
+                if let error {
+                    print("❌ Push test failed:", error.localizedDescription)
+                    return
+                }
+
+                print("✅ Push test response:", result?.data ?? "nil")
+            }
+    }
     
     
     
@@ -1660,55 +2063,7 @@ struct ColorSliderPicker: View {
     }
 }
 
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-    
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        var currentX: CGFloat = 0
-        var currentY: CGFloat = 0
-        var lineHeight: CGFloat = 0
-        let maxWidth = proposal.width ?? .infinity
-        
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            
-            if currentX + size.width > maxWidth {
-                currentX = 0
-                currentY += lineHeight + spacing
-                lineHeight = 0
-            }
-            
-            currentX += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
-        }
-        
-        return CGSize(width: maxWidth, height: currentY + lineHeight)
-    }
-    
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var currentX: CGFloat = 0
-        var currentY: CGFloat = 0
-        var lineHeight: CGFloat = 0
-        
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            
-            if currentX + size.width > bounds.width {
-                currentX = 0
-                currentY += lineHeight + spacing
-                lineHeight = 0
-            }
-            
-            subview.place(
-                at: CGPoint(x: bounds.minX + currentX, y: bounds.minY + currentY),
-                proposal: ProposedViewSize(width: size.width, height: size.height)
-            )
-            
-            currentX += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
-        }
-    }
-}
+
 
 
 
@@ -1814,3 +2169,70 @@ struct ArtistAsyncImage: View {
 
 
 //TO ADD TO ON APPEAR:
+
+struct DismissOnReturnTextEditor: UIViewRepresentable {
+    @Binding var text: String
+    var isFocused: FocusState<Bool>.Binding
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+
+        textView.delegate = context.coordinator
+        textView.font = .preferredFont(forTextStyle: .body)
+        textView.backgroundColor = .white
+        textView.returnKeyType = .done
+
+        return textView
+    }
+
+    func updateUIView(_ textView: UITextView, context: Context) {
+        if textView.text != text {
+            textView.text = text
+        }
+
+//        if isFocused.wrappedValue && !textView.isFirstResponder {
+//            textView.becomeFirstResponder()
+//        } else if !isFocused.wrappedValue && textView.isFirstResponder {
+//            textView.resignFirstResponder()
+//        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, UITextViewDelegate {
+        var parent: DismissOnReturnTextEditor
+
+        init(_ parent: DismissOnReturnTextEditor) {
+            self.parent = parent
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            parent.text = textView.text
+        }
+
+        func textView(
+            _ textView: UITextView,
+            shouldChangeTextIn range: NSRange,
+            replacementText text: String
+        ) -> Bool {
+
+            if text == "\n" {
+                parent.isFocused.wrappedValue = false
+                textView.resignFirstResponder()
+                return false
+            }
+
+            return true
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            parent.isFocused.wrappedValue = true
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            parent.isFocused.wrappedValue = false
+        }
+    }
+}

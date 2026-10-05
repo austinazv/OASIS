@@ -32,10 +32,12 @@ struct GroupPage: View {
     
     @State private var photoExpanded = false
     
+    @Binding var selectedTab: Int
+    
     var body: some View {
 //        NavigationStack(path: $navigationPath) {
         ZStack(alignment: photoExpanded ? .center : .topLeading) {
-            SocialImage(imageURL: group.photo, name: group.name, frame: photoExpanded ? 320 : 110)
+            SocialImage(imageURL: group.photo, name: group.name, id: group.id ?? "No ID", frame: photoExpanded ? 320 : 110)
                 .shadow(radius: photoExpanded ? 20 : 0)
                 .padding(.leading, photoExpanded ? 0 : 40)
                 .onTapGesture {
@@ -47,38 +49,45 @@ struct GroupPage: View {
             VStack(spacing: 0) {
                 GroupHeaderSection
                 GroupInfoSection
-                if isLoading {
-                    Spacer()
-                    ProgressView()
-                        .foregroundStyle(.black)
-                    Spacer()
-                } else {
-                    ZStack {
-                        switch selectedSection {
-                        case .festivals:
-                            //                            ScrollView {
-                            FestivalsView
-//                        }
-                                .transition(pageSlideTransition)
-
-                        case .members:
-//                            ScrollView {
+                ZStack {
+                    Color(.oasisBackgroundProfile)
+                        .frame(maxWidth: .infinity)
+                        .ignoresSafeArea(edges: .bottom)
+                    if isLoading {
+                        Spacer()
+                        ProgressView()
+                            .foregroundStyle(.oasisDarkPurpleUninverted)
+                        Spacer()
+                    } else {
+                        ZStack {
+                            switch selectedSection {
+                            case .festivals:
+                                //                            ScrollView {
+                                FestivalsView
+                                //                        }
+                                    .transition(pageSlideTransition)
+                                
+                            case .members:
+                                //                            ScrollView {
                                 MembersView
-//                            }
-                                .transition(pageSlideTransition)
-
-//                        case .following:
-//                            ScrollView { FollowingView }
-//                                .transition(pageSlideTransition)
+                                //                            }
+                                    .transition(pageSlideTransition)
+                                
+                                //                        case .following:
+                                //                            ScrollView { FollowingView }
+                                //                                .transition(pageSlideTransition)
+                            }
                         }
+                        .animation(.easeInOut(duration: 0.25), value: selectedSection)
+                        
+                        //                    FestivalsView
                     }
-                    .animation(.easeInOut(duration: 0.25), value: selectedSection)
-
-//                    FestivalsView
+//                    Spacer()
                 }
-                Spacer()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .background(Color(.white))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+//            .background(Color(.white))
             .task {
                 isLoading = true
                 defer { isLoading = false }
@@ -125,7 +134,7 @@ struct GroupPage: View {
                             
 //                        }
 //                    }
-//                    .foregroundStyle(.black)
+//                    .foregroundStyle(.oasisDarkPurple)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu(content: {
@@ -212,7 +221,7 @@ struct GroupPage: View {
 //                )
 //            }
             if photoExpanded {
-                Color.black.opacity(0.45)
+                Color.oasisDarkPurple.opacity(0.45)
                     .ignoresSafeArea()
                     .transition(.opacity)
                     .zIndex(1)
@@ -315,7 +324,7 @@ struct GroupPage: View {
                 Spacer()
                 VStack {
                     Text(group.name)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurple)
                         .multilineTextAlignment(.center)
                         .font(Font.system(size: 25))
                     GroupSocialButton
@@ -356,8 +365,8 @@ struct GroupPage: View {
         .foregroundStyle(.white)
         .frame(width: 160, height: 40)
         .background(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(.blue)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.oasisBlue)
         )
         .shadow(radius: 5)
         .buttonStyle(.plain)
@@ -378,10 +387,10 @@ struct GroupPage: View {
         ZStack(alignment: .bottom){
             
             Rectangle()
-                .fill(Color.black.opacity(0.25))
-//                .fill(.black)
+                .fill(Color.oasisDarkPurple.opacity(0.25))
+//                .fill(.oasisDarkPurple)
                 .frame(height: 1)
-                .offset(y: -4)
+//                .offset(y: -4)
 
             HStack(spacing: 8) {
                 Button {
@@ -413,11 +422,12 @@ struct GroupPage: View {
 //                }
             }
             .frame(height: 65)
+            .offset(y: 5)
 //
             /// The continuous line you want
 //
         }
-        .padding(.top, 5)
+//        .padding(.top, 5)
         
     }
     
@@ -481,6 +491,7 @@ struct GroupPage: View {
     }
     
     let LIST_PADDING: CGFloat = 8
+    let EMPTY_LIST_PADDING: CGFloat = 30
     
     @State var showAddFestivalToGroupSheet: Bool = false
     
@@ -490,7 +501,7 @@ struct GroupPage: View {
                 Spacer()
                 Group {
                     Text("Your group has no connected festivals yet.")
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
                     Button(action: {
                         showAddFestivalToGroupSheet = true
 //                        selectedTab = 1
@@ -501,7 +512,7 @@ struct GroupPage: View {
                         }
                     }
                     .italic()
-                    .padding(.top, 8)
+                    .padding(.top, EMPTY_LIST_PADDING)
 //                    Text("There are no festivals connected to this group yet.")
                 }
                 Spacer()
@@ -509,7 +520,8 @@ struct GroupPage: View {
                 ScrollView {
                     Group {
                         if !upcomingFestivals.isEmpty {
-                            FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", collapsable: true, socialGroup: group)
+                            FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", collapsable: true, socialGroup: group, color: .oasisBorderProfile, selectedTab: $selectedTab)
+                                .padding(.horizontal, 10)
                             Button(action: {
                                 showAddFestivalToGroupSheet = true
                             }) {
@@ -528,7 +540,8 @@ struct GroupPage: View {
                         } else {
                             VStack {
                                 Text("No Upcoming Festivals!")
-                                    .foregroundStyle(.black)
+                                    .padding(.top, 8)
+                                    .foregroundStyle(.oasisDarkPurpleUninverted)
                                 Button(action: {
                                     showAddFestivalToGroupSheet = true
                                 }) {
@@ -537,15 +550,25 @@ struct GroupPage: View {
                                         Image(systemName: "plus.circle")
                                     }
                                 }
+                                .bold()
                                 .italic()
-                                .padding(.top, 8)
+                                .padding(.top, EMPTY_LIST_PADDING)
                             }
                             .padding(.vertical, 40)
                             
                             Divider()
                                 .padding(.bottom, 8)
                         }
-                        FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true, showList: upcomingFestivals.isEmpty, reversed: true, socialGroup: group)
+//                        FestivalsListed(navigationPath: $navigationPath, festivalList: attendedFestivals, title: "Attended", collapsable: true, showList: upcomingFestivals.isEmpty, reversed: true, socialGroup: group, color: .oasisBorderProfile)
+                        FestivalWall(navigationPath: $navigationPath,
+                                     festivalList: attendedFestivals,
+//                                                             festivalList: festivalVM.myFestivals,
+                                     title: "\(group.name)'s Festival Wall",
+                                     collapsable: true,
+                                     reversed: true,
+                                     color: .oasisBorderProfile,
+                                     selectedTab: $selectedTab
+                        )
                     }
                     .padding(.top, LIST_PADDING)
                 }
@@ -569,10 +592,11 @@ struct GroupPage: View {
                 if members.isEmpty {
                     Spacer()
                     Text("There are no current members.")
-                        .foregroundStyle(.black)
+                        .padding(.top, 8)
+                        .foregroundStyle(.oasisDarkPurpleUninverted)
                     Spacer()
                 } else {
-                    ProfilesListed(navigationPath: $navigationPath, profiles: members, maxHeight: 370, topUser: group.ownerID)
+                    ProfilesListed(navigationPath: $navigationPath, profiles: members, maxHeight: 370, topUser: group.ownerID, color: .oasisBorderProfile)
                         .padding(.top, LIST_PADDING)
                         .fixedSize(horizontal: false, vertical: true)
                     
@@ -599,7 +623,7 @@ struct GroupPage: View {
 //                        Text("\(profile.name) has no followers yet.")
 //                    }
 //                }
-//                .foregroundStyle(.black)
+//                .foregroundStyle(.oasisDarkPurple)
 //                Spacer()
 //            } else {
 //                ProfilesListed(navigationPath: $navigationPath, profiles: followers)
@@ -707,7 +731,7 @@ struct GroupPage: View {
 //////                        }
 ////                    }
 //////                    if showFriendSheet {
-//////                        Color.black
+//////                        Color.oasisDarkPurple
 //////                            .opacity(0.3)
 //////                            .ignoresSafeArea()
 //////                        FriendsListSheet
@@ -931,7 +955,7 @@ struct EditGroupSheet: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(6)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(Color.oasisDarkPurple.opacity(0.7))
                                     .clipShape(Circle())
                             }
                             .offset(x: 6, y: -6)
@@ -965,7 +989,7 @@ struct EditGroupSheet: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(6)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(Color.oasisDarkPurple.opacity(0.7))
                                     .clipShape(Circle())
                             }
                             .offset(x: 6, y: -6)
@@ -979,7 +1003,7 @@ struct EditGroupSheet: View {
                                 .clipShape(Circle())
 
                             Text("Upload Image")
-                                .foregroundStyle(Color.black)
+                                .foregroundStyle(Color.oasisDarkPurple)
                         }
                     }
                 }
@@ -1167,7 +1191,7 @@ struct AddFestivalsToGroupSheet: View {
                                     FestivalLogoView(logoPath: festival.logoPath, title: festival.name, frame: 35.0)
                                     //                                    SocialImage(imageURL: group.photo, name: group.name, frame: 50)
                                     //                                    Text(festival.name)
-                                    //                                        .foregroundStyle(.black)
+                                    //                                        .foregroundStyle(.oasisDarkPurple)
                                     Spacer()
                                     //                                    GroupMemberPhotos(memberIDs: group.members)
                                     Image(systemName: selectedFestivals.contains(festival.id) ? "checkmark.square.fill" : "square")

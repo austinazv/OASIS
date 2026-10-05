@@ -60,7 +60,7 @@ struct MyProfilePage: View {
                     }
                     if editView {
                         Text("Choose New Photo")
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(.oasisDarkPurple)
                             .bold().italic()
                             .font(Font.system(size: 20))
                             .frame(maxWidth: PHOTO_SIZE)

@@ -10,6 +10,7 @@ import SwiftUI
 struct NavigationBottomBarView: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var festivalVM: FestivalViewModel
+    @EnvironmentObject var firestore: FirestoreViewModel
     
     @Binding var explorePath: NavigationPath
     @Binding var socialPath: NavigationPath
@@ -26,7 +27,7 @@ struct NavigationBottomBarView: View {
             TabView(selection: $selectedTab) {
 //            TabView {
                
-                ExploreFestivalsPage(navigationPath: $explorePath)
+                ExploreFestivalsPage(navigationPath: $explorePath, selectedTab: $selectedTab)
                     .tabItem {
                         Image(systemName: "magnifyingglass").imageScale(.large)
                         Text("Explore")
@@ -34,7 +35,7 @@ struct NavigationBottomBarView: View {
                     .tag(1)
                 
 //                AuthPage()
-                SocialPage(navigationPath: $socialPath)
+                SocialPage(navigationPath: $socialPath, selectedTab: $selectedTab)
                     .tabItem {
                         Image(systemName: "person.2.fill").imageScale(.large)
                         Text("Social")
@@ -46,17 +47,22 @@ struct NavigationBottomBarView: View {
                         Text("My Festivals")
                     }
                     .tag(0)
-                CreatePage(navigationPath: $createPath)
+                CreatePage(navigationPath: $createPath, selectedTab: $selectedTab)
                     .tabItem {
                         Image(systemName: "wrench.and.screwdriver.fill").imageScale(.large)
                         Text("Create")
                     }
                     .tag(3)
 //                SettingsPage()
-                MyProfile(navigationPath: $myProfilePath)
+                MyProfile(navigationPath: $myProfilePath, selectedTab: $selectedTab)
                     .tabItem {
-                        Image(systemName: "person.fill").imageScale(.large)
-                        Text("Profile")
+                        if firestore.phoneConnected {
+                            Image(systemName: "person.fill").imageScale(.large)
+                            Text("Profile")
+                        } else {
+                            Image(systemName: "gear").imageScale(.large)
+                            Text("Settings")
+                        }
                     }
                     .tag(4)
             }

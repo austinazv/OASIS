@@ -261,7 +261,8 @@ class DataSet: ObservableObject {
             })
             if dictKeys.contains(NA_TITLE_BLOCK) {
                 dictKeys.removeAll(where: { $0 == NA_TITLE_BLOCK })
-                dictKeys.append(NA_TITLE_BLOCK)
+                dictKeys.insert(NA_TITLE_BLOCK, at: 0)
+//                dictKeys.append(NA_TITLE_BLOCK)
             }
             break
         case .genre:
@@ -295,7 +296,7 @@ class DataSet: ObservableObject {
         func parseDay(_ str: String) -> (dayIndex: Int, weekendIndex: Int) {
             let components = str.components(separatedBy: " (")
             let dayName = components.first?.trimmingCharacters(in: .whitespaces) ?? ""
-            let dayIndex = dayOrder[dayName] ?? 999  // fallback if not found
+            let dayIndex = dayOrder[dayName] ?? -1  // fallback if not found
             
             var weekendIndex = 0
             if str.contains("Weekend 1") {
@@ -323,7 +324,7 @@ class DataSet: ObservableObject {
     }
 
     
-    func sortByTier(tiers: Array<String>) -> Array<String> {
+    func sortByTier(tiers: Array<String>, showNABool: Bool = false) -> Array<String> {
         var retArray = Array<String>()
         for tierLable in tierLables {
             if tiers.contains(tierLable) {
@@ -331,7 +332,8 @@ class DataSet: ObservableObject {
             }
         }
         if tiers.contains(NA_TITLE_BLOCK) {
-            retArray.append(NA_TITLE_BLOCK)
+//            retArray.append(NA_TITLE_BLOCK)
+            retArray.insert(NA_TITLE_BLOCK, at: 0)
         }
         return(retArray)
     }
@@ -2937,6 +2939,32 @@ extension UIImage {
 }
 
 
+
+
+//struct SocialGroup: Hashable, Identifiable, Codable {
+//    var id: String
+//    var ownerID: String
+//    var name: String
+//    var photo: String?
+//    var members: [UserProfile] = []
+//    var festivals: [String] = []
+//}
+
+extension UserDefaults {
+    func saveCodable<T: Codable>(_ value: T, forKey key: String) {
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(value) {
+            set(data, forKey: key)
+        }
+    }
+
+    func loadCodable<T: Codable>(_ type: T.Type, forKey key: String) -> T? {
+        guard let data = data(forKey: key) else { return nil }
+        let decoder = JSONDecoder()
+        return try? decoder.decode(T.self, from: data)
+    }
+}
+
 struct UserProfile: Hashable, Identifiable, Codable {
     
     @DocumentID private var documentID: String?
@@ -2990,74 +3018,7 @@ struct SocialGroup: Hashable, Identifiable, Codable {
     var festivals: [String] = []
 }
 
-struct Artist: Identifiable, Hashable, Codable {
-    var id: String
-    var name: String
-    var genres: [String]
-    var imageURL: String
-    var imageLocalPath: String?
-    var day: String = "-- N/A --"
-    var weekend: String = "Both"
-    var tier: String = "-- N/A --"
-    var stage: String = "-- N/A --"
-    var addDate = Date()
-    var modifyDate = Date()
-//    var artistTags: [UUID] // ✅ now non-optional
 
-    enum CodingKeys: String, CodingKey {
-        case id, name, genres, imageURL, imageLocalPath
-        case day, weekend, tier, stage
-        case addDate, modifyDate
-//        case artistTags
-    }
-
-    init(
-        id: String,
-        name: String,
-        genres: [String],
-        imageURL: String,
-        imageLocalPath: String? = nil,
-        day: String = "-- N/A --",
-        weekend: String = "Both",
-        tier: String = "-- N/A --",
-        stage: String = "-- N/A --",
-        addDate: Date = Date(),
-        modifyDate: Date = Date(),
-//        artistTags: [UUID] = []
-    ) {
-        self.id = id
-        self.name = name
-        self.genres = genres
-        self.imageURL = imageURL
-        self.imageLocalPath = imageLocalPath
-        self.day = day
-        self.weekend = weekend
-        self.tier = tier
-        self.stage = stage
-        self.addDate = addDate
-        self.modifyDate = modifyDate
-//        self.artistTags = artistTags
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-
-        id = try container.decode(String.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        genres = try container.decode([String].self, forKey: .genres)
-        imageURL = try container.decode(String.self, forKey: .imageURL)
-        imageLocalPath = try container.decodeIfPresent(String.self, forKey: .imageLocalPath)
-        day = try container.decodeIfPresent(String.self, forKey: .day) ?? "-- N/A --"
-        weekend = try container.decodeIfPresent(String.self, forKey: .weekend) ?? "Both"
-        tier = try container.decodeIfPresent(String.self, forKey: .tier) ?? "-- N/A --"
-        stage = try container.decodeIfPresent(String.self, forKey: .stage) ?? "-- N/A --"
-        addDate = try container.decodeIfPresent(Date.self, forKey: .addDate) ?? Date()
-        modifyDate = try container.decodeIfPresent(Date.self, forKey: .modifyDate) ?? Date()
-
-        // 👇 THE IMPORTANT LINE
-//        artistTags = try container.decodeIfPresent([UUID].self, forKey: .artistTags) ?? []
-    }
-}
 
 
 
@@ -3078,6 +3039,7 @@ struct Festival: Identifiable, Hashable, Codable {
     var website: String? = nil
     var posterPath: String? = nil
     var published: Bool = false
+//    var hidden: Bool = false
     
     static func newFestival() -> Festival {
         let user = Auth.auth().currentUser
@@ -3089,7 +3051,10 @@ struct Festival: Identifiable, Hashable, Codable {
     }
 }
 
-
+struct FestivalPlaylistLink: Hashable {
+    let id = UUID()
+    var festival: Festival
+}
 
 
 
@@ -3109,26 +3074,3 @@ struct ArtistListStruct: Hashable {
 //        let list: [String : Array<artistNEW>]
 }
 
-//struct SocialGroup: Hashable, Identifiable, Codable {
-//    var id: String
-//    var ownerID: String
-//    var name: String
-//    var photo: String?
-//    var members: [UserProfile] = []
-//    var festivals: [String] = []
-//}
-
-extension UserDefaults {
-    func saveCodable<T: Codable>(_ value: T, forKey key: String) {
-        let encoder = JSONEncoder()
-        if let data = try? encoder.encode(value) {
-            set(data, forKey: key)
-        }
-    }
-
-    func loadCodable<T: Codable>(_ type: T.Type, forKey key: String) -> T? {
-        guard let data = data(forKey: key) else { return nil }
-        let decoder = JSONDecoder()
-        return try? decoder.decode(T.self, from: data)
-    }
-}

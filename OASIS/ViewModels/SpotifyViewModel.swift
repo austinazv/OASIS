@@ -46,7 +46,7 @@ class SpotifyViewModel: ObservableObject {
                 self?.isLoggedIn = loggedIn
                 print("IS SPOTIFY LOGGED IN: \(loggedIn)")
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 self?.isLoading = false
             }
         }

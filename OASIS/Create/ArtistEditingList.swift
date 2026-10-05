@@ -16,10 +16,12 @@ struct ArtistEditingList: View {
     @Binding var newFestival: Festival
     
     @State var artistDict: [String : Array<Artist>] = [:]
-    @State var viewSubsection = Array<Bool>()
+//    @State var viewSubsection = Array<Bool>()
+    @State var hiddenSubsections = Set<String>()
     @State var reverse = false
     
     @State var sortType: DataSet.sortType = .addDate
+    @State var selectMultiple = false
     
     @State var showArtistSearchPage = false
     @State private var selectedArtist: Artist? = nil
@@ -28,91 +30,165 @@ struct ArtistEditingList: View {
     @State private var searchText = ""
     @State private var isSearching = false
     
+    @State var selectedArtistIDs = Set<String>()
+//    @State var selectedSections = Set<String>()
+    
     var body: some View {
-        List {
-//            ScrollView {
-            if newFestival.artistList.isEmpty {
-                HStack {
-                    Spacer()
-                    Text("Artist List is empty.")
-                    Spacer()
-                }
-            } else {
-                if searchText.isEmpty {
-                    ForEach(Array(data.getDictKeysSorted(currDict: artistDict, sort: sortType).enumerated()), id: \.element) { i, section in
-                        if let artistArray = artistDict[section] {
-                            if !artistArray.isEmpty /*&& (sortType != .genre || artistArray.count > 1)*/  {
-                                if sortType != .alpha {
-                                    Group {
-                                        if sortType == .addDate || sortType == .modifyDate {
-                                            HStack {
-                                                if sortType == .addDate { Text(reverse ? "Recently Added Last" : "Recently Added First") }
-                                                else { Text(reverse ? "Recently Edited Last" : "Recently Edited First") }
-                                                Image(systemName: "arrow.up.arrow.down")
-                                                Spacer()
-                                            }
-                                            .onTapGesture(perform: {
-                                                reverse.toggle()
-                                                artistDict = festivalVM.reverseArtistDict(currDict: artistDict)
-                                            })
-                                        } else {
-                                            HStack {
-                                                Text(section)
-                                                Image(systemName: "chevron.down").rotationEffect(viewSubsection[i] ? Angle(degrees: 180) : Angle(degrees: 0))
-//                                                Image(systemName: viewSubsection[i] ? "chevron.up" : "chevron.down")
-                                                Spacer()
-                                            }
-                                            .onTapGesture(perform: {
-                                                withAnimation {
-                                                    viewSubsection[i] = !viewSubsection[i]
-                                                }
-                                            })
-                                        }
-                                    }
-                                    //                                .padding(.horizontal, 20)
-                                    .padding(.bottom, 3)
-                                    .padding(.top, 0)
-                                    .font(.headline)
-                                    .listRowBackground(Color("Same As Background"))
+        VStack {
+            List {
+                //            ScrollView {
+                if newFestival.artistList.isEmpty {
+                    HStack {
+                        Spacer()
+                        Text("Artist List is empty.")
+                        Spacer()
+                    }
+                } else {
+                    if searchText.isEmpty {
+                        ForEach(Array(data.getDictKeysSorted(currDict: artistDict, sort: sortType).enumerated()), id: \.element) { i, section in
+                            if let artistArray = artistDict[section] {
+                                if !artistArray.isEmpty /*&& (sortType != .genre || artistArray.count > 1)*/  {
                                     
-                                    //                                .listRowBackground(Color)
-                                }
-                                if viewSubsection[i] {
-                                    ForEach(artistArray, id: \.self) { artist in
-                                        HStack {
-                                            ArtistImage(imageURL: artist.imageURL, frame: 40)
-                                            Text(artist.name)
-                                            Spacer()
-                                            Image(systemName: "square.and.pencil")
+                                    HStack {
+                                        Group {
+                                            if sortType != .alpha {
+                                                if sortType == .addDate || sortType == .modifyDate {
+                                                    HStack {
+                                                        if sortType == .addDate { Text("Recently Added") }
+                                                        else { Text("Recently Edited") }
+//                                                        if sortType == .addDate { Text(reverse ? "Recently Added Last" : "Recently Added First") }
+//                                                        else { Text(reverse ? "Recently Edited Last" : "Recently Edited First") }
+                                                        Image(systemName: reverse ? "text.line.last.and.arrowtriangle.forward" : "text.line.first.and.arrowtriangle.forward")
+                                                        //                                                    Spacer()
+                                                    }
+                                                    .onTapGesture(perform: {
+                                                        reverse.toggle()
+                                                        artistDict = festivalVM.reverseArtistDict(currDict: artistDict)
+                                                    })
+                                                } else {
+                                                    HStack {
+                                                        Text(section)
+                                                        Image(systemName: "chevron.down").rotationEffect(hiddenSubsections.contains(section) ? Angle(degrees: 0) : Angle(degrees: 180))
+                                                        //                                                Image(systemName: viewSubsection[i] ? "chevron.up" : "chevron.down")
+                                                        //                                                    Spacer()
+                                                    }
+                                                    .onTapGesture(perform: {
+                                                        withAnimation {
+                                                            if hiddenSubsections.contains(section) {
+                                                                hiddenSubsections.remove(section)
+                                                            } else {
+                                                                hiddenSubsections.insert(section)
+                                                            }
+//                                                            viewSubsection[i] = !viewSubsection[i]
+                                                        }
+                                                    })
+                                                }
+                                            } else {
+                                                Text("All Artists")
+                                            }
+                                        }
+                                        .offset(x: -8)
+                                        //                                .padding(.horizontal, 20)
+                                        
+                                        //                                        Divider()
+                                        //                                .listRowBackground(Color)
+                                        Spacer()
+//                                        if i == 0 {
+//                                            if !selectMultiple {
+//                                                Image(systemName: "checklist")
+//                                                //                                            Text("Select Multiple")
+//                                                    .foregroundStyle(.oasisBlue)
+//                                                    .imageScale(.large)
+//                                                    .onTapGesture() {
+//                                                        selectMultiple.toggle()
+//                                                    }
+//                                                //                                                .offset(x: 8)
+//                                            } else {
+//                                                Image(systemName: selectedSections.contains(section) ? "checkmark.square.fill" : "square")
+//                                                    .foregroundStyle(.oasisDarkOrange)
+//                                                    .imageScale(.large)
+//                                                    .onTapGesture() {
+//                                                        toggleSection(section)
+//                                                    }
+//                                            }
+//                                        } else
+//                                        if selectMultiple {
+                                            Image(systemName: checkSection(sectionList: artistArray) ? "checkmark.square.fill" : "square")
+                                                .foregroundStyle(.oasisDarkOrange)
                                                 .imageScale(.large)
-                                                .foregroundStyle(Color("OASIS Dark Orange"))
-                                        }
-                                        .contentShape(Rectangle())
-                                        .onTapGesture() {
-                                            selectedArtist = artist
-                                        }
+                                                .opacity(selectMultiple ? 1 : 0)
+                                                .onTapGesture() {
+                                                    if selectMultiple {
+                                                        toggleSection(section: section, sectionList: artistArray)
+                                                    }
+                                                }
+//                                        }
+                                        
                                     }
-                                    .onDelete { offsets in
-                                        delete(at: offsets, in: section)
+                                        .padding(.bottom, 3)
+                                        .padding(.top, 0)
+                                        .font(.headline)
+                                        .listRowBackground(Color("Same As Background"))
+                                    if !hiddenSubsections.contains(section) {
+                                        ForEach(artistArray, id: \.self) { artist in
+                                            HStack {
+                                                ArtistImage(imageURL: artist.imageURL, frame: 40)
+                                                Text(artist.name)
+                                                Spacer()
+                                                
+                                                if selectMultiple {
+                                                    Image(systemName: selectedArtistIDs.contains(artist.id) ? "checkmark.square.fill" : "square")
+                                                        .foregroundStyle(.oasisLightOrange)
+                                                        .imageScale(.large)
+                                                } else {
+                                                    Image(systemName: "square.and.pencil")
+                                                        .foregroundStyle(.oasisDarkOrange)
+                                                        .imageScale(.large)
+                                                }
+                                                
+                                                
+                                                
+                                            }
+                                            .contentShape(Rectangle())
+                                            .onTapGesture() {
+                                                if selectMultiple {
+                                                    if selectedArtistIDs.contains(artist.id) {
+                                                        selectedArtistIDs.remove(artist.id)
+                                                    } else {
+                                                        selectedArtistIDs.insert(artist.id)
+                                                    }
+                                                } else {
+                                                    selectedArtist = artist
+                                                }
+                                            }
+//                                            Divider()
+                                        }
+                                        .onDelete { offsets in
+                                            delete(at: offsets, in: section)
+                                        }
+                                        //                                }
                                     }
-                                    //                                }
                                 }
                             }
                         }
+                        Spacer().listRowBackground(Color("Same As Background"))
+                    } else {
+                        SearchResults
                     }
-                } else {
-                    SearchResults
+                    
                 }
             }
+            SelectMultipleButtons
         }
         .onAppear() {
-
             artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false)
-            viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+//            viewSubsection = Array(repeating: true, count: artistDict.keys.count)
 //            print(navigationPath)
         }
         .sheet(isPresented: $showArtistSearchPage) {
-            if let artist = selectedArtist {
+            if selectMultiple {
+                AddMultipleArtistsPage(artistList: selectedArtistsArray, /*newArtist: selectedArtistsArray.first!,*/ newFestival: $newFestival, showArtistSearchPage: $showArtistSearchPage, selectMultiple: $selectMultiple)
+            } else if let artist = selectedArtist {
                 AddArtistPage(newArtist: artist, newFestival: $newFestival, showArtistSearchPage: $showArtistSearchPage)
             }
         }
@@ -123,21 +199,38 @@ struct ArtistEditingList: View {
         }
         .onChange(of: showArtistSearchPage) { _, bool in
             if !bool {
+//                selectMultiple = false
                 selectedArtist = nil
-                artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false)
+                artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: sortType, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false, showNABool: true)
             }
         }
         .onChange(of: sortType) { _, newSort in
-            artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: newSort, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false)
-            viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+            artistDict = festivalVM.getArtistDict(currList: newFestival.artistList, sort: newSort, secondWeekend: newFestival.secondWeekend, checkSettingsBool: false, showNABool: true)
+//            viewSubsection = Array(repeating: true, count: artistDict.keys.count)
+            hiddenSubsections.removeAll()
             reverse = false
         }
         .toolbar {
             if !newFestival.artistList.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
-                    SortMenu(sortType: $sortType, currList: newFestival.artistList, secondWeekend: newFestival.secondWeekend, editing: true)
+                    HStack {
+                        Button (action: {
+                            selectMultiple.toggle()
+                        }, label: {
+                            if selectMultiple {
+                                Image(systemName: "xmark")/*.foregroundStyle(.red)*/
+                            } else {
+                                Image(systemName: "checklist")
+                            }
+                        })
+                        SortMenu(sortType: $sortType, selectMultiple: $selectMultiple, currList: newFestival.artistList, secondWeekend: newFestival.secondWeekend, editing: true)
+                    }
+                    .padding(6)
                 }
             }
+        }
+        .onChange(of: selectMultiple) {
+            selectedArtistIDs.removeAll()
         }
 //        .toolba
 //        .onChange(of: newFestival.artistList) { newList in
@@ -153,6 +246,37 @@ struct ArtistEditingList: View {
         .if(!newFestival.artistList.isEmpty) {
             $0.searchable(text: $searchText)
         }
+    }
+    
+//    func toggleSection(_ section: String) {
+//        if selectedSections.contains(section) {
+//            selectedSections.remove(section)
+//        } else {
+//            selectedSections.insert(section)
+//        }
+//    }
+    
+    func toggleSection(section: String, sectionList: Array<Artist>) {
+        let boolValue = !checkSection(sectionList: sectionList)
+//        sectionBools[section] = boolValue
+        
+        for artist in sectionList {
+            if boolValue {
+                selectedArtistIDs.insert(artist.id)
+            } else {
+                selectedArtistIDs.remove(artist.id)
+            }
+//            artistBools[artist.id]! = boolValue
+        }
+    }
+    
+    func checkSection(sectionList: Array<Artist>) -> Bool {
+        for artist in sectionList {
+            if !selectedArtistIDs.contains(artist.id) {
+                return false
+            }
+        }
+        return true
     }
     
     func deleteSearch(at offsets: IndexSet) {
@@ -187,13 +311,27 @@ struct ArtistEditingList: View {
                                 ArtistImage(imageURL: artist.imageURL, frame: 40)
                                 Text(artist.name)
                                 Spacer()
-                                Image(systemName: "square.and.pencil")
-                                    .imageScale(.large)
-                                    .foregroundStyle(Color("OASIS Dark Orange"))
+                                if selectMultiple {
+                                    Image(systemName: selectedArtistIDs.contains(artist.id) ? "checkmark.square.fill" : "square")
+                                        .foregroundStyle(.oasisLightOrange)
+                                        .imageScale(.large)
+                                } else {
+                                    Image(systemName: "square.and.pencil")
+                                        .foregroundStyle(.oasisDarkOrange)
+                                        .imageScale(.large)
+                                }
                             }
                             .contentShape(Rectangle())
                             .onTapGesture() {
-                                selectedArtist = artist
+                                if selectMultiple {
+                                    if selectedArtistIDs.contains(artist.id) {
+                                        selectedArtistIDs.remove(artist.id)
+                                    } else {
+                                        selectedArtistIDs.insert(artist.id)
+                                    }
+                                } else {
+                                    selectedArtist = artist
+                                }
                             }
                         }
                         .onDelete(perform: deleteSearch)
@@ -224,14 +362,83 @@ struct ArtistEditingList: View {
     }
     
     
+    @State var selectedArtistsArray = Array<Artist>()
+    
+    var SelectMultipleButtons: some View {
+        Group {
+            let BUTTON_WIDTH: CGFloat = 280
+            let BUTTON_HEIGHT: CGFloat = 40
+            if selectMultiple {
+                HStack {
+                    let artistAmt = selectedArtistIDs.count
+//                    Button (action: {
+//                        selectMultiple = false
+//                    }, label: {
+//                        Text("Cancel")
+//                            .frame(width: BUTTON_WIDTH * (artistAmt == 0 ? 2 : 1), height: BUTTON_HEIGHT)
+//                            .background(Color.red)
+//                            .foregroundStyle(.white)
+//                            .cornerRadius(10)
+//                            .shadow(radius: 5)
+//                    })
+                    if artistAmt > 0 {
+                        Button (action: {
+                            if artistAmt == 1 {
+                                if let artist = newFestival.artistList.first(where: { $0.id == selectedArtistIDs.first!}) {
+                                    selectedArtist = artist
+                                    selectMultiple = false
+                                    showArtistSearchPage = true
+                                }
+                            } else {
+                                selectedArtistsArray.removeAll()
+                                for id in selectedArtistIDs {
+                                    if let artist = newFestival.artistList.first(where: { $0.id == id }) {
+                                        selectedArtistsArray.append(artist)
+                                    }
+                                }
+                                showArtistSearchPage = true
+                            }
+                            //                        selectMultiple = false
+                        }, label: {
+                            Group {
+                                
+                                if artistAmt == 1 { Text("Edit Artist") }
+                                else { Text("Edit \(selectedArtistIDs.count) Artists") }
+                            }
+                            .frame(width: BUTTON_WIDTH, height: BUTTON_HEIGHT)
+                            .background(selectedArtistIDs.count > 0 ? .oasisBlue : .gray)
+                            .foregroundStyle(.white)
+                            .cornerRadius(10)
+                            .shadow(radius: 5)
+                        })
+                        .offset(y: 6)
+                    }
+                }
+            }
+//            else {
+//                Button (action: {
+//                    selectMultiple = true
+//                }, label: {
+//                    Text("Select Multiple Artists")
+//                        .frame(width: BUTTON_WIDTH*2, height: BUTTON_HEIGHT)
+//                        .background(.oasisBlue)
+//                        .foregroundStyle(.white)
+//                        .cornerRadius(10)
+//                        .shadow(radius: 5)
+//                })
+//            }
+        }
+    }
+    
+    
 //    var SortMenuOLD: some View {
 //        Group {
 //            let dayBool = festi.listHasDays(currList: newFestival.artistList)
 //            let genreBool = data.listHasGenres(currList: newFestival.artistList)
 //            let stageBool = data.listHasStages(currList: newFestival.artistList)
 //            let tierBool = data.listHasTiers(currList: newFestival.artistList)
-//            
-//            
+//
+//
 //            //            if dayBool || genreBool || stageBool || tierBool {
 //            Menu(content: {
 //                //View by Alphabetically
@@ -248,7 +455,7 @@ struct ArtistEditingList: View {
 //                        }
 //                    }
 //                })
-//                
+//
 //                //View by Day
 //                if dayBool {
 //                    Button (action: {
@@ -265,7 +472,7 @@ struct ArtistEditingList: View {
 //                        }
 //                    })
 //                }
-//                
+//
 //                //View by Genre
 //                if genreBool {
 //                    Button (action: {
@@ -282,7 +489,7 @@ struct ArtistEditingList: View {
 //                        }
 //                    })
 //                }
-//                
+//
 //                //View by Stage
 //                if stageBool {
 //                    Button (action: {
@@ -299,7 +506,7 @@ struct ArtistEditingList: View {
 //                        }
 //                    })
 //                }
-//                
+//
 //                //View by Tier
 //                if tierBool {
 //                    Button (action: {
