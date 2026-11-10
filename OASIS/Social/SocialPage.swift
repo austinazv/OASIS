@@ -1466,6 +1466,128 @@ struct GroupMemberPhotos: View {
     }
 }
 
+struct TagCircles: View {
+    @EnvironmentObject var firestore: FirestoreViewModel
+    @EnvironmentObject var tags: TagViewModel
+    
+    var currentArtist: Artist
+    var currentFestival: Festival
+    
+    let CIRCLE_RADIUS: CGFloat = 38
+    let OFFSET_WIDTH = -30
+    
+    var body: some View {
+        ZStack {
+            if tags.isArtistDNS(currentArtist.id) {
+                IndividualTagCircle(tag: tags.DONOTSUGGESTTAG, circleRadius: CIRCLE_RADIUS)
+            } else {
+                //            let isArtistFavorited = tags.isArtistFavorited(currentArtist.id)
+                let artistTags = tags.getArtistTags(artistID: currentArtist.id, festivalID: currentFestival.id)
+                //            let tagCount = artistTags.count + (isArtistFavorited ? 1 : 0)
+                if artistTags.count > 3 {
+                    Group {
+                        IndividualTagCircle(tag: artistTags[0], circleRadius: CIRCLE_RADIUS)
+                            .offset(x: CGFloat(OFFSET_WIDTH*2))
+                        
+                        IndividualTagCircle(tag: artistTags[1], circleRadius: CIRCLE_RADIUS)
+                            .offset(x: CGFloat(OFFSET_WIDTH))
+                        
+                        Circle()
+                            .fill(.bwColorSwitchReverse)
+                        //                        .fill(Color.white)
+                            .stroke(.gray.opacity(0.5), lineWidth: 1)
+                            .frame(width: CIRCLE_RADIUS, height: CIRCLE_RADIUS)
+                        Text("+\(artistTags.count - 2)")
+                            .font(.subheadline)
+                            .foregroundStyle(.oasisDarkPurple)
+                    }
+                    
+                } else {
+                    ForEach(Array(artistTags.enumerated()), id: \.element.id) { index, tag in
+                        IndividualTagCircle(tag: tag, circleRadius: CIRCLE_RADIUS)
+                            .offset(x: CGFloat((artistTags.count - (index + 1)) * OFFSET_WIDTH))
+                            .zIndex(Double(index))
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+struct FullTagCircles: View {
+    @EnvironmentObject var firestore: FirestoreViewModel
+    @EnvironmentObject var tags: TagViewModel
+    
+    var currentArtist: Artist
+    var currentFestival: Festival
+    
+    let CIRCLE_RADIUS: CGFloat = 42
+    let OFFSET_WIDTH = -20
+    
+    
+    var body: some View {
+        ZStack {
+            let artistTags = tags.getArtistTags(artistID: currentArtist.id, festivalID: currentFestival.id)
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(Color.white)
+                .shadow(radius: 3)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .stroke(Color.oasisDarkPurple, lineWidth: 1)
+                    )
+            
+            ScrollView(.horizontal) {
+                LazyHStack {
+                        ForEach(Array(artistTags.enumerated()), id: \.element.id) { index, tag in
+                            let tagList = tags.getTagArtists(tagID: tag.id, festival: currentFestival)
+//                            NavigationLink(value: ArtistListStruct(titleText: tag.name, festival: currentFestival, list: tagList)) {
+                                IndividualTagCircle(tag: tag, circleRadius: CIRCLE_RADIUS)
+//                            }
+                        }
+                }
+                .padding(.horizontal, 8)
+            }
+           
+            .clipShape(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .inset(by: 5)
+            )
+        }
+    }
+}
+
+
+
+struct IndividualTagCircle: View {
+    var tag: ArtistTag
+    
+    var circleRadius: CGFloat
+    
+//    let TAG_FONT_SIZE: CGFloat =
+//    let
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.bwColorSwitchReverse)
+                .frame(width: circleRadius, height: circleRadius)
+            Image(systemName: tag.symbol)
+                .imageScale(.medium)
+                .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+        }
+        .overlay(
+            Circle()
+//                .fill(Color.white)
+                .stroke(.gray.opacity(0.5), lineWidth: 1)
+                .frame(width: circleRadius, height: circleRadius)
+        )
+    }
+}
+
+
+
 //RoundedRectangle(cornerRadius: 30, style: .continuous)
 //    .fill(Color.white)
 //    .overlay(

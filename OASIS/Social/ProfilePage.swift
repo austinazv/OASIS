@@ -463,7 +463,7 @@ struct ProfilePage: View {
 //                    let userArtistDict = getUserArtistDict(festivals: (upcomingFestivals + attendedFestivals))
                     ScrollView {
                         FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", largeText: true, collapsable: true, profile: profile.id == firestore.getUserID() ? nil : profile, color: .oasisBorderProfile, selectedTab: $selectedTab)
-                            .padding(.horizontal, 10)
+//                            .padding(.horizontal, 10)
                         FestivalWall(navigationPath: $navigationPath,
                                      festivalList: attendedFestivals,
                                      title:  profile.id == firestore.getUserID() ? "My Festival Wall" : "\(profile.name)'s Festival Wall",

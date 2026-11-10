@@ -443,6 +443,44 @@ class FestivalViewModel: ObservableObject {
             }
         }
     }
+    
+    
+    func refreshFestivalIfNeeded(_ festival: Festival) async -> Festival? {
+        let db = Firestore.firestore()
+
+        do {
+            let document = try await db
+                .collection("festivals")
+                .document(festival.id.uuidString)
+                .getDocument()
+
+            guard document.exists else { return nil }
+
+            let firestoreFestival = try document.data(as: Festival.self)
+
+            // Only update if Firestore has a newer version.
+            guard firestoreFestival.saveDate > festival.saveDate else {
+                return nil
+            }
+
+            // Update myFestivals on the main actor.
+            await MainActor.run {
+                if let index = self.myFestivals.firstIndex(
+                    where: { $0.id == firestoreFestival.id }
+                ) {
+                    self.myFestivals[index] = firestoreFestival
+                }
+            }
+
+            return firestoreFestival
+
+        } catch {
+            // Offline, transient Firestore failure, or decoding error.
+            // print("Festival refresh failed:", error)
+            return nil
+        }
+    }
+
 
 
     
@@ -709,140 +747,543 @@ class FestivalViewModel: ObservableObject {
         return calendar.isDate(date1, inSameDayAs: date2)
     }
     
-
-    func uploadFestival(_ festival: Festival, completion: @escaping (Result<Void, Error>) -> Void) {
-        let db = Firestore.firestore()
-        let storage = Storage.storage()
-        
-        var festivalToUpload = festival // Make a mutable copy
+    func uploadFestival(
+        _ festival: Festival,
+        trackChanges: Bool = false,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        var festivalToUpload = festival
         festivalToUpload.published = true
         festivalToUpload.saveDate = Date()
-        
         festivalToUpload.verified = (userId == "bNPLj8lLhZYScTxjUb3HUJBmmtx2")
-//        if  { }
-        
-        if festivalToUpload.ownerName == "Unknown" {
-            let userDocRef = db.collection("users").document(festivalToUpload.ownerID)
-            userDocRef.getDocument { snapshot, error in
-                if let snapshot = snapshot, snapshot.exists,
-                   let userData = snapshot.data(),
-                   let userName = userData["name"] as? String {
-                    festivalToUpload.ownerName = userName
-                }
+        if trackChanges { festivalToUpload.lastPublishedChangesDate = Date() }
+
+        prepareFestivalForUpload(
+            festivalToUpload,
+            trackChanges: trackChanges
+        ) { result in
+
+            switch result {
+            case .success(let preparedFestival):
+                self.uploadFestivalAssets(
+                    preparedFestival,
+                    completion: completion
+                )
+
+            case .failure(let error):
+                completion(.failure(error))
             }
         }
-        
-        let artistNames = festivalToUpload.artistList.map { $0.name }
-        
-        let adjustedEndDate = festivalToUpload.secondWeekend
-                ? festivalToUpload.endDate.addingTimeInterval(7 * 24 * 60 * 60)
-                : festivalToUpload.endDate
-        
-        // Step 1: If there's a local logo image, upload it to Firebase Storage
-        if let logoPath = festivalToUpload.logoPath, !logoPath.hasPrefix("http") {
-            FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
-                if let logo = logo,
-                   let imageData = logo.jpegData(compressionQuality: 0.8) {
-                    let storageRef = storage.reference().child("festival_logos/\(festivalToUpload.id.uuidString).jpg")
+    }
+
+
+    // MARK: - Prepare Festival
+
+    private func prepareFestivalForUpload(
+        _ festival: Festival,
+        trackChanges: Bool,
+        completion: @escaping (Result<Festival, Error>) -> Void
+    ) {
+        let db = Firestore.firestore()
+//        var festivalToUpload = festival
+
+        if trackChanges {
+            trackFestivalChanges(
+                festival,
+                db: db
+            ) { result in
+
+                switch result {
+                case .success(let updatedFestival):
+//                    festivalToUpload = updatedFestival
+//                    festivalToUpload.lastPublishedChangesDate = Date()
                     
-                    let metadata = StorageMetadata()
-                    metadata.contentType = "image/jpeg"
-                    
-                    storageRef.putData(imageData, metadata: metadata) { _, error in
-                        if let error = error {
-                            completion(.failure(error))
-                            return
-                        }
-                        
-                        // Step 2: Get the download URL and update festivalToUpload
-                        storageRef.downloadURL { url, error in
-                            if let error = error {
-                                completion(.failure(error))
-                                return
-                            }
-                            
-                            festivalToUpload.logoPath = url?.absoluteString // Replace local path with download URL
-                            
-                            uploadPosterAndFestival()
-                        }
-                    }
-                }
-            }
-        } else {
-            uploadPosterAndFestival()
-        }
-        
-        func uploadPosterAndFestival() {
+                    self.getFestivalOwnerName(
+                        updatedFestival,
+                        db: db,
+                        completion: completion
+                    )
 
-            func uploadFestivalDocument() {
-                do {
-                    var festivalData = try Firestore.Encoder().encode(festivalToUpload)
-                    festivalData["artistNames"] = artistNames
-                    festivalData["adjustedEndDate"] = adjustedEndDate
-                    festivalData["name_lowercase"] = festivalToUpload.name.lowercased()
-
-                    db.collection("festivals")
-                        .document(festivalToUpload.id.uuidString)
-                        .setData(festivalData, merge: true) { error in
-                            if let error = error {
-                                completion(.failure(error))
-                            } else {
-                                self.moveToPublished(festivalToUpload)
-                                completion(.success(()))
-                            }
-                        }
-
-                } catch {
+                case .failure(let error):
                     completion(.failure(error))
                 }
             }
 
-            // No poster or already uploaded
-            guard let posterPath = festivalToUpload.posterPath,
-                  !posterPath.hasPrefix("http")
+        } else {
+            // Don't touch the change-tracking properties.
+            getFestivalOwnerName(
+                festival,
+                db: db,
+                completion: completion
+            )
+        }
+    }
+
+
+    // MARK: - Track Changes
+
+    private func trackFestivalChanges(
+        _ festival: Festival,
+        db: Firestore,
+        completion: @escaping (Result<Festival, Error>) -> Void
+    ) {
+        let festivalRef = db.collection("festivals")
+            .document(festival.id.uuidString)
+
+        festivalRef.getDocument { snapshot, error in
+
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            var updatedFestival = festival
+
+            // No previous festival exists.
+            if snapshot?.exists != true {
+                updatedFestival.preUpdateArtistList = []
+                updatedFestival.removedArtistsList = []
+                updatedFestival.newArtists =
+                    updatedFestival.artistList.map { $0.id }
+
+                completion(.success(updatedFestival))
+                return
+            }
+
+            do {
+                let oldFestival = try snapshot!.data(as: Festival.self)
+
+                let oldArtistsByID = Dictionary(
+                    uniqueKeysWithValues: oldFestival.artistList.map {
+                        ($0.id, $0)
+                    }
+                )
+
+                let newArtistsByID = Dictionary(
+                    uniqueKeysWithValues: updatedFestival.artistList.map {
+                        ($0.id, $0)
+                    }
+                )
+
+                // Artists that exist in both versions but had
+                // relevant lineup information changed.
+                updatedFestival.preUpdateArtistList =
+                    oldArtistsByID.compactMap { artistID, oldArtist in
+
+                        guard let newArtist = newArtistsByID[artistID] else {
+                            return nil
+                        }
+
+                        let lineupInfoChanged =
+                            oldArtist.genres != newArtist.genres ||
+                            oldArtist.day != newArtist.day ||
+                            oldArtist.weekend != newArtist.weekend ||
+                            oldArtist.tier != newArtist.tier ||
+                            oldArtist.stage != newArtist.stage
+
+                        return lineupInfoChanged ? oldArtist : nil
+                    }
+
+                // Artists that existed before but no longer exist.
+                updatedFestival.removedArtistsList =
+                    oldArtistsByID.compactMap { artistID, oldArtist in
+                        newArtistsByID[artistID] == nil
+                            ? oldArtist
+                            : nil
+                    }
+
+                // Artists that didn't exist before.
+                updatedFestival.newArtists =
+                    newArtistsByID.keys.filter { artistID in
+                        oldArtistsByID[artistID] == nil
+                    }
+
+                completion(.success(updatedFestival))
+
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+
+    // MARK: - Owner Name
+
+    private func getFestivalOwnerName(
+        _ festival: Festival,
+        db: Firestore,
+        completion: @escaping (Result<Festival, Error>) -> Void
+    ) {
+        guard festival.ownerName == "Unknown" else {
+            completion(.success(festival))
+            return
+        }
+
+        let userDocRef = db.collection("users")
+            .document(festival.ownerID)
+
+        userDocRef.getDocument { snapshot, error in
+
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            var updatedFestival = festival
+
+            if let snapshot = snapshot,
+               snapshot.exists,
+               let userData = snapshot.data(),
+               let userName = userData["name"] as? String {
+
+                updatedFestival.ownerName = userName
+            }
+
+            completion(.success(updatedFestival))
+        }
+    }
+
+
+    // MARK: - Upload Assets
+
+    private func uploadFestivalAssets(
+        _ festival: Festival,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let storage = Storage.storage()
+
+        uploadFestivalLogo(
+            festival,
+            storage: storage
+        ) { result in
+
+            switch result {
+            case .success(let festivalWithLogo):
+                self.uploadFestivalPoster(
+                    festivalWithLogo,
+                    storage: storage,
+                    completion: completion
+                )
+
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
+
+    // MARK: - Upload Logo
+
+    private func uploadFestivalLogo(
+        _ festival: Festival,
+        storage: Storage,
+        completion: @escaping (Result<Festival, Error>) -> Void
+    ) {
+        guard let logoPath = festival.logoPath,
+              !logoPath.hasPrefix("http")
+        else {
+            completion(.success(festival))
+            return
+        }
+
+        FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
+
+            guard let logo = logo,
+                  let imageData = logo.jpegData(
+                      compressionQuality: 0.8
+                  )
             else {
-                uploadFestivalDocument()
-                return
-            }
-
-            guard let posterURL = URL(string: posterPath) else {
-                uploadFestivalDocument()
-                return
-            }
-
-            guard let pdfData = try? Data(contentsOf: posterURL) else {
-                uploadFestivalDocument()
+                // Preserve your previous behavior:
+                // if the logo can't be loaded, continue without it.
+                completion(.success(festival))
                 return
             }
 
             let storageRef = storage.reference()
-                .child("festival_posters/\(festivalToUpload.id.uuidString).pdf")
+                .child(
+                    "festival_logos/\(festival.id.uuidString).jpg"
+                )
 
             let metadata = StorageMetadata()
-            metadata.contentType = "application/pdf"
+            metadata.contentType = "image/jpeg"
 
-            storageRef.putData(pdfData, metadata: metadata) { _, error in
+            storageRef.putData(
+                imageData,
+                metadata: metadata
+            ) { _, error in
 
-                if let error {
+                if let error = error {
                     completion(.failure(error))
                     return
                 }
 
                 storageRef.downloadURL { url, error in
 
-                    if let error {
+                    if let error = error {
                         completion(.failure(error))
                         return
                     }
 
-                    festivalToUpload.posterPath = url?.absoluteString
+                    var updatedFestival = festival
+                    updatedFestival.logoPath = url?.absoluteString
 
-                    uploadFestivalDocument()
+                    completion(.success(updatedFestival))
                 }
             }
         }
     }
+
+
+    // MARK: - Upload Poster
+
+    private func uploadFestivalPoster(
+        _ festival: Festival,
+        storage: Storage,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard let posterPath = festival.posterPath,
+              !posterPath.hasPrefix("http")
+        else {
+            saveFestivalToFirestore(
+                festival,
+                completion: completion
+            )
+            return
+        }
+
+        guard let posterURL = URL(string: posterPath) else {
+            saveFestivalToFirestore(
+                festival,
+                completion: completion
+            )
+            return
+        }
+
+        guard let pdfData = try? Data(contentsOf: posterURL) else {
+            saveFestivalToFirestore(
+                festival,
+                completion: completion
+            )
+            return
+        }
+
+        let storageRef = storage.reference()
+            .child(
+                "festival_posters/\(festival.id.uuidString).pdf"
+            )
+
+        let metadata = StorageMetadata()
+        metadata.contentType = "application/pdf"
+
+        storageRef.putData(
+            pdfData,
+            metadata: metadata
+        ) { _, error in
+
+            if let error {
+                completion(.failure(error))
+                return
+            }
+
+            storageRef.downloadURL { url, error in
+
+                if let error {
+                    completion(.failure(error))
+                    return
+                }
+
+                var updatedFestival = festival
+                updatedFestival.posterPath = url?.absoluteString
+
+                self.saveFestivalToFirestore(
+                    updatedFestival,
+                    completion: completion
+                )
+            }
+        }
+    }
+
+
+    // MARK: - Save Festival
+
+    private func saveFestivalToFirestore(
+        _ festival: Festival,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let db = Firestore.firestore()
+
+        let artistNames = festival.artistList.map { $0.name }
+
+        let adjustedEndDate = festival.secondWeekend
+            ? festival.endDate.addingTimeInterval(7 * 24 * 60 * 60)
+            : festival.endDate
+
+        do {
+            var festivalData = try Firestore.Encoder()
+                .encode(festival)
+
+            festivalData["artistNames"] = artistNames
+            festivalData["adjustedEndDate"] = adjustedEndDate
+            festivalData["name_lowercase"] =
+                festival.name.lowercased()
+
+            let festivalRef = db.collection("festivals")
+                .document(festival.id.uuidString)
+
+            festivalRef.setData(
+                festivalData,
+                merge: true
+            ) { error in
+
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                self.moveToPublished(festival)
+                completion(.success(()))
+            }
+
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
     
+
+//    func uploadFestival(_ festival: Festival, completion: @escaping (Result<Void, Error>) -> Void) {
+//        let db = Firestore.firestore()
+//        let storage = Storage.storage()
+//        
+//        var festivalToUpload = festival // Make a mutable copy
+//        festivalToUpload.published = true
+//        festivalToUpload.saveDate = Date()
+//        
+//        festivalToUpload.verified = (userId == "bNPLj8lLhZYScTxjUb3HUJBmmtx2")
+////        if  { }
+//        
+//        if festivalToUpload.ownerName == "Unknown" {
+//            let userDocRef = db.collection("users").document(festivalToUpload.ownerID)
+//            userDocRef.getDocument { snapshot, error in
+//                if let snapshot = snapshot, snapshot.exists,
+//                   let userData = snapshot.data(),
+//                   let userName = userData["name"] as? String {
+//                    festivalToUpload.ownerName = userName
+//                }
+//            }
+//        }
+//        
+//        let artistNames = festivalToUpload.artistList.map { $0.name }
+//        
+//        let adjustedEndDate = festivalToUpload.secondWeekend
+//                ? festivalToUpload.endDate.addingTimeInterval(7 * 24 * 60 * 60)
+//                : festivalToUpload.endDate
+//        
+//        // Step 1: If there's a local logo image, upload it to Firebase Storage
+//        if let logoPath = festivalToUpload.logoPath, !logoPath.hasPrefix("http") {
+//            FestivalViewModel.loadFestivalImage(path: logoPath) { logo in
+//                if let logo = logo,
+//                   let imageData = logo.jpegData(compressionQuality: 0.8) {
+//                    let storageRef = storage.reference().child("festival_logos/\(festivalToUpload.id.uuidString).jpg")
+//                    
+//                    let metadata = StorageMetadata()
+//                    metadata.contentType = "image/jpeg"
+//                    
+//                    storageRef.putData(imageData, metadata: metadata) { _, error in
+//                        if let error = error {
+//                            completion(.failure(error))
+//                            return
+//                        }
+//                        
+//                        // Step 2: Get the download URL and update festivalToUpload
+//                        storageRef.downloadURL { url, error in
+//                            if let error = error {
+//                                completion(.failure(error))
+//                                return
+//                            }
+//                            
+//                            festivalToUpload.logoPath = url?.absoluteString // Replace local path with download URL
+//                            
+//                            uploadPosterAndFestival()
+//                        }
+//                    }
+//                }
+//            }
+//        } else {
+//            uploadPosterAndFestival()
+//        }
+//        
+//        func uploadPosterAndFestival() {
+//
+//            func uploadFestivalDocument() {
+//                do {
+//                    var festivalData = try Firestore.Encoder().encode(festivalToUpload)
+//                    festivalData["artistNames"] = artistNames
+//                    festivalData["adjustedEndDate"] = adjustedEndDate
+//                    festivalData["name_lowercase"] = festivalToUpload.name.lowercased()
+//
+//                    db.collection("festivals")
+//                        .document(festivalToUpload.id.uuidString)
+//                        .setData(festivalData, merge: true) { error in
+//                            if let error = error {
+//                                completion(.failure(error))
+//                            } else {
+//                                self.moveToPublished(festivalToUpload)
+//                                completion(.success(()))
+//                            }
+//                        }
+//
+//                } catch {
+//                    completion(.failure(error))
+//                }
+//            }
+//
+//            // No poster or already uploaded
+//            guard let posterPath = festivalToUpload.posterPath,
+//                  !posterPath.hasPrefix("http")
+//            else {
+//                uploadFestivalDocument()
+//                return
+//            }
+//
+//            guard let posterURL = URL(string: posterPath) else {
+//                uploadFestivalDocument()
+//                return
+//            }
+//
+//            guard let pdfData = try? Data(contentsOf: posterURL) else {
+//                uploadFestivalDocument()
+//                return
+//            }
+//
+//            let storageRef = storage.reference()
+//                .child("festival_posters/\(festivalToUpload.id.uuidString).pdf")
+//
+//            let metadata = StorageMetadata()
+//            metadata.contentType = "application/pdf"
+//
+//            storageRef.putData(pdfData, metadata: metadata) { _, error in
+//
+//                if let error {
+//                    completion(.failure(error))
+//                    return
+//                }
+//
+//                storageRef.downloadURL { url, error in
+//
+//                    if let error {
+//                        completion(.failure(error))
+//                        return
+//                    }
+//
+//                    festivalToUpload.posterPath = url?.absoluteString
+//
+//                    uploadFestivalDocument()
+//                }
+//            }
+//        }
+//    }
+//    
     
     
     func deleteFestival(_ festival: Festival, completion: @escaping (Result<Void, Error>) -> Void) {
@@ -1232,7 +1673,7 @@ class FestivalViewModel: ObservableObject {
 //        
 //    }
     
-    func getArtistDict(currList: Array<Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil, checkSettingsBool: Bool = true, showNABool: Bool = false) -> [String : Array<Artist>] {
+    func getArtistDict(currList: Array<Artist>, sort: DataSet.sortType, secondWeekend: Bool, groupFavs: Array<UserFestivalFavorites>? = nil, checkSettingsBool: Bool = true, showNABool: Bool = false, artistTags: [String : Array<Artist>] = [:]) -> [String : Array<Artist>] {
         var artistList = currList
         if checkSettingsBool { artistList = checkSettings(currList: currList, secondWeekend: secondWeekend) }
         switch(sort) {
@@ -1252,6 +1693,9 @@ class FestivalViewModel: ObservableObject {
             return(sortDateModified(currList: artistList))
         case .group:
             return(sortByGroup(currList: currList, groupFavs: groupFavs!))
+        case .tags:
+            return artistTags
+//            return(sortTag(currList: currList, artistTags: artistTags))
         }
     }
     
@@ -1444,6 +1888,42 @@ class FestivalViewModel: ObservableObject {
         })
         return topGenres
     }
+    
+//    func sortTag(currList: [Artist], artistTags: [String : Array<Artist>]) -> [String : Array<Artist>] {
+//        return artistTags
+//        
+//        // Build the unsorted dictionary
+//        var dictionary = [String: [Artist]]()
+//        
+//        return dictionary
+//        
+//        for artist in currList {
+//            
+//            for genre in Set(artist.genres) {
+//                if !(dictionary[genre]?.contains(where: { $0.id == artist.id }) ?? false) {
+//                    dictionary[genre, default: []].append(artist)
+//                }
+//            }
+//        }
+//
+//        // Filter and sort artist arrays by name (same behavior as before)
+//        let sortedDictionary: [String: [Artist]] = dictionary
+//            .filter { $0.value.count >= 3 }
+//            .mapValues { artists in
+//                artists.sorted { removeArticles(str: $0.name) < removeArticles(str: $1.name) }
+//            }
+//
+//        // Create an array of (key, value) tuples with explicit types, then sort by count desc
+//        let sortedArray: [(String, [Artist])] = sortedDictionary
+//            .map { (key: $0.key, value: $0.value) }        // make array of tuples
+//            .sorted { $0.1.count > $1.1.count }            // sort by counts descending
+//
+//        // Take the first 5 and build the top-five dictionary
+//        let topFiveArray: [(String, [Artist])] = Array(sortedArray.prefix(5))
+//        let topFive: [String: [Artist]] = Dictionary(uniqueKeysWithValues: topFiveArray)
+//
+////        return (allGenres: sortedDictionary, topGenres: topFive)
+//    }
     
     func sortDateAdded(currList: Array<Artist>) -> [String : Array<Artist>] {
         let returnList = currList.sorted(by: {
@@ -1882,4 +2362,28 @@ func extractColorPalette(from image: UIImage, maxColors: Int = 4) -> [Color] {
     }
     
     return finalColors
+}
+
+
+struct FestivalUpdateTracker {
+    private static let key = "lastUpdateSeenDates"
+
+    static func lastSeenDate(for festivalID: UUID) -> Date {
+        let dates = UserDefaults.standard.dictionary(forKey: key)
+            as? [String: Date] ?? [:]
+
+        return dates[festivalID.uuidString] ?? .distantPast
+    }
+
+    static func markAsSeen(
+        festivalID: UUID,
+        publishedDate: Date
+    ) {
+        var dates = UserDefaults.standard.dictionary(forKey: key)
+            as? [String: Date] ?? [:]
+
+        dates[festivalID.uuidString] = publishedDate
+
+        UserDefaults.standard.set(dates, forKey: key)
+    }
 }

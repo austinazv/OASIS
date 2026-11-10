@@ -52,9 +52,11 @@ struct ArtistList: View {
     @State var sortType: DataSet.sortType = .alpha
     @State var viewSubsection = Array<Bool>()
     
-    @State var showFullGroupPhotosIndex: Int?
+    @State var showFullSectionIndex: String?
     
     var secondaryNavigationPath: Binding<NavigationPath>?
+    
+    @State var showDNSArtists: Bool = false
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -69,17 +71,34 @@ struct ArtistList: View {
                     VStack {
                         if !data.isArtistDicEmpty(currDict: artistDict) {
                             if searchText == "" {
-//                                HStack(spacing: 20) {
-//                                    ShuffleButtonSection
-//                                    CreatePlaylistSection
-//                                }
-//                                .shadow(radius: 5)
-//                                .padding(.bottom, 5)
-//                                .padding(.horizontal, 20)
-//                                .frame(height: 75)
-                                FullList
-                                
-                                //                            }
+                                VStack(spacing: 0) {
+                                    HStack(spacing: 20) {
+                                        ShuffleButtonSection
+                                        CreatePlaylistSection
+                                    }
+                                    .shadow(radius: 5)
+                                    .padding(.bottom, 10)
+                                    .padding(.horizontal, 16)
+                                    .frame(height: 68)
+                                    
+                                    Rectangle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    .black.opacity(0.18),
+                                                    .black.opacity(0.07),
+                                                    .clear
+                                                ],
+                                                startPoint: .top,
+                                                endPoint: .bottom
+                                            )
+                                        )
+                                        .frame(height: 8)
+                                        .allowsHitTesting(false)
+                                        .zIndex(1)
+                                    
+                                    FullList
+                                }
                             } else {
                                 SearchResults
                             }
@@ -137,7 +156,7 @@ struct ArtistList: View {
         .onAppear() {
             artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
-            showFullGroupPhotosIndex = nil
+            showFullSectionIndex = nil
 //            if let festival = festivalVM.currentFestival {
 //                currentFestival = festival
 //                artistDict = festivalVM.getArtistDict(currList: artistList, sort: sortType, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
@@ -219,7 +238,7 @@ struct ArtistList: View {
 //                    Button(action: shuffleArtists) {
 //                        Image(systemName: "shuffle")
 //                    }
-                    SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
+                SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs, showDNSArtists: tags.getDNSIDSet(currList: artistList).isEmpty ? nil : $showDNSArtists)
 //                }
 //                if !previewView {
 //                    HStack {
@@ -244,11 +263,14 @@ struct ArtistList: View {
 //            SortMenu(sortType: $sortType, currList: artistList, secondWeekend: currentFestival.secondWeekend, groupFavs: groupFavs)
 //        })
         .onChange(of: sortType) { _, newSort in
-            artistDict = festivalVM.getArtistDict(currList: artistList, sort: newSort, secondWeekend: currentFestival.secondWeekend,  groupFavs: groupFavs)
+            let artistTags = (newSort == .tags ? tags.getTagArrayTags(festival: currentFestival) : [:])
+//            if newSort == .tags
+            
+            artistDict = festivalVM.getArtistDict(currList: artistList, sort: newSort, secondWeekend: currentFestival.secondWeekend,  groupFavs: groupFavs, artistTags: artistTags)
             viewSubsection = Array(repeating: true, count: artistDict.keys.count)
         }
         .onChange(of: searchText) {
-            showFullGroupPhotosIndex = nil
+            showFullSectionIndex = nil
         }
 //        .if(!friendList) { view in
 //            view.navigationBarItems(trailing: HStack {
@@ -380,18 +402,25 @@ struct ArtistList: View {
         Group {
             ScrollView {
 //                ShuffleButtonSection
-                ForEach(Array(data.getDictKeysSorted(currDict: artistDict, sort: sortType).enumerated()), id: \.element) { i, section in
+//                tags.g
+                let sections = sortType == .tags ? tags.getSortedTag(festivalID: currentFestival.id).map({ $0.id.uuidString }) : data.getDictKeysSorted(currDict: artistDict, sort: sortType)
+                ForEach(Array(sections.enumerated()), id: \.element) { i, section in
                     if let artistArray = artistDict[section] {
-                        if !artistArray.isEmpty {
+                        if !artistArray.isEmpty && (!isAllDNS(artistList: artistArray) || showDNSArtists) {
                             if sortType != .alpha && sortType != .group {
                                 HStack {
-                                    Text(section)
+                                    if sortType == .tags {
+                                        if let tagID = UUID(uuidString: section), let tag = tags.getTag(tagID: tagID, festivalID: currentFestival.id) {
+                                            Group {
+                                                Image(systemName: tag.symbol)
+                                                Text(tag.name)
+                                            }
+                                            .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+                                        }
+                                    } else {
+                                        Text(section)
+                                    }
                                     Image(systemName: "chevron.down").rotationEffect(viewSubsection[i] ? Angle(degrees: 180) : Angle(degrees: 0))
-//                                    if viewSubsection[i] {
-//                                        Image(systemName: "chevron.up")
-//                                    } else {
-//                                        Image(systemName: "chevron.down")
-//                                    }
                                     Spacer()
                                 }
                                 .padding(.horizontal, 20)
@@ -405,17 +434,22 @@ struct ArtistList: View {
                             }
                             if viewSubsection[i] {
                                 LazyVStack {
-                                    Divider().padding(.horizontal, 20)
+                                    if sortType != .alpha { Divider().padding(.horizontal, 20) }
                                     ForEach(Array(artistArray.enumerated()), id: \.element.id) { index, artist in
                                         //                                    ZStack(alignment: .center) {
-                                        ArtistLink(artist: artist,
-                                                   shuffleList: data.getArtistList(currDict: artistDict),
-                                                   titleText: titleText,
-                                                   currentFestival: currentFestival,
-                                                   memberIDs: groupFavs?.first(where: { $0.artistID == artist.id })?.userIDs,
-                                                   index: index,
-                                                   showFullGroupPhotosIndex: $showFullGroupPhotosIndex
-                                        )
+                                        if showDNSArtists || !tags.isArtistDNS(artist.id) {
+                                            ArtistLink(artist: artist,
+                                                       shuffleList: data.getArtistList(currDict: artistDict),
+                                                       titleText: titleText,
+                                                       currentFestival: currentFestival,
+                                                       sortType: sortType,
+                                                       memberIDs: groupFavs?.first(where: { $0.artistID == artist.id })?.userIDs,
+                                                       //                                                   index: index,
+                                                       showFullSectionIndex: $showFullSectionIndex
+                                            )
+                                            
+                                            Divider()
+                                        }
                                         
                                         //                                    }
                                     }
@@ -467,6 +501,13 @@ struct ArtistList: View {
 //        }
     }
     
+    func isAllDNS(artistList: Array<Artist>) -> Bool {
+        for artist in artistList {
+            if !tags.isArtistDNS(artist.id) { return false }
+        }
+        return true
+    }
+    
     
     var SearchResults: some View {
         Group {
@@ -475,16 +516,20 @@ struct ArtistList: View {
                 if !searchList.isEmpty {
                     Divider().padding(.horizontal, 20)
                     ScrollView {
-//                        ForEach(searchList, id: \.self) { artist in
                         ForEach(Array(searchList.enumerated()), id: \.element.id) { index, artist in
-                            ArtistLink(artist: artist,
-                                       shuffleList: artistList,
-                                       titleText: titleText,
-                                       currentFestival: currentFestival,
-                                       memberIDs: groupFavs?.first(where: { $0.artistID == artist.id })?.userIDs,
-                                       index: index,
-                                       showFullGroupPhotosIndex: $showFullGroupPhotosIndex
-                            )
+//                            if showDNSArtists || !tags.isArtistDNS(artist.id) {
+                                
+                                ArtistLink(artist: artist,
+                                           shuffleList: artistList,
+                                           titleText: titleText,
+                                           currentFestival: currentFestival,
+                                           sortType: sortType,
+                                           memberIDs: groupFavs?.first(where: { $0.artistID == artist.id })?.userIDs,
+                                           //                                       index: index,
+                                           showFullSectionIndex: $showFullSectionIndex
+                                )
+                                Divider()
+//                            }
                         }
                     }
                 } else {
@@ -686,6 +731,7 @@ struct ArtistLink: View {
     var shuffleList: Array<Artist>
     var titleText: String? = nil
     var currentFestival: Festival
+    var sortType: DataSet.sortType
 //    var includeFavorites: Bool
 //    var favorites: Bool
     
@@ -695,8 +741,9 @@ struct ArtistLink: View {
     var memberIDs: [String]? = nil
 //    var groupFavs: Array<UserFestivalFavorites>? = nil
     
-    var index: Int
-    @Binding var showFullGroupPhotosIndex: Int?
+//    var index: Int
+    @Binding var showFullSectionIndex: String?
+    
     
     @State private var showOverlay: Bool = false
     
@@ -709,34 +756,59 @@ struct ArtistLink: View {
                                                                shuffleList: shuffleList)) {
 //                NavigationLink(destination: ArtistPage(currentArtist: artist, includeFavorites: includeFavorites).environmentObject(data)) {
                     ZStack {
-                        HStack{
+                        HStack {
                             ArtistImage(imageURL: artist.imageURL, frame: 50)
                             Text(artist.name)
-                            
-                            Spacer()
-                            if let members = memberIDs {
-                                if members.count > 3 {
-                                    GroupMemberPhotos(memberIDs: members)
-                                        .onTapGesture {
-                                            withAnimation(.spring()) {
-                                                showFullGroupPhotosIndex = index
-                                            }
-                                        }
-                                } else {
-                                    GroupMemberPhotos(memberIDs: members)
-                                }
-                                //                                    .onTapGesture {
-                                //                                        if members.count > 3 {
-                                //                                            showFullGroupPhotosIndex = index
-                                //                                        }
-                                //                                    }
-                                //                            } else if /*titleText != "Favorites" && */festivalVM.favoriteList.contains(artist.id) {
-                            } else if tags.isArtistFavorited(artist.id) {
+                            if tags.isArtistFavorited(artist.id) {
                                 Image(systemName: "heart.fill")
                                     .imageScale(.large)
+                                    .font(.system(size: 19))
                                     .foregroundStyle(.red)
-                                    .padding(.trailing, 5)
+                                    .padding(.horizontal, 5)
+                                    .shadow(radius: 1)
                             }
+                            Spacer()
+                            Group {
+                                if let members = memberIDs {
+                                    if members.count > 3 {
+                                        GroupMemberPhotos(memberIDs: members)
+                                            .onTapGesture {
+                                                withAnimation(.spring()) {
+                                                    showFullSectionIndex = artist.id
+                                                }
+                                            }
+                                    } else {
+                                        GroupMemberPhotos(memberIDs: members)
+                                    }
+                                    //                                    .onTapGesture {
+                                    //                                        if members.count > 3 {
+                                    //                                            showFullGroupPhotosIndex = index
+                                    //                                        }
+                                    //                                    }
+                                    //                            } else if /*titleText != "Favorites" && */festivalVM.favoriteList.contains(artist.id) {
+                                    //TODO: PUT BACK IN
+                                    //                                                            } else if tags.isArtistFavorited(artist.id) {
+                                    //                                                                Image(systemName: "heart.fill")
+                                    //                                                                    .imageScale(.large)
+                                    //                                                                    .foregroundStyle(.red)
+                                    //                                                                    .padding(.trailing, 5)
+                                    //                                                            }
+                                } else {
+                                    if sortType != .tags {
+                                        if tags.getArtistTags(artistID: artist.id, festivalID: currentFestival.id).count > 3 && !tags.isArtistDNS(artist.id) {
+                                            TagCircles(currentArtist: artist, currentFestival: currentFestival)
+                                                .onTapGesture {
+                                                    withAnimation(.spring()) {
+                                                        showFullSectionIndex = artist.id
+                                                    }
+                                                }
+                                        } else {
+                                            TagCircles(currentArtist: artist, currentFestival: currentFestival)
+                                        }
+                                    }
+                                }
+                            }
+//                            .opacity(1)
                             //                            if self.groupFavorites != nil {
                             //                                FriendPictures
                             //                            } else if data.getFavorability(artistID: artist.id) == 1 /*&& !favorites*/ {
@@ -746,6 +818,7 @@ struct ArtistLink: View {
                             //                            }
                             Image(systemName: "chevron.right")
                                 .imageScale(.large)
+//                                .opacity(1)
                             
                         }
                         .foregroundStyle(.bwColorSwitch)
@@ -764,27 +837,55 @@ struct ArtistLink: View {
 //                                }
 //                            }
 //                        }
-                        if let members = memberIDs {
-                            if showFullGroupPhotosIndex == index {
-                                FullGroupMemberPhotos(memberIDs: members)
-                                    .padding(.leading, 150)
-                                    .padding(.trailing, 20)
-//                                    .onTapGesture {
-//                                        withAnimation(.spring()) {
-//                                            showFullGroupPhotosIndex = nil
-//                                        }
-//                                    }
+                        if showFullSectionIndex == artist.id {
+                            Group {
+                                if let members = memberIDs {
+                                    FullGroupMemberPhotos(memberIDs: members)
+                                        .onTapGesture {
+                                            withAnimation(.spring()) {
+                                                showFullSectionIndex = nil
+                                            }
+                                        }
+                                    
+                                } else {
+                                    FullTagCircles(currentArtist: artist, currentFestival: currentFestival)
+                                        .onTapGesture {
+                                            withAnimation(.spring()) {
+                                                showFullSectionIndex = nil
+                                            }
+                                        }
+                                }
                             }
+                            .padding(.leading, 150)
+                            .padding(.trailing, 20)
                         }
+                        
+                        
+                        
+//                        if let members = memberIDs {
+//                            if showFullSectionIndex == index {
+//                                FullGroupMemberPhotos(memberIDs: members)
+//                                    .padding(.leading, 150)
+//                                    .padding(.trailing, 20)
+////                                    .onTapGesture {
+////                                        withAnimation(.spring()) {
+////                                            showFullGroupPhotosIndex = nil
+////                                        }
+////                                    }
+//                            }
+//                        } else if showFullSectionIndex == index {
+//                            
+//                        }
                         //                            .frame(height: 50)
                         //                        if showOverlay {
                         //                            FriendPicsOverlay
                         //                        }
                     }
                     .contentShape(Rectangle())
+                    .opacity(tags.isArtistDNS(artist.id) ? 0.4 : 1)
                 }
                 
-                Divider()
+                
             }
             .frame(height: 65)
             .padding(.horizontal, 20)
@@ -968,6 +1069,7 @@ struct ArtistLink: View {
 struct SortMenu: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var festivalVM: FestivalViewModel
+    @EnvironmentObject var tags: TagViewModel
     
     @Binding var sortType: DataSet.sortType
     var selectMultiple: Binding<Bool>?
@@ -980,8 +1082,9 @@ struct SortMenu: View {
     
     var editing: Bool = false
     
-
     var groupFavs: Array<UserFestivalFavorites>? = nil
+    
+    var showDNSArtists: Binding<Bool>?
 
     var body: some View {
         Group {
@@ -991,6 +1094,8 @@ struct SortMenu: View {
             let genreBool = festivalVM.listHasGenres(currList: artistList)
             let stageBool = festivalVM.listHasStages(currList: artistList)
             let tierBool = festivalVM.listHasTiers(currList: artistList)
+            
+            let tagsBool = !tags.getTagDictionary(festival: festivalVM.currentFestival!).isEmpty
             
             
             //            if dayBool || genreBool || stageBool || tierBool {
@@ -1013,10 +1118,15 @@ struct SortMenu: View {
                     if genreBool { Text("Sort by Genre").tag(DataSet.sortType.genre) }
                     if stageBool { Text("Sort by Stage").tag(DataSet.sortType.stage) }
                     if tierBool { Text("Sort by Tier").tag(DataSet.sortType.billing) }
+                    if tagsBool { Text("Sort by My Tags").tag(DataSet.sortType.tags) }
                     if editing {
                         Text("Sort by Date Added").tag(DataSet.sortType.addDate)
                         Text("Sort by Date Modified").tag(DataSet.sortType.modifyDate)
                     }
+                }
+                
+                if showDNSArtists != nil {
+                    Toggle("Show Hidden Artists", isOn: showDNSArtists!)
                 }
                 
                 

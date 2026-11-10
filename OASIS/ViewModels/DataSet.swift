@@ -276,7 +276,10 @@ class DataSet: ObservableObject {
             break
         case .group:
             break
+        case .tags:
+            break
         }
+        
    
         return dictKeys
     }
@@ -2729,6 +2732,8 @@ class DataSet: ObservableObject {
 
         case .group:
             return allLable
+        case .tags:
+            return allLable
         }
     }
     
@@ -2822,6 +2827,7 @@ class DataSet: ObservableObject {
         case addDate
         case modifyDate
         case group
+        case tags
     }
 
     
@@ -3039,14 +3045,180 @@ struct Festival: Identifiable, Hashable, Codable {
     var website: String? = nil
     var posterPath: String? = nil
     var published: Bool = false
-//    var hidden: Bool = false
+    var preUpdateArtistList: [Artist] = []
+    var removedArtistsList: [Artist] = []
+    var newArtists: [String] = []
+    var lastPublishedChangesDate: Date?
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case ownerID
+        case ownerName
+        case saveDate
+        case verified
+        case name
+        case startDate
+        case endDate
+        case secondWeekend
+        case location
+        case logoPath
+        case artistList
+        case stageList
+        case website
+        case posterPath
+        case published
+        case preUpdateArtistList
+        case removedArtistsList
+        case newArtists
+        case lastPublishedChangesDate
+    }
+
+    // MARK: - Codable
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(UUID.self, forKey: .id)
+        ownerID = try container.decode(String.self, forKey: .ownerID)
+        ownerName = try container.decode(String.self, forKey: .ownerName)
+
+        saveDate = try container.decodeIfPresent(
+            Date.self,
+            forKey: .saveDate
+        ) ?? Date()
+
+        verified = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .verified
+        ) ?? true
+
+        name = try container.decodeIfPresent(
+            String.self,
+            forKey: .name
+        ) ?? ""
+
+        startDate = try container.decodeIfPresent(
+            Date.self,
+            forKey: .startDate
+        ) ?? Date()
+
+        endDate = try container.decodeIfPresent(
+            Date.self,
+            forKey: .endDate
+        ) ?? Date()
+
+        secondWeekend = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .secondWeekend
+        ) ?? false
+
+        location = try container.decodeIfPresent(
+            String.self,
+            forKey: .location
+        )
+
+        logoPath = try container.decodeIfPresent(
+            String.self,
+            forKey: .logoPath
+        )
+
+        artistList = try container.decodeIfPresent(
+            [Artist].self,
+            forKey: .artistList
+        ) ?? []
+
+        stageList = try container.decodeIfPresent(
+            [String].self,
+            forKey: .stageList
+        ) ?? []
+
+        website = try container.decodeIfPresent(
+            String.self,
+            forKey: .website
+        )
+
+        posterPath = try container.decodeIfPresent(
+            String.self,
+            forKey: .posterPath
+        )
+
+        published = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .published
+        ) ?? false
+
+        preUpdateArtistList = try container.decodeIfPresent(
+            [Artist].self,
+            forKey: .preUpdateArtistList
+        ) ?? []
+
+        removedArtistsList = try container.decodeIfPresent(
+            [Artist].self,
+            forKey: .removedArtistsList
+        ) ?? []
+
+        newArtists = try container.decodeIfPresent(
+            [String].self,
+            forKey: .newArtists
+        ) ?? []
+        
+        lastPublishedChangesDate = try container.decodeIfPresent(
+            Date.self,
+            forKey: .lastPublishedChangesDate
+        ) ?? nil
+    }
+
+    // MARK: - New Festival
     
+    init(
+        id: UUID,
+        ownerID: String,
+        ownerName: String,
+        saveDate: Date = Date(),
+        verified: Bool = true,
+        name: String = "",
+        startDate: Date = Date(),
+        endDate: Date = Date(),
+        secondWeekend: Bool = false,
+        location: String? = nil,
+        logoPath: String? = nil,
+        artistList: [Artist] = [],
+        stageList: [String] = [],
+        website: String? = nil,
+        posterPath: String? = nil,
+        published: Bool = false,
+        preUpdateArtistList: [Artist] = [],
+        removedArtistsList: [Artist] = [],
+        newArtists: [String] = []
+    ) {
+        self.id = id
+        self.ownerID = ownerID
+        self.ownerName = ownerName
+        self.saveDate = saveDate
+        self.verified = verified
+        self.name = name
+        self.startDate = startDate
+        self.endDate = endDate
+        self.secondWeekend = secondWeekend
+        self.location = location
+        self.logoPath = logoPath
+        self.artistList = artistList
+        self.stageList = stageList
+        self.website = website
+        self.posterPath = posterPath
+        self.published = published
+        self.preUpdateArtistList = preUpdateArtistList
+        self.removedArtistsList = removedArtistsList
+        self.newArtists = newArtists
+    }
+
     static func newFestival() -> Festival {
         let user = Auth.auth().currentUser
+
         return Festival(
             id: UUID(),
             ownerID: user?.uid ?? "Unknown",
-            ownerName: user?.displayName ?? "Unknown" // displayName is the user's name
+            ownerName: user?.displayName ?? "Unknown"
         )
     }
 }
@@ -3071,6 +3243,7 @@ struct ArtistListStruct: Hashable {
     let festival: Festival
     let list: Array<Artist>
     var groupFavs: Array<UserFestivalFavorites>? = nil
+    var showDNS: Bool = false
 //        let list: [String : Array<artistNEW>]
 }
 

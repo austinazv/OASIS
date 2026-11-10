@@ -11,6 +11,7 @@ struct PlaylistCreationSheet: View {
     @EnvironmentObject var data: DataSet
     @EnvironmentObject var spotify: SpotifyViewModel
     @EnvironmentObject var festivalVM: FestivalViewModel
+    @EnvironmentObject var tags: TagViewModel
     
     @Environment(\.dismiss) var dismiss
     
@@ -218,6 +219,14 @@ struct PlaylistCreationSheet: View {
                                     if sortType == .alpha {
                                         if let text = titleText { Text("All \(text) Artists") }
                                         else { Text("All Artists") }
+                                    } else if sortType == .tags {
+                                        if let tagID = UUID(uuidString: section), let tag = tags.getTag(tagID: tagID, festivalID: currentFestival.id) {
+                                            Group {
+                                                Image(systemName: tag.symbol)
+                                                Text(tag.name)
+                                            }
+                                            .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+                                        }
                                     } else {
                                         Text(section)
                                     }

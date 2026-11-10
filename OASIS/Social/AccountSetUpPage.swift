@@ -114,7 +114,7 @@ struct AccountSetUpPage: View {
     
     var TitleField: some View {
         VStack {
-            Text("Log In To")
+            Text("Log In to")
                 .font(Font.system(size: 20))
             OASISTitle(fontSize: 65.0)
                

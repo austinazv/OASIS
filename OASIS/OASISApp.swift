@@ -774,7 +774,8 @@ extension View {
                            currentFestival: page.festival,
                            artistList: page.list,
                            groupFavs: page.groupFavs,
-                           sortType: page.groupFavs == nil ? .alpha : .group
+                           sortType: page.groupFavs == nil ? .alpha : .group,
+                           showDNSArtists: page.showDNS
                 )
                     .environmentObject(festivalVM)
             }

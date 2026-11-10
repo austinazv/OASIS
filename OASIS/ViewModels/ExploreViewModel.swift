@@ -140,7 +140,7 @@ class ExploreViewModel: ObservableObject {
         let recommended = Array(
             sortedFestivals
                 .filter { festival in
-                    festival.matchCount > 0 &&
+                    festival.matchCount > 4 &&
                     festival.festival.verified &&
                     !favoritedFestivalIDs.contains(festival.festival.id.uuidString)
                 }

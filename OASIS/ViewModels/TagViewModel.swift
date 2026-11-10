@@ -170,6 +170,19 @@ class TagViewModel: ObservableObject {
         }
     }
     
+    func getArtistArrayTags(artistList: [Artist], festivalID: UUID) -> [String : [ArtistTag]] {
+        guard festivalTags[festivalID] != nil else { return [:] }
+        let artistIDs = artistList.map { $0.id }
+        
+        var artistTagDictionary = [String : [ArtistTag]]()
+        
+        for artistID in artistIDs {
+            artistTagDictionary[artistID] = getArtistTags(artistID: artistID, festivalID: festivalID)
+        }
+        
+        return artistTagDictionary
+    }
+    
     func getTagArtists(tagID: UUID, festival: Festival) -> [Artist] {
         guard let artistIDs = artistTagDictionary[tagID] else {
             return []
@@ -180,6 +193,24 @@ class TagViewModel: ObservableObject {
         }
     }
     
+    func getTagArrayTags(festival: Festival) -> [String : Array<Artist>] {
+        guard let tags = festivalTags[festival.id] else { return [:] }
+        
+        var tagToArtistDictionary = [String : Array<Artist>]()
+        
+        for tag in tags.keys {
+            tagToArtistDictionary[tag.uuidString] = getTagArtists(tagID: tag, festival: festival)
+//            tagToArtistDictionary[tag.] = getArtistTags(artistID: artistID, festivalID: festivalID)
+        }
+        
+        return tagToArtistDictionary
+    }
+    
+    func getTag(tagID: UUID, festivalID: UUID) -> ArtistTag? {
+        guard let tags = festivalTags[festivalID] else { return nil }
+        
+        return tags[tagID]
+    }
 //    func getAllTagsExcept(_ festivalID: UUID) -> [ArtistTag] {
 //        return festivalTags
 //            .filter { $0.key != festivalID }

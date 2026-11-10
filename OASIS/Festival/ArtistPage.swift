@@ -35,11 +35,19 @@ struct ArtistPage: View {
     @State var popupMessage: String?
     @State private var popupAction: () -> Void = {}
     
+    @State private var artistProminentColor: Color = .black
+    
     
     var body: some View {
-        ZStack(alignment: photoExpanded ? .center : .topLeading) {
-            VStack {
-                ArtistImage(imageURL: currentArtist.imageURL, frame: photoExpanded ? 320 : 120)
+        VStack {
+//            ArtistRemovedBar
+            ZStack(alignment: photoExpanded ? .center : .topLeading) {
+                VStack {
+                    ArtistImage(imageURL: currentArtist.imageURL,
+                                frame: photoExpanded ? 320 : 120,
+                                onColorExtracted: { color in
+                        artistProminentColor = color
+                    })
                     .shadow(radius: photoExpanded ? 20 : 0)
                     .padding(.leading, photoExpanded ? 0 : 40)
                     .onTapGesture {
@@ -47,36 +55,39 @@ struct ArtistPage: View {
                             toggleImage()
                         }
                     }
-                if photoExpanded {
-                    Spacer()
-                }
-            }
-                .zIndex(2)
-            VStack {
-                ArtistTitleBar
-                List {
-                    ArtistPageSection
-                    ArtistTagSection
-                    RelatedArtistsSection
-                    ArtistGenresSection
-                    FestivalInfoSection
-                    //                ArtistPlaylistSection
-                    //                LatestProjectSection
-                    //                ArtistSpotifySection
-                    //                UpcomingAlbumSection
-                    //                AllAlbumsSection
-                }
-                //            .background(RoundedRectangle(cornerRadius: 5)
-                //                .foregroundStyle(Color(currentArtist.photo.averageColor!)))
-            }
-            if photoExpanded {
-                Color.oasisDarkPurple.opacity(0.45)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    .zIndex(1)
-                    .onTapGesture {
-                        collapseImage()
+                    if photoExpanded {
+                        Spacer()
                     }
+                }
+                .zIndex(2)
+                VStack(spacing: 0) {
+                    ArtistTitleBar
+//                    DropShadow()
+                    ArtistRemovedBar
+                    List {
+                        ArtistPageSection
+                        ArtistTagSection
+                        RelatedArtistsSection
+                        ArtistGenresSection
+                        FestivalInfoSection
+                        //                ArtistPlaylistSection
+                        //                LatestProjectSection
+                        //                ArtistSpotifySection
+                        //                UpcomingAlbumSection
+                        //                AllAlbumsSection
+                    }
+                    //            .background(RoundedRectangle(cornerRadius: 5)
+                    //                .foregroundStyle(Color(currentArtist.photo.averageColor!)))
+                }
+                if photoExpanded {
+                    Color.oasisDarkPurple.opacity(0.45)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .zIndex(1)
+                        .onTapGesture {
+                            collapseImage()
+                        }
+                }
             }
         }
         .toolbar(.hidden, for: .tabBar)
@@ -97,6 +108,7 @@ struct ArtistPage: View {
             //            }
         }
         .onChange(of: currentArtist.id) {
+            latestProject = nil
             getLatestProject()
         }
         //        .onChange(of: currentArtist) { _ in
@@ -169,26 +181,66 @@ struct ArtistPage: View {
     
     @State private var photoExpanded = false
     
+    
+    var ArtistRemovedBar: some View {
+        Group {
+            if !currentFestival.artistList.contains(where: { $0.id == currentArtist.id }) {
+                HStack {
+                    Spacer()
+                    Image(systemName: "exclamationmark.triangle").imageScale(.small)
+                    Text("Artist Removed From The Line-Up")
+                    Image(systemName: "exclamationmark.triangle").imageScale(.small)
+                    Spacer()
+                }
+                .foregroundStyle(.oasisDarkPurple)
+                .padding(5)
+                .background(.oasisDarkOrange)
+                .clipped()
+                .edgesIgnoringSafeArea([.leading, .trailing])
+                .contentShape(Rectangle())
+            }
+        }
+    }
+    
+    
     var ArtistTitleBar: some View {
         Group {
-            HStack() {
-                Spacer().frame(width: 150)
-                Spacer()
-                VStack(spacing: 16) {
-                    Text(currentArtist.name)
-                        .multilineTextAlignment(.center)
-                        .font(Font.system(size: 22))
-                        .bold()
-//                        .padding(.bottom, 6)
-                    ArtistButtons
-                    
+            ZStack {
+                HStack {
+                    Spacer().frame(width: 150)
+                    Spacer()
+                    VStack(spacing: 16) {
+                        Text(currentArtist.name)
+                            .foregroundStyle(artistProminentColor == .black ? .white : .oasisDarkPurpleUninverted)
+                            .multilineTextAlignment(.center)
+                            .font(Font.system(size: 22))
+                            .bold()
+                        //                        .padding(.bottom, 6)
+                        ArtistButtons
+                        
+                    }
+                    Spacer()
                 }
-                Spacer()
-                
             }
             .frame(height: 130)
+            .padding(.bottom, 12)
+            .background {
+//                Color(artistProminentColor)
+//                    .ignoresSafeArea(edges: [.top])
+//                    .ignoresSafe
+                LinearGradient(
+                    colors: [
+                        .white,
+                        artistProminentColor
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea(edges: [.top])
+            }
         }
-//            
+    }
+//
 //            
 //           
 //        
@@ -371,7 +423,6 @@ struct ArtistPage: View {
 //            }
 //            .padding(.bottom, 10)
 //        }
-    }
     
     var ArtistButtons: some View {
         HStack {
@@ -716,6 +767,8 @@ struct ArtistPage: View {
     //
     //    }
     
+    @State var showAlbum = false
+    
     var ArtistPageSection: some View {
         Group {
             if let url = spotifyArtistURL(from: currentArtist.id) {
@@ -727,19 +780,19 @@ struct ArtistPage: View {
                             //                            Text(currentArtist.name)
                             Text("")
                             HStack {
-                                Text("Artist Page").bold().font(.system(size: 17))
-//                                Image("Spotify Full Logo")
-//                                    .resizable()
-//                                    .scaledToFit()
-//                                    .frame(height: 25, alignment: .center)
-//                                //                                        .offset(x: -5)
-//                                Text("Page")
-//                                    .font(.system(size: 17))
+                                //                                Text("Artist Page").bold().font(.system(size: 17))
+                                Image("Spotify Full Logo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(height: 25, alignment: .center)
+                                //                                        .offset(x: -5)
+                                Text("Page")
+                                    .font(.system(size: 17))
                             }
                             Spacer()
-                            Image("Spotify Image Black")
-                                .resizable()
-                                .frame(width: 22, height: 22, alignment: .center)
+                            //                            Image("Spotify Image Black")
+                            //                                .resizable()
+                            //                                .frame(width: 22, height: 22, alignment: .center)
                             Image(systemName: "chevron.right")
                         }
                         .foregroundStyle(Color("BW Color Switch"))
@@ -749,6 +802,7 @@ struct ArtistPage: View {
                     //                        .padding(.)
                     //                }
                     //                    }
+                    //                    if showAlbum {
                     if let project = latestProject, let projectURL = URL(string: project.external_urls.spotify) {
                         Link(destination: projectURL, label: {
                             HStack {
@@ -769,14 +823,15 @@ struct ArtistPage: View {
                                     }
                                 }
                                 Spacer()
-                                Image("Spotify Image Black")
-                                    .resizable()
-                                    .frame(width: 22, height: 22, alignment: .center)
+                                //                                Image("Spotify Image Black")
+                                //                                    .resizable()
+                                //                                    .frame(width: 22, height: 22, alignment: .center)
                                 Image(systemName: "chevron.right")
                             }
                             .foregroundStyle(Color("BW Color Switch"))
                         })
                     }
+                    //                    }
                 }
             }
         }
@@ -912,10 +967,19 @@ struct ArtistPage: View {
     
     private func getLatestProject() {
         latestProject = nil
+        showAlbum = false
         albumLoading = true
+        
         spotify.fetchArtistLatestAlbum(artistID: currentArtist.id) { album in
             if let album = album {
-                latestProject = album
+                withAnimation {
+                    
+                    latestProject = album
+                    
+//                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+//                        showAlbum = true
+//                    }
+                }
             }
             albumLoading = false
         }
@@ -1079,24 +1143,30 @@ struct ArtistPage: View {
                     ForEach(currentArtist.genres.sorted(), id: \.self) { genre in
                         let genreList = festivalVM.getGenreList(genre: genre, currList: currentFestival.artistList)
                         if genreList.count > 2 {
+                            
                             Button {
                                 navigationPath.append(ArtistListStruct(titleText: genre, festival: currentFestival, list: genreList))
                             } label: {
-                                HStack {
-                                    Text(genre)
-                                    Image(systemName: "chevron.right")
+                                ZStack(alignment: .topTrailing) {
+                                    HStack {
+                                        Text(genre)
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .foregroundStyle(Color("OASIS Dark Orange"))
+                                    .padding(INFO_PADDING)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(Color("BW Color Switch Reverse"))
+                                            .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
+                                    )
+                                    if let oldArtist = currentFestival.preUpdateArtistList.first(where: { $0.id == currentArtist.id }), !oldArtist.genres.contains(genre){
+                                        NotificationCircle()
+                                    }
                                 }
-                                .foregroundStyle(Color("OASIS Dark Orange"))
-                                .padding(INFO_PADDING)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(Color("BW Color Switch Reverse"))
-                                        .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
-                                )
                             }
                             .buttonStyle(.plain)
                         }
@@ -1139,20 +1209,23 @@ struct ArtistPage: View {
     
     var FestivalInfoSection: some View {
         Group {
-            Section(header:
-                        HStack {
-                Image(systemName: "info.circle")
-                Text("\(currentFestival.name) Info")
-            }) {
-                ArtistDay
-                ArtistStage
-                ArtistTier
-                //                ArtistGenres
+            if currentFestival.artistList.contains(where: { $0.id == currentArtist.id }) {
+                Section(header:
+                            HStack {
+                    Image(systemName: "info.circle")
+                    Text("\(currentFestival.name) Info")
+                }) {
+                    ArtistDay
+                    ArtistStage
+                    ArtistTier
+                    //                ArtistGenres
+                }
             }
         }
     }
     
     let INFO_PADDING: CGFloat = 8
+    
     
     var ArtistDay: some View {
         Group {
@@ -1169,21 +1242,26 @@ struct ArtistPage: View {
                             navigationPath.append(ArtistListStruct(titleText: currentArtist.day, festival: currentFestival, list: dayList)
                             )
                         } label: {
-                            HStack {
-                                Text(currentArtist.day)
-                                Image(systemName: "chevron.right")
+                            ZStack(alignment: .topTrailing) {
+                                HStack {
+                                    Text(currentArtist.day)
+                                    Image(systemName: "chevron.right")
+                                }
+                                .foregroundStyle(Color("OASIS Dark Orange"))
+                                .padding(INFO_PADDING)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color("BW Color Switch Reverse"))
+                                        .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
+                                )
+                                if let oldArtist = currentFestival.preUpdateArtistList.first(where: { $0.id == currentArtist.id }), oldArtist.day != currentArtist.day {
+                                    NotificationCircle()
+                                }
                             }
-                            .foregroundStyle(Color("OASIS Dark Orange"))
-                            .padding(INFO_PADDING)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color("BW Color Switch Reverse"))
-                                    .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
-                            )
                         }
                         .buttonStyle(.plain)
                         if currentFestival.secondWeekend && currentArtist.weekend != "Both" {
@@ -1267,21 +1345,26 @@ struct ArtistPage: View {
                             let stageList = festivalVM.getStageList(stage: currentArtist.stage, currList: currentFestival.artistList)
                             navigationPath.append(ArtistListStruct(titleText: currentArtist.stage, festival: currentFestival, list: stageList))
                         } label: {
-                            HStack {
-                                Text(currentArtist.stage)
-                                Image(systemName: "chevron.right")
+                            ZStack (alignment: .topTrailing) {
+                                HStack {
+                                    Text(currentArtist.stage)
+                                    Image(systemName: "chevron.right")
+                                }
+                                .foregroundStyle(Color("OASIS Dark Orange"))
+                                .padding(INFO_PADDING)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color("BW Color Switch Reverse"))
+                                        .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
+                                )
+                                if let oldArtist = currentFestival.preUpdateArtistList.first(where: { $0.id == currentArtist.id }), oldArtist.stage != currentArtist.stage {
+                                    NotificationCircle()
+                                }
                             }
-                            .foregroundStyle(Color("OASIS Dark Orange"))
-                            .padding(INFO_PADDING)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color("BW Color Switch Reverse"))
-                                    .shadow(color: .oasisDarkPurpleUninverted, radius: 1, x: 0, y: 2)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(.oasisDarkPurpleUninverted, lineWidth: 1)
-                            )
                         }
                         .buttonStyle(.plain)
                         //                            .onTapGesture {
@@ -2132,8 +2215,120 @@ let COLOR_SPECTRUM_ARRAY: [Color] = [
     Color.bwColorSwitch
 ]
 
+struct NotificationCircle: View {
+    var radius: CGFloat = 13
+    var offset_X: CGFloat = 4
+    var offset_Y: CGFloat = -4
+    
+    var leading: Bool = false
+    
+    var body: some View {
+        Circle()
+            .foregroundStyle(.red)
+            .frame(width: radius, height: radius)
+            .offset(x: offset_X, y: offset_Y)
+    }
+}
+
 
 //#Preview {
 //    ArtistPage(currentArtist: Data"Lady Gaga")
 //}
 
+
+//extension UIImage {
+//
+//    func prominentColor() -> Color {
+//
+//        guard let inputImage = CIImage(image: self) else {
+//            return .black
+//        }
+//
+//        let extent = inputImage.extent
+//
+//        let filter = CIFilter(name: "CIAreaAverage")!
+//        filter.setValue(inputImage, forKey: kCIInputImageKey)
+//        filter.setValue(
+//            CIVector(
+//                x: extent.origin.x,
+//                y: extent.origin.y,
+//                z: extent.size.width,
+//                w: extent.size.height
+//            ),
+//            forKey: kCIInputExtentKey
+//        )
+//
+//        guard let outputImage = filter.outputImage else {
+//            return .black
+//        }
+//
+//        var bitmap = [UInt8](repeating: 0, count: 4)
+//
+//        let context = CIContext(options: [.workingColorSpace: NSNull()])
+//
+//        context.render(
+//            outputImage,
+//            toBitmap: &bitmap,
+//            rowBytes: 4,
+//            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+//            format: .RGBA8,
+//            colorSpace: nil
+//        )
+//
+//        let red = CGFloat(bitmap[0]) / 255
+//        let green = CGFloat(bitmap[1]) / 255
+//        let blue = CGFloat(bitmap[2]) / 255
+//
+//        // Convert to HSB to evaluate saturation and brightness
+//        let color = UIColor(
+//            red: red,
+//            green: green,
+//            blue: blue,
+//            alpha: 1
+//        )
+//
+//        var hue: CGFloat = 0
+//        var saturation: CGFloat = 0
+//        var brightness: CGFloat = 0
+//        var alpha: CGFloat = 0
+//
+//        color.getHue(
+//            &hue,
+//            saturation: &saturation,
+//            brightness: &brightness,
+//            alpha: &alpha
+//        )
+//
+//        // Avoid colors that are too close to black or white
+//        if brightness < 0.15 || brightness > 0.90 {
+//            return .black
+//        }
+//
+//        // Avoid neutral gray colors
+//        if saturation < 0.15 {
+//            return .black
+//        }
+//
+//        return Color(uiColor: color)
+//    }
+//}
+
+struct DropShadow: View {
+    var body: some View {
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        .black.opacity(0.18),
+                        .black.opacity(0.07),
+                        .clear
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .frame(height: 8)
+            .allowsHitTesting(false)
+            .zIndex(1)
+    }
+}

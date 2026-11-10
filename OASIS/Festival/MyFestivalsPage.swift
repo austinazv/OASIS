@@ -181,6 +181,9 @@ struct MyFestivalsPage: View {
                 }
             }
         }
+        .onAppear {
+            festivalVM.silentlyRefreshFestivalsIfNeeded()
+        }
 //        .onAppear {
 //            print(festivalDrafts)
 //            
@@ -363,11 +366,11 @@ struct MyFestivalsPage: View {
                                                         title: festival.name,
                                                         frame: 40.0
                                                     )
-                                                    if festival.verified {
-                                                        Image(systemName: "checkmark.seal.fill")
-                                                        //                                                        .foregroundStyle(.blue)
-                                                            .foregroundStyle(.oasisBlue)
-                                                    }
+//                                                    if festival.verified {
+//                                                        Image(systemName: "checkmark.seal.fill")
+//                                                        //                                                        .foregroundStyle(.blue)
+//                                                            .foregroundStyle(.oasisBlue)
+//                                                    }
                                                 }
                                                 VStack(alignment: .leading, spacing: 2) {
                                                     HStack {

@@ -67,7 +67,7 @@ struct NewEventPage: View {
                     EventLocation
                     EventArtists
                     EventStages
-                    if let uid = firestore.getUserID(), uid == "zrayyA8BieWLLpuqgJo5g1sBGYw1" {
+                    if let uid = firestore.getUserID(), uid == "bNPLj8lLhZYScTxjUb3HUJBmmtx2" {
                         //                        if let uid = firestore.getUserID(), uid == "zrayyA8BieWLLpuqgJo5g1sBGYw2" {
                         EventLogo
                         EventPoster
@@ -321,7 +321,7 @@ struct NewEventPage: View {
         navigationPath.removeLast()
     }
     
-    func savePublically() async {
+    func savePublically(trackChanges: Bool = false) async {
         uploadingFestival = true
         if let oldPath = oldVersion.logoPath,
            logoDeleted,
@@ -332,7 +332,7 @@ struct NewEventPage: View {
             draft.newFestival.logoPath = nil
         }
         
-        festivalVM.uploadFestival(draft.newFestival) { result in
+        festivalVM.uploadFestival(draft.newFestival, trackChanges: trackChanges) { result in
             switch result {
             case .success():
 //                //print("Festival uploaded with merge successfully!")
@@ -1623,7 +1623,8 @@ struct NewEventPage: View {
                                 uploadingFestival = false
                                 showPublishWithNotificationSheet = false
                             }
-                            await savePublically()
+                            uploadingFestival = true
+                            await savePublically(trackChanges: true)
                             DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
                                 firestore.sendFestivalNotification(festivalID: draft.newFestival.id,
                                                                    title: title,

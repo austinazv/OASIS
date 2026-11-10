@@ -195,8 +195,9 @@ struct NewTagSheet: View {
     let symbols = [
         "flame", "sparkles", "hand.thumbsup", "hand.thumbsdown",
         "magnifyingglass", "bookmark", "exclamationmark", "questionmark",
-        "party.popper", "figure.socialdance", "rainbow", "music.microphone",
-        "wineglass", "leaf", "snowflake", "headphones"
+        "party.popper", "figure.socialdance", "moon.stars", "eyes",
+        "wineglass", "leaf", "music.microphone", "headphones"
+        
     ]
     
     let symbolColumns = Array(

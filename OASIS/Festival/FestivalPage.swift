@@ -58,21 +58,25 @@ struct FestivalPage: View {
                         ScrollView {
                             VStack {
                                 FestivalOptionsBar
-                                HStack {
+//                                FestivalUpdatesSection
+                                HStack(spacing: MIDDLE_PADDING) {
                                     ArtistListButton
                                     ShuffleAllButton
                                 }
+                                .padding(.horizontal, HORIZONTAL_PADDING)
                                 FavoritesSection
                                 MyTagSection
                                 ShuffleBySection
                                 MyPlaylistsSection
-                                HStack {
+                                HStack(spacing: MIDDLE_PADDING) {
                                     PosterSection
                                     WebsiteSection
                                 }
+                                .padding(.horizontal, HORIZONTAL_PADDING)
                                 InfoSection
                                 Spacer()
                             }
+                            .padding(.horizontal, ONLY_FOR_DISPLAY ? 10 : 0)
                             
                         }
                         .refreshable {
@@ -163,6 +167,53 @@ struct FestivalPage: View {
                 )
             }
             ToolbarItem(placement: .topBarTrailing) {
+                let isOwner = isOwner()
+                let areThereUpdates = areThereFestivalUpdates()
+                
+                if isOwner || areThereUpdates {
+                    Menu(content: {
+                        
+                        if areThereUpdates && currentFestival.published {
+                            Button (action: {
+                                showAddFestivalToGroupSheet = true
+                            }, label: {
+                                HStack {
+                                    Text("Add To Group")
+                                    Image(systemName: "person.2.badge.plus.fill")
+                                }
+                            })
+                        }
+                        
+                        Button (action: {
+                            navigationPath.append("Festival Settings")
+                        }, label: {
+                            HStack {
+                                Text("Settings")
+                                Image(systemName: "gear")
+                            }
+                        })
+                        
+                        if isOwner {
+                            Button (action: {
+                                navigationPath.append(FestivalViewModel.FestivalNavTarget(festival: currentFestival, draftView: true, selectedTab: $selectedTab))
+                            }, label: {
+                                HStack {
+                                    Text("Edit Festival")
+                                    Image(systemName: "square.and.pencil")
+                                }
+                            })
+                        }
+                    }, label: {
+                        Image(systemName: "gear")
+                    })
+                } else {
+                    Button (action: {
+                        navigationPath.append("Festival Settings")
+                    }, label: {
+                        Image(systemName: "gear")
+                    })
+                }
+                
                 if let userID = firestore.getUserID(), userID == currentFestival.ownerID {
                     Menu(content: {
                         //View by Alphabetically
@@ -218,23 +269,28 @@ struct FestivalPage: View {
 //        .toolbar(.visible, for: .tabBar)
         .toolbarBackground(Color.white, for: .navigationBar)
         .onAppear() {
-            festivalVM.currentFestival = currentFestival
-            
-            let artistList = festivalVM.checkSettings(currList: currentFestival.artistList, secondWeekend: currentFestival.secondWeekend)
-            
-            let genres = festivalVM.sortGenre(currList: artistList)
-            topGenresDict = genres.topGenres
-            allGenresDict = genres.allGenres
-            dayDict = festivalVM.sortDay(currList: artistList, secondWeekend: currentFestival.secondWeekend)
-            stageDict = festivalVM.sortStage(currList: artistList)
-            tierDict = festivalVM.sortTier(currList: artistList)
-            
-            festivalSettingsWeekendText = festivalVM.attendingWeekendString(currentFestival: currentFestival)
-            festivalSettingsDayText = festivalVM.attendingDaysString(currentFestival: currentFestival)
-            
-            withAnimation {
-                showSettingsBar = (!festivalSettingsWeekendText.isEmpty || !festivalSettingsDayText.isEmpty)
+            setUpFestival(currentFestival)
+        }
+        .task {
+            Task {
+                if let updatedFestival = await festivalVM.refreshFestivalIfNeeded(currentFestival) {
+                    currentFestival = updatedFestival
+                    setUpFestival(updatedFestival)
+                }
             }
+        }
+        
+        .onChange(of: showFestivalUpdates) { _, newBool in
+            if newBool {
+                if let publishedChangesDate = currentFestival.lastPublishedChangesDate {
+                    FestivalUpdateTracker.markAsSeen(
+                        festivalID: currentFestival.id,
+                        publishedDate: publishedChangesDate
+                    )
+                    
+                }
+            }
+            hasSeenUpdates = true
         }
 //        .onAppear() {
 //            if let festival = festivalVM.currentFestival {
@@ -249,6 +305,38 @@ struct FestivalPage: View {
 //                currentFestival = newFestival
 //            }
 //        }
+    }
+    
+    func isOwner() -> Bool {
+        if let userID = firestore.getUserID(), userID == currentFestival.ownerID { return true }
+        return false
+    }
+    
+    
+    func setUpFestival(_ festival: Festival) {
+        festivalVM.currentFestival = festival
+        
+        let artistList = festivalVM.checkSettings(currList: festival.artistList, secondWeekend: festival.secondWeekend)
+        
+        let genres = festivalVM.sortGenre(currList: artistList)
+        topGenresDict = genres.topGenres
+        allGenresDict = genres.allGenres
+        dayDict = festivalVM.sortDay(currList: artistList, secondWeekend: festival.secondWeekend)
+        stageDict = festivalVM.sortStage(currList: artistList)
+        tierDict = festivalVM.sortTier(currList: artistList)
+        
+        festivalSettingsWeekendText = festivalVM.attendingWeekendString(currentFestival: festival)
+        festivalSettingsDayText = festivalVM.attendingDaysString(currentFestival: festival)
+        
+        withAnimation {
+            showSettingsBar = (!festivalSettingsWeekendText.isEmpty || !festivalSettingsDayText.isEmpty)
+        }
+        
+        newArtistsList = getNewArtists(festival: festival)
+        
+        if let publishedChangesDate = festival.lastPublishedChangesDate {
+            hasSeenUpdates = FestivalUpdateTracker.lastSeenDate(for: currentFestival.id) >= publishedChangesDate
+        }
     }
     
 //    func starPressed() {
@@ -550,82 +638,14 @@ struct FestivalPage: View {
     var FestivalOptionsBar: some View {
         Group {
             HStack(spacing: 32) {
-                if currentFestival.published {
-                    ShareLink(item: getFestivalLink()) {
-                        ZStack {
-                            Circle()
-                                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-
-                                .shadow(radius: SHADOW)
-                            Image(systemName: "square.and.arrow.up")
-                                .imageScale(.large)
-                                .foregroundStyle(.oasisBlue)
-                                .offset(y: -3)
-                        }
-                    }
-                    .frame(height: LARGE_BUTTON_HEIGHT/1.3)
+                ShareButton
+                HeartButton
+//                if currentFestival.lastPublishedChangesDate == nil {
+                if areThereFestivalUpdates() {
+                    UpdatesButton
                 } else {
-                    Button (action: {
-                        popupMessage = "Make this festival public to share."
-                    }, label: {
-                        ZStack {
-                            Circle()
-                                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                                .shadow(radius: SHADOW)
-                            Image(systemName: "square.and.arrow.up")
-                                .imageScale(.large)
-                                .foregroundStyle(.oasisBlue)
-                                .offset(y: -3)
-                        }
-                    })
-                    .frame(height: LARGE_BUTTON_HEIGHT/1.3)
-                    .opacity(0.5)
+                    GroupButton
                 }
-                    
-                
-                Button (action: starPressed, label: {
-                    ZStack {
-                        Circle()
-                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                            .shadow(radius: SHADOW)
-                        Image(systemName: festivalVM.festivalIsFavorited(festivalID: currentFestival.id) ? "star.fill" : "star")
-//                            .foregroundStyle(.yellow)
-                            .foregroundStyle(.oasisLightOrange)
-                            .font(.system(size: 34))
-                    }
-                })
-                .frame(height: LARGE_BUTTON_HEIGHT/1.05)
-                
-                
-                
-                
-                Button (action: {
-                    if !currentFestival.published {
-                        popupMessage = "Make this festival public to add to groups."
-                    } else if !firestore.phoneConnected {
-                        popupMessage = "Connect your phone number to create groups."
-                        popupAction = {
-                            print("Doing something")
-//                            if let selectedTab {
-                                print("selectedTab is active")
-                                selectedTab = 2
-//                            }
-                        }
-                    } else {
-                        showAddFestivalToGroupSheet = true
-                    }
-                }, label: {
-                    ZStack {
-                        Circle()
-                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                            .shadow(radius: SHADOW)
-                        Image(systemName: "person.2.badge.plus.fill")
-                            .foregroundStyle(.oasisBlue)
-                            .font(.system(size: 20))
-                    }
-                })
-                .frame(height: LARGE_BUTTON_HEIGHT/1.3)
-                .opacity((currentFestival.published && firestore.phoneConnected) ? 1 : 0.5)
             }
 //            .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
             .padding(5)
@@ -633,6 +653,9 @@ struct FestivalPage: View {
         .padding(.top, 10)
         .sheet(isPresented: $showAddFestivalToGroupSheet) {
             AddFestivalToGroupsSheet(festival: currentFestival, showAddFestivalToGroupSheet: $showAddFestivalToGroupSheet)
+        }
+        .sheet(isPresented: $showFestivalUpdates) {
+            UpdatesSheet
         }
         .alert("Never Miss a Festival!", isPresented: $showNotificationAlert) {
             Button("Not Now", role: .cancel) { }
@@ -643,6 +666,65 @@ struct FestivalPage: View {
         } message: {
             Text("Enable notifications to get festival reminders, see new followers, and more.")
 //            Text("Oasis can remind you one week before your saved festivals begin. You'll only receive reminders for festivals you choose to save, and you can change this anytime in Settings.")
+        }
+    }
+    
+    func areThereFestivalUpdates() -> Bool {
+        return !currentFestival.newArtists.isEmpty ||
+            !currentFestival.preUpdateArtistList.isEmpty ||
+            !currentFestival.removedArtistsList.isEmpty
+    }
+    
+    var ShareButton: some View {
+        Group {
+            if currentFestival.published {
+                ShareLink(item: getFestivalLink()) {
+                    ZStack {
+                        Circle()
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+
+                            .shadow(radius: SHADOW)
+                        Image(systemName: "square.and.arrow.up")
+                            .imageScale(.large)
+                            .foregroundStyle(.oasisBlue)
+                            .offset(y: -3)
+                    }
+                }
+                .frame(height: LARGE_BUTTON_HEIGHT/1.3)
+            } else {
+                Button (action: {
+                    popupMessage = "Make this festival public to share."
+                }, label: {
+                    ZStack {
+                        Circle()
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                            .shadow(radius: SHADOW)
+                        Image(systemName: "square.and.arrow.up")
+                            .imageScale(.large)
+                            .foregroundStyle(.oasisBlue)
+                            .offset(y: -3)
+                    }
+                })
+                .frame(height: LARGE_BUTTON_HEIGHT/1.3)
+                .opacity(0.5)
+            }
+        }
+    }
+    
+    var HeartButton: some View {
+        Group {
+            Button (action: starPressed, label: {
+                ZStack {
+                    Circle()
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                        .shadow(radius: SHADOW)
+                    Image(systemName: festivalVM.festivalIsFavorited(festivalID: currentFestival.id) ? "star.fill" : "star")
+//                            .foregroundStyle(.yellow)
+                        .foregroundStyle(.oasisLightOrange)
+                        .font(.system(size: 34))
+                }
+            })
+            .frame(height: LARGE_BUTTON_HEIGHT/1.05)
         }
     }
     
@@ -692,6 +774,73 @@ struct FestivalPage: View {
             }
         } else {
             removeFestivalReminder()
+        }
+    }
+    
+    @State var hasSeenUpdates: Bool = false
+    
+    var UpdatesButton: some View {
+        Group {
+            if let publishedChangesDate = currentFestival.lastPublishedChangesDate {
+                Button (action: {
+                    showFestivalUpdates = true
+                }, label: {
+                    ZStack {
+                        Circle()
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                            .shadow(radius: SHADOW)
+                        Image(systemName: "bell")
+                            .foregroundStyle(.oasisBlue)
+                            .font(.system(size: 22))
+                        //                    if !currentFestival.preUpdateArtistList.isEmpty ||
+                        //                        !currentFestival.removedArtistsList.isEmpty ||
+                        //                        !newArtistsList.isEmpty {
+                        
+                        
+                        if !hasSeenUpdates || ONLY_FOR_DISPLAY {
+                            NotificationCircle(radius: 9, offset_X: 5, offset_Y: -5)
+                        }
+                    }
+//                    .onAppear {
+//                        hasSeenUpdates = FestivalUpdateTracker.lastSeenDate(for: currentFestival.id) >= publishedChangesDate
+//                    }
+                })
+                //            .scaleEffect(1.2)
+                .frame(height: LARGE_BUTTON_HEIGHT/1.3)
+            }
+        }
+        
+    }
+    
+    var GroupButton: some View {
+        Group {
+            Button (action: {
+                if !currentFestival.published {
+                    popupMessage = "Make this festival public to add to groups."
+                } else if !firestore.phoneConnected {
+                    popupMessage = "Connect your phone number to create groups."
+                    popupAction = {
+//                        print("Doing something")
+////                            if let selectedTab {
+//                            print("selectedTab is active")
+                            selectedTab = 2
+//                            }
+                    }
+                } else {
+                    showAddFestivalToGroupSheet = true
+                }
+            }, label: {
+                ZStack {
+                    Circle()
+                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                        .shadow(radius: SHADOW)
+                    Image(systemName: "person.2.badge.plus.fill")
+                        .foregroundStyle(.oasisBlue)
+                        .font(.system(size: 20))
+                }
+            })
+            .frame(height: LARGE_BUTTON_HEIGHT/1.3)
+            .opacity((currentFestival.published && firestore.phoneConnected) ? 1 : 0.5)
         }
     }
     
@@ -797,7 +946,8 @@ struct FestivalPage: View {
         .compositingGroup()
         .shadow(radius: SHADOW)
         .animation(.easeInOut, value: showFriendList)
-        .padding(10)
+        .padding(.vertical, VERTICAL_PADDING)
+        .padding(.horizontal, HORIZONTAL_PADDING)
 //        .shadow(radius: SHADOW)
     }
     
@@ -996,7 +1146,9 @@ struct FestivalPage: View {
                             } else {
                                 Image(systemName: "person.2.fill")
                             }
-//                            Image(systemName: "chevron.down").rotationEffect(showFriendList ? Angle(degrees: -180) : Angle(degrees: 0))
+                            if groupFavorites.isEmpty {
+                                Image(systemName: "chevron.down").rotationEffect(showFriendList ? Angle(degrees: -180) : Angle(degrees: 0))
+                            }
                         }
                         .padding(.horizontal, 15)
                     }
@@ -1101,7 +1253,9 @@ struct FestivalPage: View {
                         .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
 //                        .shadow(radius: showGroupList ? 5 : 0)
                         HStack {
-//                            Image(systemName: "chevron.down").rotationEffect(showGroupList ? Angle(degrees: 180) : Angle(degrees: 0))
+                            if friendsFavs.isEmpty {
+                                Image(systemName: "chevron.down").rotationEffect(showGroupList ? Angle(degrees: 180) : Angle(degrees: 0))
+                            }
                             if !showFriendList {
                                 Spacer()
                                 Text("Groups").bold()/*.font(.subheadline)*/
@@ -1335,7 +1489,7 @@ struct FestivalPage: View {
                     }
                 }
                 .frame(height: LARGE_BUTTON_HEIGHT)
-                .padding(10)
+                .padding(.vertical, VERTICAL_PADDING)
             }
         }
         
@@ -1368,7 +1522,8 @@ struct FestivalPage: View {
                     }
                 })
                 .frame(height: LARGE_BUTTON_HEIGHT)
-                .padding(10)
+                .padding(.vertical, VERTICAL_PADDING)
+//                .padding(.horizontal, HORIZONTAL_PADDING)
 //                .onTapGesture {
 ////                    let dislikedArtists = /*tags.getDNSTArtists(currList: currentFestival.artistList)*/Set<String>()
 //                    let dislikedArtists = tags.getDNSIDSet(currList: currentFestival.artistList)
@@ -1381,6 +1536,441 @@ struct FestivalPage: View {
             }
         }
     }
+    
+    @State var newArtistsList = Array<Artist>()
+    
+    @State var showNewArtists = true
+    
+    let X_MARK_RADIUS: CGFloat = 24
+    let X_MARK_OFFSET: CGFloat = 10
+    
+    var FestivalUpdatesSection: some View {
+        Group {
+//            let newArtistsList = getNewArtists()
+            if !newArtistsList.isEmpty {
+                if showNewArtists {
+                    NavigationLink(value: ArtistListStruct(titleText: "New Artists", festival: currentFestival, list: newArtistsList)) {
+                        
+                        HStack {
+                            Text("New Artists Announced!").bold().italic()
+//                            Image(systemName: "chevron.right").imageScale(.medium)
+                            Image(systemName: "bell.badge").imageScale(.medium)
+                        }
+                        .padding(.horizontal, 20)
+                        .background(
+                            RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                .frame(height: SMALL_BUTTON_HEIGHT)
+                        )
+                        .frame(height: SMALL_BUTTON_HEIGHT)
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        
+                        //                NavigationLink(value: myFavorites) {
+                        //                        ZStack(alignment: .topTrailing) {
+                        //                            ZStack {
+                        //                                RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                        //                                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                        //                                //                        .shadow(radius: SHADOW)
+                        //                                HStack{
+                        ////                                    Spacer()
+                        ////                                    if true {
+                        //
+                        //                                        Text("New Artists Announced!").bold().italic()
+                        //                                        //                                        Image(systemName: "bell.badge")
+                        //                                        //                                            .imageScale(.large)
+                        //                                        Image(systemName: "chevron.right")
+                        //                                            .imageScale(.medium)
+                        ////                                    } else {
+                        ////                                        Text("Recently Added").bold().italic()
+                        ////                                        Image(systemName: "bell.badge")
+                        ////                                            .imageScale(.large)
+                        ////                                    }
+                        //                                    //                                .foregroundStyle(.red)
+                        ////                                    Spacer()
+                        //                                }
+                        //                                //                        .foregroundStyle(.oasisDarkPurple)
+                        //                                //                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
+                        //                            }
+                        //                            .frame(height: SMALL_BUTTON_HEIGHT)
+                        
+                        //                            Button(action: {
+                        //                                withAnimation {
+                        //                                    showNewArtists = false
+                        //                                }
+                        //                            }, label: {
+                        //                                ZStack {
+                        //                                    Circle()
+                        //                                        .frame(width: 20, height: 20)
+                        //                                        .foregroundStyle(.gray)
+                        //                                        .opacity(0.7)
+                        ////                                        .overlay(
+                        ////                                            Circle()
+                        ////                                                .stroke(Color.gray/*.opacity(0.4)*/, lineWidth: 1)
+                        ////                                        )
+                        //                                        .shadow(radius: SHADOW)
+                        //                                    Image(systemName: "xmark")
+                        //                                        .imageScale(.small)
+                        //                                        .foregroundStyle(.black)
+                        //                                }
+                        //                                .offset(x: X_MARK_OFFSET, y: X_MARK_OFFSET * -1)
+                        //                            })
+                        //                        }
+                    }
+                }
+            }
+        }
+//        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
+        .compositingGroup()
+        .shadow(radius: SHADOW)
+        .padding(.vertical, VERTICAL_PADDING)
+        .padding(.horizontal, 45)
+//        .sheet(item: $editingTag) { tag in
+//            NewTagSheet(editingTag: tag, binding: $editingTag, currentFestival: currentFestival, selectedTags: $selectedTags)
+//        }
+//        .onChange(of: tagToDelete) { _, tag in
+//            if tag != nil {
+//                deleteAlert = true
+//            }
+//        }
+//        .alert(isPresented: self.$deleteAlert) {
+//            Alert(title: Text("Delete \"\(tagToDelete!.name)\"?"),
+//                  message: Text("Doing so will remove this tag for all artists"),
+//                  primaryButton: .destructive(Text("Delete")) {
+//                tags.removeTag(tag: tagToDelete!, festivalID: currentFestival.id)
+//            }, secondaryButton: .cancel())
+//        }
+    }
+    
+    
+    @State var showUpdates = false
+    
+    var FestivalUpdatesSectionOLD: some View {
+        Group {
+//            let newArtistsList = getNewArtists(festival: <#T##Festival#>)
+            if !currentFestival.preUpdateArtistList.isEmpty ||
+                !currentFestival.removedArtistsList.isEmpty ||
+                !newArtistsList.isEmpty {
+//            if !tagDictionary.isEmpty || !DNSTList.isEmpty {
+                VStack(spacing: 0) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                        HStack {
+                            Image(systemName: "chevron.down").rotationEffect(showUpdates ? Angle(degrees: 180) : Angle(degrees: 0))
+                            Spacer()
+                            Text("Updates").bold()/*.italic()*/
+                            Image(systemName: "bell.badge")
+                                .foregroundStyle(.red)
+                                .imageScale(.large)
+                            Spacer()
+                            Image(systemName: "chevron.down").rotationEffect(showUpdates ? Angle(degrees: -180) : Angle(degrees: 0))
+                        }
+                        .padding(.horizontal, 15)
+                    }
+//                    .transaction { $0.animation = nil }
+                    .frame(height: SMALL_BUTTON_HEIGHT)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation {
+                            showUpdates.toggle()
+                            showMyTags = false
+                            closeFavoritesSection()
+                            closeInfoSection()
+                            showMyPlaylists = false
+                        }
+                    }
+                    if showUpdates {
+                        VStack (spacing: 0) {
+                            Divider()
+                            if !newArtistsList.isEmpty {
+                                NavigationLink(value: ArtistListStruct(titleText: "New Artists", festival: currentFestival, list: newArtistsList)) {
+                                    ZStack {
+                                        Rectangle()
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                        HStack {
+                                            Spacer()
+//                                                Image(systemName: tag.symbol)
+                                                Text("New")
+                                            
+                                            Image(systemName: "chevron.right")
+                                            Spacer()
+                                        }
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+                                    }
+                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                Divider()
+                            }
+                            
+                            if !currentFestival.preUpdateArtistList.isEmpty {
+                                let updatedArtists = getUpdatedArtists()
+                                NavigationLink(value: ArtistListStruct(titleText: "Updated Artists", festival: currentFestival, list: updatedArtists)) {
+                                    ZStack {
+                                        Rectangle()
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                        HStack {
+                                            Spacer()
+//                                                Image(systemName: tag.symbol)
+                                                Text("Updated")
+                                            
+                                            Image(systemName: "chevron.right")
+                                            Spacer()
+                                        }
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+                                    }
+                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                Divider()
+                            }
+                            
+                            if !currentFestival.removedArtistsList.isEmpty {
+                                NavigationLink(value: ArtistListStruct(titleText: "Removed Artists", festival: currentFestival, list: currentFestival.removedArtistsList)) {
+                                    ZStack {
+                                        Rectangle()
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                        HStack {
+                                            Spacer()
+//                                                Image(systemName: tag.symbol)
+                                            Text("Removed").italic()
+                                            
+                                            Image(systemName: "chevron.right")
+                                            Spacer()
+                                        }
+                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+                                    }
+                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                                Divider()
+                            }
+                            
+                            Spacer().frame(height: 3)
+                            
+                            Button {
+                                //TODO
+                            } label: {
+                                ZStack {
+                                    UnevenRoundedRectangle(topLeadingRadius: 0,
+                                                           bottomLeadingRadius: CORNER_RADIUS,
+                                                           bottomTrailingRadius: CORNER_RADIUS,
+                                                           topTrailingRadius: 0,
+                                                           style: .continuous)
+                                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "eye.slash")
+                                        Text("Hide Update")/*.italic()*/
+//                                        Image(.spotifyImageGreen)
+//                                            .resizable()
+//                                            .frame(width: 20, height: 20, alignment: .center)
+                                        Spacer()
+                                    }
+//                                    .foregroundStyle(Color("Spotify Color Green"))
+//                                    .bold()
+                                    //                                    .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+                                }
+                            }
+                            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            
+                            
+                            
+                            
+//                            let sortedTags = tags.sortTags(Array(tagDictionary.keys))
+//                            ForEach(sortedTags, id: \.id) { tag in
+//                                let tagList = tagDictionary[tag]!
+//                                let finalTagBool = (tag == sortedTags.last!)
+//                                //                        navigationPath.append(ArtistListStruct(titleText: tag.name, festival: currentFestival, list: tagList))
+//                                NavigationLink(value: ArtistListStruct(titleText: tag.name, festival: currentFestival, list: tagList)) {
+//                                    ZStack {
+//                                        //                                if genres.keys.sorted().last!
+//                                        UnevenRoundedRectangle(topLeadingRadius: 0,
+//                                                               bottomLeadingRadius: 0,
+//                                                               bottomTrailingRadius: 0,
+//                                                               topTrailingRadius: 0,
+//                                                               style: .continuous)
+//                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+//                                        HStack {
+//                                            Spacer()
+//                                            
+//                                                Image(systemName: tag.symbol)
+//                                                Text(tag.name)
+//                                            
+//                                            Image(systemName: "chevron.right")
+//                                            Spacer()
+//                                        }
+//                                        .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+//                                    }
+//                                    .contextMenu {
+//                                        Button(action: {
+//                                            editingTag = tag
+////                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+//                                                showAddTagSheet = true
+////                                            }
+////                                            print("Edit")
+////                                            spotify.removeFestivalPlaylist(festivalID: currentFestival.id, playlist: playlist)
+//                                        }, label: {
+//                                            Image(systemName: "square.and.pencil")
+//                                            Text("Edit Tag")
+//                                        })
+//                                        
+//                                        Button(action: {
+//                                            tagToDelete = tag
+////                                            print("Delete")
+////                                            spotify.removeFestivalPlaylist(festivalID: currentFestival.id, playlist: playlist)
+//                                        }, label: {
+//                                            Image(systemName: "trash")
+//                                            Text("Delete Tag")
+//                                        })
+//    //                                    Button("Remove Playlist") {
+//    //                                        spotify.removeFestivalPlaylist(festivalID: currentFestival.id, playlist: playlist)
+//    ////                                        print("removing,,,")
+//    //                                    }
+//                                    }
+//                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+//                                    .buttonStyle(PlainButtonStyle())
+//                                }
+////                                if !finalTagBool { Divider() }
+//                                Divider()
+//                            }
+//                            
+////                            Spacer().frame(height: 3)
+//                            
+//                            
+//                            if !DNSTList.isEmpty {
+//                                NavigationLink(value: ArtistListStruct(titleText: tags.DONOTSUGGESTTAG.name, festival: currentFestival, list: DNSTList)) {
+//                                    ZStack {
+//                                        //                                if genres.keys.sorted().last!
+//                                        UnevenRoundedRectangle(topLeadingRadius: 0,
+//                                                               bottomLeadingRadius: 0,
+//                                                               bottomTrailingRadius: 0,
+//                                                               topTrailingRadius: 0,
+//                                                               style: .continuous)
+//                                        .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+//                                        HStack {
+//                                            Spacer()
+//                                            Image(systemName: tags.DONOTSUGGESTTAG.symbol)
+//                                            Text(tags.DONOTSUGGESTTAG.name)
+//                                            Image(systemName: "chevron.right")
+//                                            Spacer()
+//                                        }
+//                                        .foregroundStyle(COLOR_SPECTRUM_ARRAY[tags.DONOTSUGGESTTAG.color])
+//                                    }
+//                                    .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+//                                    .buttonStyle(PlainButtonStyle())
+//                                }
+//                                if !tagDictionary.isEmpty { Divider() }
+//                            }
+//                            
+//                            Spacer().frame(height: 3)
+//                            
+//                            Button {
+//                                editingTag = ArtistTag()
+////                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+//                                    showAddTagSheet = true
+////                                }
+////                                openURL(playlist.URL)
+//                            } label: {
+//                                ZStack {
+//                                    UnevenRoundedRectangle(topLeadingRadius: 0,
+//                                                           bottomLeadingRadius: CORNER_RADIUS,
+//                                                           bottomTrailingRadius: CORNER_RADIUS,
+//                                                           topTrailingRadius: 0,
+//                                                           style: .continuous)
+//                                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+//                                    HStack {
+//                                        Spacer()
+//                                        Image(systemName: "plus")
+//                                        Text("New Tag")/*.italic()*/
+////                                        Image(.spotifyImageGreen)
+////                                            .resizable()
+////                                            .frame(width: 20, height: 20, alignment: .center)
+//                                        Spacer()
+//                                    }
+////                                    .foregroundStyle(Color("Spotify Color Green"))
+////                                    .bold()
+//                                    //                                    .foregroundStyle(COLOR_SPECTRUM_ARRAY[tag.color])
+//                                }
+//                            }
+//                            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+//                            .buttonStyle(PlainButtonStyle())
+                        }
+                        //                .padding(.vertical, 1)
+                        .padding(.horizontal, SIDE_BUFFER)
+//                        .scaleEffect(showMyTags ? 1 : 0.95, anchor: .top)
+//                        .opacity(showMyTags ? 1 : 0)
+//                        .animation(.easeInOut(duration: 0.3), value: showMyTags)
+                    }
+                }
+                
+            }
+//            else {
+//                Button(action: {
+//                    editingTag = ArtistTag()
+//                    showAddTagSheet = true
+////                    createPlaylistSheet = true
+//                }, label: {
+//                    ZStack {
+//                        RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+//                            .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+//                        HStack {
+//                            Spacer()
+//                            Image(systemName: "plus.circle")
+//                            Text("New Tag").bold()
+////                            Image(.spotifyImageGreen)
+////                                .resizable()
+////                                .frame(width: 20, height: 20, alignment: .center)
+//                            Spacer()
+//                        }
+//                        .padding(.horizontal, 15)
+//                    }
+//                    .frame(height: SMALL_BUTTON_HEIGHT)
+//                    .contentShape(Rectangle())
+//                })
+//            }
+        }
+//        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
+        .compositingGroup()
+        .shadow(radius: SHADOW)
+        .padding(10)
+//        .sheet(item: $editingTag) { tag in
+//            NewTagSheet(editingTag: tag, binding: $editingTag, currentFestival: currentFestival, selectedTags: $selectedTags)
+//        }
+//        .onChange(of: tagToDelete) { _, tag in
+//            if tag != nil {
+//                deleteAlert = true
+//            }
+//        }
+//        .alert(isPresented: self.$deleteAlert) {
+//            Alert(title: Text("Delete \"\(tagToDelete!.name)\"?"),
+//                  message: Text("Doing so will remove this tag for all artists"),
+//                  primaryButton: .destructive(Text("Delete")) {
+//                tags.removeTag(tag: tagToDelete!, festivalID: currentFestival.id)
+//            }, secondaryButton: .cancel())
+//        }
+    }
+    
+    func getNewArtists(festival: Festival) -> Array<Artist> {
+        let idSet = Set(festival.newArtists)
+        return festival.artistList.filter { idSet.contains($0.id) }
+    }
+    
+    func getUpdatedArtists() -> Array<Artist> {
+        let idSet = Set(currentFestival.preUpdateArtistList.map(\.id))
+        return currentFestival.artistList.filter { idSet.contains($0.id) }
+    }
+    
+    
     
     
     @State var showMyTags = false
@@ -1492,7 +2082,7 @@ struct FestivalPage: View {
                             
                             
                             if !DNSTList.isEmpty {
-                                NavigationLink(value: ArtistListStruct(titleText: tags.DONOTSUGGESTTAG.name, festival: currentFestival, list: DNSTList)) {
+                                NavigationLink(value: ArtistListStruct(titleText: tags.DONOTSUGGESTTAG.name, festival: currentFestival, list: DNSTList, showDNS: true)) {
                                     ZStack {
                                         //                                if genres.keys.sorted().last!
                                         UnevenRoundedRectangle(topLeadingRadius: 0,
@@ -1586,7 +2176,8 @@ struct FestivalPage: View {
 //        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
         .compositingGroup()
         .shadow(radius: SHADOW)
-        .padding(10)
+        .padding(.vertical, VERTICAL_PADDING)
+        .padding(.horizontal, HORIZONTAL_PADDING)
         .sheet(item: $editingTag) { tag in
             NewTagSheet(editingTag: tag, binding: $editingTag, currentFestival: currentFestival, selectedTags: $selectedTags)
         }
@@ -1606,7 +2197,7 @@ struct FestivalPage: View {
     
     
     
-    
+    let ONLY_FOR_DISPLAY = false 
     
     @State var genreAccordian: Bool = false
     @State var dayAccordian: Bool = false
@@ -1624,13 +2215,20 @@ struct FestivalPage: View {
         Group {
             if !allGenresDict.isEmpty || dayDict.count > 1 || !stageDict.isEmpty || !tierDict.isEmpty {
                 VStack(spacing: 0) {
-                    if !allGenresDict.isEmpty {
-                        SortByGenre
-                    }
-                    if dayDict.count > 1 {
-                        Divider()
+                    if ONLY_FOR_DISPLAY {
                         SortByDay
+                        Divider()
+                        SortByGenre
+                    } else {
+                        if !allGenresDict.isEmpty {
+                            SortByGenre
+                        }
+                        if dayDict.count > 1 {
+                            Divider()
+                            SortByDay
+                        }
                     }
+                    
                     if !stageDict.isEmpty {
                         Divider()
                         SortByStage
@@ -1640,7 +2238,8 @@ struct FestivalPage: View {
                         SortByBilling
                     }
                 }
-                .padding(10)
+                .padding(.vertical, VERTICAL_PADDING)
+                .padding(.horizontal, HORIZONTAL_PADDING)
             }
         }
         .compositingGroup()
@@ -1660,12 +2259,17 @@ struct FestivalPage: View {
         VStack(spacing: 0) {
             let finalSectionBool: Bool = (dayDict.count < 2 && stageDict.isEmpty && tierDict.isEmpty)
             ZStack {
-                UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS,
-                                       bottomLeadingRadius: (finalSectionBool /*&& !genreAccordian*/) ? CORNER_RADIUS : 0,
-                                       bottomTrailingRadius: (finalSectionBool /*&& !genreAccordian*/) ? CORNER_RADIUS : 0,
-                                       topTrailingRadius: CORNER_RADIUS,
-                                       style: .continuous)
-                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                if ONLY_FOR_DISPLAY {
+                    Rectangle()
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                } else {
+                    UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS,
+                                           bottomLeadingRadius: (finalSectionBool /*&& !genreAccordian*/) ? CORNER_RADIUS : 0,
+                                           bottomTrailingRadius: (finalSectionBool /*&& !genreAccordian*/) ? CORNER_RADIUS : 0,
+                                           topTrailingRadius: CORNER_RADIUS,
+                                           style: .continuous)
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                }
                 HStack {
                     Image(systemName: "chevron.down").rotationEffect(genreAccordian ? Angle(degrees: 180) : Angle(degrees: 0))
                     Spacer()
@@ -1692,9 +2296,12 @@ struct FestivalPage: View {
             }
             if genreAccordian {
                 VStack (spacing: 0) {
+                    Divider()
+                    
                     let topGenres = festivalVM.getTopGenresSorted(topGenresDict)
-                    if !topGenres.isEmpty {
-                        Divider()
+                    let allGenres = allGenresDict.keys.sorted()
+                
+                    if !topGenres.isEmpty && allGenres.count >= 10 {
                         ForEach(topGenres, id: \.self) { genre in
                             NavigationLink(value: ArtistListStruct(titleText: genre, festival: currentFestival, list: topGenresDict[genre]!)) {
                                 ZStack {
@@ -1714,9 +2321,10 @@ struct FestivalPage: View {
                             }
                             if genre != topGenres.last! { Divider() }
                         }
+                        Spacer().frame(height: 3)
                     }
-                    Spacer().frame(height: 3) //TODO: Fix
-                    let allGenres = allGenresDict.keys.sorted()
+                    
+                    
                     ForEach(allGenres, id: \.self) { genre in
                         NavigationLink(value: ArtistListStruct(titleText: genre, festival: currentFestival, list: allGenresDict[genre]!)) {
                             ZStack {
@@ -1728,7 +2336,7 @@ struct FestivalPage: View {
                                 .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                                 HStack {
                                     Spacer()
-                                    if topGenresDict[genre] != nil { Image(systemName: "flame") }
+                                    if allGenres.count >= 10 && topGenresDict[genre] != nil { Image(systemName: "flame") }
                                     Text(genre)
                                     Image(systemName: "chevron.right")
                                     Spacer()
@@ -1760,13 +2368,21 @@ struct FestivalPage: View {
             let firstSectionBool: Bool = allGenresDict.isEmpty
             let finalSectionBool: Bool = (stageDict.isEmpty && tierDict.isEmpty)
             ZStack {
-                
-                UnevenRoundedRectangle(topLeadingRadius: firstSectionBool ? CORNER_RADIUS : 0,
-                                       bottomLeadingRadius: (finalSectionBool /*&& !dayAccordian*/) ? CORNER_RADIUS : 0,
-                                       bottomTrailingRadius: (finalSectionBool /*&& !dayAccordian*/) ? CORNER_RADIUS : 0,
-                                       topTrailingRadius: firstSectionBool ? CORNER_RADIUS : 0,
-                                       style: .continuous)
-                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                if ONLY_FOR_DISPLAY {
+                    UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS,
+                                           bottomLeadingRadius: 0,
+                                           bottomTrailingRadius: 0,
+                                           topTrailingRadius: CORNER_RADIUS,
+                                           style: .continuous)
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                } else {
+                    UnevenRoundedRectangle(topLeadingRadius: firstSectionBool ? CORNER_RADIUS : 0,
+                                           bottomLeadingRadius: (finalSectionBool /*&& !dayAccordian*/) ? CORNER_RADIUS : 0,
+                                           bottomTrailingRadius: (finalSectionBool /*&& !dayAccordian*/) ? CORNER_RADIUS : 0,
+                                           topTrailingRadius: firstSectionBool ? CORNER_RADIUS : 0,
+                                           style: .continuous)
+                    .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+                }
                 //                    .shadow(radius: SHADOW)
                 HStack {
                     Image(systemName: "chevron.down").rotationEffect(dayAccordian ? Angle(degrees: 180) : Angle(degrees: 0))
@@ -1862,6 +2478,7 @@ struct FestivalPage: View {
         VStack(spacing: 0) {
             let firstSectionBool: Bool = (allGenresDict.isEmpty && dayDict.count < 2)
             let finalSectionBool: Bool = tierDict.isEmpty
+            let stageNotificationList = getStageNotifications()
             ZStack {
                 UnevenRoundedRectangle(topLeadingRadius: firstSectionBool ? CORNER_RADIUS : 0,
                                        bottomLeadingRadius: (finalSectionBool /*&& !stageAccordian*/) ? CORNER_RADIUS : 0,
@@ -1871,13 +2488,21 @@ struct FestivalPage: View {
                 //                UnevenRoundedRectangle(topLeadingRadius: CORNER_RADIUS, topTrailingRadius: CORNER_RADIUS, style: .continuous)
                 .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
                 //                    .shadow(radius: SHADOW)
-                HStack {
-                    Image(systemName: "chevron.down").rotationEffect(stageAccordian ? Angle(degrees: 180) : Angle(degrees: 0))
-                    Spacer()
-                    Text("Stages").bold()
-                    Image(systemName: "map")
-                    Spacer()
-                    Image(systemName: "chevron.down").rotationEffect(stageAccordian ? Angle(degrees: -180) : Angle(degrees: 0))
+                ZStack {
+                    HStack {
+                        Image(systemName: "chevron.down").rotationEffect(stageAccordian ? Angle(degrees: 180) : Angle(degrees: 0))
+                        Spacer()
+                        
+                        Text("Stages").bold()
+                        
+                        
+                        Image(systemName: "map")
+                        Spacer()
+                        Image(systemName: "chevron.down").rotationEffect(stageAccordian ? Angle(degrees: -180) : Angle(degrees: 0))
+                    }
+                    if !stageNotificationList.isEmpty /*&& !stageAccordian*/ {
+                        NotificationCircle(radius: 10, offset_X: 65, offset_Y: 0).padding(.trailing, 20)
+                    }
                 }
                 .padding(.horizontal, 15)
             }
@@ -1910,11 +2535,21 @@ struct FestivalPage: View {
                                                            style: .continuous)
                                     
                                     .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
-                                    HStack {
-                                        Spacer()
-                                        Text(stage)
-                                        Image(systemName: "chevron.right")
-                                        Spacer()
+                                    ZStack(alignment: .trailing) {
+                                        HStack {
+                                            Spacer()
+                                            Text(stage)
+                                            //                                        ZStack(alignment: .topTrailing) {
+                                            //                                            NotificationCircle(radius: 10, offset_X: 5, offset_Y: 0)
+                                            
+                                            
+                                            Image(systemName: "chevron.right")
+                                            //                                        }
+                                            Spacer()
+                                        }
+                                        if stageNotificationList.contains(stage) {
+                                            NotificationCircle(radius: 10, offset_X: 0, offset_Y: 0).padding(.trailing, 20)
+                                        }
                                     }
                                 }
                                 
@@ -1937,6 +2572,16 @@ struct FestivalPage: View {
 //        .transition(.opacity.combined(with: .move(edge: .top)))
         .shadow(radius: 0)
 //        .padding(10)
+    }
+    
+    func getStageNotifications() -> Set<String> {
+        var stageList = Set<String>()
+        for artist in newArtistsList {
+            if artist.stage != data.NA_TITLE_BLOCK {
+                stageList.insert(artist.stage)
+            }
+        }
+        return stageList
     }
     
     var SortByBilling: some View {
@@ -2164,7 +2809,8 @@ struct FestivalPage: View {
 //        .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
         .compositingGroup()
         .shadow(radius: SHADOW)
-        .padding(10)
+        .padding(.vertical, VERTICAL_PADDING)
+        .padding(.horizontal, HORIZONTAL_PADDING)
         .onChange(of: playlistURL) { _, url in
             guard url != nil else { return }
 
@@ -2201,8 +2847,10 @@ struct FestivalPage: View {
         Group {
             VStack(spacing: 5) {
                 Text("Created By: \(currentFestival.ownerName)")
-                Text("Last Saved: \(currentFestival.saveDate, formatter: dateFormatter)")
-                    .italic()
+                if let date = currentFestival.lastPublishedChangesDate {
+                    Text("Last Saved: \(date, formatter: dateFormatter)")
+                        .italic()
+                }
             }
             .font(Font.system(size: 15))
             .padding(.top, 5)
@@ -2246,7 +2894,7 @@ struct FestivalPage: View {
 //                    UIApplication.shared.open(URL)
 //                }
 //                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
-                .padding(10)
+                .padding(.vertical, VERTICAL_PADDING)
                 .quickLookPreview($posterURL)
             }
         }
@@ -2323,20 +2971,250 @@ struct FestivalPage: View {
                 .frame(height: SMALL_BUTTON_HEIGHT)
                 .contentShape(Rectangle())
 //                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .oasisDarkPurple)
-                .padding(10)
+                .padding(.vertical, VERTICAL_PADDING)
                 
             }
         }
     }
     
     
-    let LARGE_BUTTON_HEIGHT: CGFloat = 80
+    let LARGE_BUTTON_HEIGHT: CGFloat = 75 //80
     let SMALL_BUTTON_HEIGHT: CGFloat = 55
+    let VERTICAL_PADDING: CGFloat = 8
+    let HORIZONTAL_PADDING: CGFloat = 12
+    let MIDDLE_PADDING: CGFloat = 20
     let CORNER_RADIUS: CGFloat = 10
     let SHADOW: CGFloat = 5
     
+    
+    
+    
+    
+    @State var showFestivalUpdates = false
+    
+    var UpdatesSheet: some View {
+        VStack {
+            HStack {
+                FestivalLogoView(logoPath: currentFestival.logoPath, title: currentFestival.name, frame: 35.0)
+                Text("Updates").font(.title)
+            }
+            .padding(.top, 25)
+            if let date = currentFestival.lastPublishedChangesDate {
+                Text("Updated on \(date, formatter: dateFormatter):")
+                    .font(.headline)
+                    .padding(.top, 5)
+            }
+            Spacer().frame(height: 50)
+            VStack(spacing: 20) {
+                NewArtistsSection
+                UpdatedArtistsSection
+                RemovedArtistsSection
+            }
+//            TempSection
+            Spacer()
+        }
+        
+    }
 
+    var NewArtistsSection: some View {
+        Group {
+            Button(action: {
+                showFestivalUpdates = false
+                navigationPath.append(ArtistListStruct(titleText: "New Artists", festival: currentFestival, list: newArtistsList))
+            }, label: {
+                VStack(spacing: 12) {
+                    Text("Recently Added").font(.title2)
+                    
+                    let listCount = newArtistsList.count
+                    Text("\(listCount) New \(listCount == 1 ? "Artist" : "Artists")").italic()
+                }
+                .foregroundStyle(newArtistsList.isEmpty ? .gray : .oasisDarkPurple)
+                .bold()
+                .padding(15)
+                .background(
+                    RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                        .fill(TRYDARKMODE ? .bwColorSwitchReverse : .white) // Background fill color
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                                .stroke(Color.oasisDarkPurple, lineWidth: 1) // Border stroke
+                        )
+                        .shadow(radius: newArtistsList.isEmpty ? 0 : SHADOW)
+                )
+            })
+            .disabled(newArtistsList.isEmpty)
+            
+        }
+        .compositingGroup()
+        .padding(.horizontal, HORIZONTAL_PADDING)
+    }
+    
+    
+    
+    var UpdatedArtistsSection: some View {
+        Group {
+            let updatedArtists = getUpdatedArtists()
+            Button(action: {
+                showFestivalUpdates = false
+                navigationPath.append(ArtistListStruct(titleText: "Updated Artists", festival: currentFestival, list: updatedArtists))
+            }, label: {
+                VStack(spacing: 12) {
+                    Text("New Updates").font(.title2)
+                    
+                    let listCount = updatedArtists.count
+                    Text("\(listCount) Updated \(listCount == 1 ? "Artist" : "Artists")").italic()
+                }
+                .foregroundStyle(currentFestival.preUpdateArtistList.isEmpty ? .gray : .oasisDarkPurple)
+                .bold()
+                .padding(15)
+                .background(
+                    RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                        .fill(TRYDARKMODE ? .bwColorSwitchReverse : .white) // Background fill color
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                                .stroke(Color.oasisDarkPurple, lineWidth: 1) // Border stroke
+                        )
+                        .shadow(radius: currentFestival.preUpdateArtistList.isEmpty ? 0 : SHADOW)
+                )
+            })
+            .disabled(currentFestival.preUpdateArtistList.isEmpty)
+        }
+        .compositingGroup()
+//        .shadow(radius: SHADOW)
+        .padding(.horizontal, HORIZONTAL_PADDING)
+    }
+    
+    var RemovedArtistsSection: some View {
+        Group {
+            Button(action: {
+                showFestivalUpdates = false
+                navigationPath.append(ArtistListStruct(titleText: "Removed Artists", festival: currentFestival, list: currentFestival.removedArtistsList))
+            }, label: {
+                VStack(spacing: 12) {
+                    Text("Removed").font(.title2)
+                    
+                    let listCount = currentFestival.removedArtistsList.count
+                    Text("\(listCount) Removed \(listCount == 1 ? "Artist" : "Artists")").italic()
+                }
+                .foregroundStyle(currentFestival.removedArtistsList.isEmpty ? .gray : .oasisDarkPurple)
+                .bold()
+                .padding(15)
+                .background(
+                    RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                        .fill(TRYDARKMODE ? .bwColorSwitchReverse : .white) // Background fill color
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CORNER_RADIUS, style: .continuous)
+                                .stroke(Color.oasisDarkPurple, lineWidth: 1) // Border stroke
+                        )
+                        .shadow(radius: currentFestival.removedArtistsList.isEmpty ? 0 : SHADOW)
+                       
+                )
+            })
+            .disabled(currentFestival.removedArtistsList.isEmpty)
+        }
+        .compositingGroup()
+        .padding(.horizontal, HORIZONTAL_PADDING)
+    }
+    
+//    @State var bools = [false, false, false]
+    
+    @State var showSections = Set<String>()
+    @State var dates = ["August 12, 12:15pm", "August 4, 2:33pm", "June 30, 9:47am"]
+    
+    var TempSection: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Previous Updates:")
+                    .font(.headline)
+                    .padding(.vertical, 10)
+                    .padding(.bottom, 4)
+                Spacer()
+            }
+
+            ForEach(dates, id: \.self) { date in
+                VStack {
+                    HStack {
+                        Text(date)
+                        Image(systemName: "chevron.down").rotationEffect(showSections.contains(date) ? Angle(degrees: -180) : Angle(degrees: 0))
+                        Spacer()
+                    }
+                    
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation{
+                            if showSections.contains(date) {
+                                showSections.remove(date)
+                            } else {
+                                showSections.insert(date)
+                            }
+                        }
+                    }
+                    
+                    if showSections.contains(date) {
+                        VStack(alignment: .center) {
+                            NewArtistsSection
+                            UpdatedArtistsSection
+                            RemovedArtistsSection
+                        }
+                    }
+                }
+                .padding(.bottom, 16)
+//                Divider()
+            }
+            .padding(.horizontal, 10)
+        }
+        .padding(.top, 16)
+        .padding(.horizontal, 10)
+    }
+    
+    
+    
+    
+    
+    
+//    if !currentFestival.preUpdateArtistList.isEmpty {
+//        let updatedArtists = getUpdatedArtists()
+//        NavigationLink(value: ArtistListStruct(titleText: "Updated Artists", festival: currentFestival, list: updatedArtists)) {
+//            ZStack {
+//                Rectangle()
+//                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+//                HStack {
+//                    Spacer()
+////                                                Image(systemName: tag.symbol)
+//                        Text("Updated")
+//                    
+//                    Image(systemName: "chevron.right")
+//                    Spacer()
+//                }
+//                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//            }
+//            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+//            .buttonStyle(PlainButtonStyle())
+//        }
+//        Divider()
+//    }
+    
+//    if !currentFestival.removedArtistsList.isEmpty {
+//        NavigationLink(value: ArtistListStruct(titleText: "Removed Artists", festival: currentFestival, list: currentFestival.removedArtistsList)) {
+//            ZStack {
+//                Rectangle()
+//                .foregroundStyle(TRYDARKMODE ? .bwColorSwitchReverse : .white)
+//                HStack {
+//                    Spacer()
+////                                                Image(systemName: tag.symbol)
+//                    Text("Removed").italic()
+//                    
+//                    Image(systemName: "chevron.right")
+//                    Spacer()
+//                }
+//                .foregroundStyle(TRYDARKMODE ? .bwColorSwitch : .black)
+//            }
+//            .frame(height: SMALL_BUTTON_HEIGHT, alignment: .center)
+//            .buttonStyle(PlainButtonStyle())
+//        }
+//        Divider()
+//    }
 }
+
 
 
 struct EventEditView: UIViewControllerRepresentable {
@@ -2844,6 +3722,14 @@ struct MessagePopUp: View {
 //        .cornerRadius(10)
 //        .border(Color.gray, width: 2)
 //        .padding(.horizontal, 10)
+//    }
+//}
+
+//struct NotificationsSheet: View {
+//    var body: some View {
+//        VStack {
+//            Text("")
+//        }
 //    }
 //}
 

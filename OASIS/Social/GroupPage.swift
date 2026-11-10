@@ -521,7 +521,7 @@ struct GroupPage: View {
                     Group {
                         if !upcomingFestivals.isEmpty {
                             FestivalsListed(navigationPath: $navigationPath, festivalList: upcomingFestivals, title: "Upcoming", collapsable: true, socialGroup: group, color: .oasisBorderProfile, selectedTab: $selectedTab)
-                                .padding(.horizontal, 10)
+//                                .padding(.horizontal, 10)
                             Button(action: {
                                 showAddFestivalToGroupSheet = true
                             }) {
